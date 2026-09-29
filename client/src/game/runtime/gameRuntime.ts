@@ -5,6 +5,8 @@ export type GameCommand =
   | { type: 'START_LIFT' }
   | { type: 'START_HUB' }
   | { type: 'UPGRADE'; facilityId: FacilityId }
+  | { type: 'HIRE_MANAGER'; facilityId: FacilityId }
+  | { type: 'ACTIVATE_MANAGER'; facilityId: FacilityId }
   | { type: 'SELECT'; facilityId: FacilityId };
 
 type CommandListener = (command: GameCommand) => void;

@@ -5,6 +5,8 @@ import type {
   FacilityStats,
   HubState,
   LiftState,
+  ManagerState,
+  ManagerView,
   MineState,
   PersistentMineState,
   ShaftId,
@@ -12,13 +14,18 @@ import type {
 } from './types';
 
 const EPSILON = 0.0001;
+const FACILITY_IDS: FacilityId[] = ['shaft-1', 'shaft-2', 'shaft-3', 'lift', 'hub'];
 
 function cloneState(state: MineState): MineState {
+  const managers = {} as Record<FacilityId, ManagerState>;
+  for (const id of FACILITY_IDS) managers[id] = { ...state.managers[id] };
+
   return {
     ...state,
     shafts: state.shafts.map((shaft) => ({ ...shaft, task: shaft.task ? { ...shaft.task } : null })),
     lift: { ...state.lift, task: state.lift.task ? { ...state.lift.task } : null },
     hub: { ...state.hub, task: state.hub.task ? { ...state.hub.task } : null },
+    managers,
   };
 }
 
@@ -40,6 +47,17 @@ export class MineSimulation {
       };
     });
 
+    const managers = {} as Record<FacilityId, ManagerState>;
+    for (const id of FACILITY_IDS) {
+      const saved = persisted?.managers?.[id];
+      managers[id] = {
+        facilityId: id,
+        hired: saved?.hired ?? false,
+        activeRemaining: Math.max(0, saved?.activeRemaining ?? 0),
+        cooldownRemaining: Math.max(0, saved?.cooldownRemaining ?? 0),
+      };
+    }
+
     this.state = {
       cash: persisted?.cash ?? 0,
       surfaceBuffer: persisted?.surfaceBuffer ?? 0,
@@ -55,6 +73,7 @@ export class MineSimulation {
         cargo: 0,
         task: null,
       },
+      managers,
       totalOreMined: persisted?.totalOreMined ?? 0,
       totalCashEarned: persisted?.totalCashEarned ?? 0,
     };
@@ -71,10 +90,20 @@ export class MineSimulation {
   serialize(): PersistentMineState {
     const shaftLevels = {} as Record<ShaftId, number>;
     const shaftBuffers = {} as Record<ShaftId, number>;
+    const managers = {} as NonNullable<PersistentMineState['managers']>;
 
     for (const shaft of this.state.shafts) {
       shaftLevels[shaft.id] = shaft.level;
       shaftBuffers[shaft.id] = shaft.buffer;
+    }
+
+    for (const id of FACILITY_IDS) {
+      const manager = this.state.managers[id];
+      managers[id] = {
+        hired: manager.hired,
+        activeRemaining: manager.activeRemaining,
+        cooldownRemaining: manager.cooldownRemaining,
+      };
     }
 
     return {
@@ -84,6 +113,7 @@ export class MineSimulation {
       shaftBuffers,
       liftLevel: this.state.lift.level,
       hubLevel: this.state.hub.level,
+      managers,
       totalOreMined: this.state.totalOreMined,
       totalCashEarned: this.state.totalCashEarned,
     };
@@ -137,12 +167,35 @@ export class MineSimulation {
     return true;
   }
 
+  hireManager(id: FacilityId): boolean {
+    const manager = this.state.managers[id];
+    const config = STAGE_ONE_BALANCE.managers[id];
+    if (manager.hired || this.state.cash + EPSILON < config.hireCost) return false;
+
+    this.state.cash -= config.hireCost;
+    manager.hired = true;
+    return true;
+  }
+
+  activateManagerAbility(id: FacilityId): boolean {
+    const manager = this.state.managers[id];
+    const config = STAGE_ONE_BALANCE.managers[id];
+    if (!manager.hired || manager.cooldownRemaining > EPSILON || manager.activeRemaining > EPSILON) return false;
+
+    manager.activeRemaining = config.abilityDuration;
+    manager.cooldownRemaining = config.abilityCooldown;
+    return true;
+  }
+
   tick(deltaSeconds: number): void {
     const delta = Math.min(Math.max(deltaSeconds, 0), 0.25);
 
+    // Автоматизация запускает свободные звенья цепочки без кликов игрока.
+    this.ensureAutomation();
+
     for (const shaft of this.state.shafts) {
       if (!shaft.task) continue;
-      shaft.task.elapsed += delta;
+      shaft.task.elapsed += delta * this.getTaskSpeedMultiplier(shaft.id);
       if (shaft.task.elapsed + EPSILON >= shaft.task.duration) {
         const ore = this.getShaftYield(shaft);
         shaft.buffer += ore;
@@ -153,7 +206,7 @@ export class MineSimulation {
 
     const liftTask = this.state.lift.task;
     if (liftTask) {
-      liftTask.elapsed += delta;
+      liftTask.elapsed += delta * this.getTaskSpeedMultiplier('lift');
       const progress = Math.min(1, liftTask.elapsed / liftTask.duration);
 
       if (!liftTask.pickedUp && progress >= 0.47 && liftTask.sourceShaftId) {
@@ -176,7 +229,7 @@ export class MineSimulation {
 
     const hubTask = this.state.hub.task;
     if (hubTask) {
-      hubTask.elapsed += delta;
+      hubTask.elapsed += delta * this.getTaskSpeedMultiplier('hub');
       if (hubTask.elapsed + EPSILON >= hubTask.duration) {
         const cargo = this.state.hub.cargo;
         const revenue = cargo * this.state.resourcePrice;
@@ -186,6 +239,16 @@ export class MineSimulation {
         this.state.hub.task = null;
       }
     }
+
+    // Таймеры менеджеров работают в реальном времени, а не ускоренном игровом времени.
+    for (const id of FACILITY_IDS) {
+      const manager = this.state.managers[id];
+      manager.activeRemaining = Math.max(0, manager.activeRemaining - delta);
+      manager.cooldownRemaining = Math.max(0, manager.cooldownRemaining - delta);
+    }
+
+    // Если цикл закончился в этом tick, менеджер может сразу поставить следующий в очередь.
+    this.ensureAutomation();
   }
 
   upgrade(id: FacilityId): boolean {
@@ -254,6 +317,30 @@ export class MineSimulation {
     };
   }
 
+  getManagerView(id: FacilityId): ManagerView {
+    const manager = this.state.managers[id];
+    const config = STAGE_ONE_BALANCE.managers[id];
+    return {
+      facilityId: id,
+      name: config.name,
+      role: config.role,
+      hired: manager.hired,
+      hireCost: config.hireCost,
+      canHire: !manager.hired && this.state.cash + EPSILON >= config.hireCost,
+      passiveBonusPercent: Math.round((config.passiveMultiplier - 1) * 100),
+      abilityName: config.abilityName,
+      abilityMultiplier: config.abilityMultiplier,
+      abilityDuration: config.abilityDuration,
+      activeRemaining: manager.activeRemaining,
+      cooldownRemaining: manager.cooldownRemaining,
+      abilityReady: manager.hired && manager.cooldownRemaining <= EPSILON && manager.activeRemaining <= EPSILON,
+    };
+  }
+
+  getManagerRoster(): ManagerView[] {
+    return FACILITY_IDS.map((id) => this.getManagerView(id));
+  }
+
   getUpgradeCost(id: FacilityId): number {
     const level = id === 'lift'
       ? this.state.lift.level
@@ -271,8 +358,8 @@ export class MineSimulation {
   }
 
   getShaftYield(shaft: ShaftState): number {
-    const multiplier = 1 + STAGE_ONE_BALANCE.upgrades.shaftYieldPerLevel * (shaft.level - 1);
-    return Math.floor(shaft.baseYield * multiplier);
+    const levelMultiplier = 1 + STAGE_ONE_BALANCE.upgrades.shaftYieldPerLevel * (shaft.level - 1);
+    return Math.round(shaft.baseYield * levelMultiplier * this.getPassiveMultiplier(shaft.id));
   }
 
   getShaftDuration(shaft: ShaftState): number {
@@ -280,8 +367,8 @@ export class MineSimulation {
   }
 
   getLiftCapacity(lift: LiftState): number {
-    const multiplier = 1 + STAGE_ONE_BALANCE.upgrades.liftCapacityPerLevel * (lift.level - 1);
-    return Math.floor(STAGE_ONE_BALANCE.lift.baseCapacity * multiplier);
+    const levelMultiplier = 1 + STAGE_ONE_BALANCE.upgrades.liftCapacityPerLevel * (lift.level - 1);
+    return Math.floor(STAGE_ONE_BALANCE.lift.baseCapacity * levelMultiplier * this.getPassiveMultiplier('lift'));
   }
 
   getLiftDuration(lift: LiftState): number {
@@ -289,12 +376,31 @@ export class MineSimulation {
   }
 
   getHubCapacity(hub: HubState): number {
-    const multiplier = 1 + STAGE_ONE_BALANCE.upgrades.hubCapacityPerLevel * (hub.level - 1);
-    return Math.floor(STAGE_ONE_BALANCE.hub.baseCapacity * multiplier);
+    const levelMultiplier = 1 + STAGE_ONE_BALANCE.upgrades.hubCapacityPerLevel * (hub.level - 1);
+    return Math.floor(STAGE_ONE_BALANCE.hub.baseCapacity * levelMultiplier * this.getPassiveMultiplier('hub'));
   }
 
   getHubDuration(hub: HubState): number {
     return this.applySpeedUpgrade(STAGE_ONE_BALANCE.hub.baseDuration, hub.level);
+  }
+
+  private getPassiveMultiplier(id: FacilityId): number {
+    return this.state.managers[id].hired ? STAGE_ONE_BALANCE.managers[id].passiveMultiplier : 1;
+  }
+
+  private getTaskSpeedMultiplier(id: FacilityId): number {
+    const manager = this.state.managers[id];
+    if (!manager.hired || manager.activeRemaining <= EPSILON) return 1;
+    return STAGE_ONE_BALANCE.managers[id].abilityMultiplier;
+  }
+
+  private ensureAutomation(): void {
+    for (const shaft of this.state.shafts) {
+      if (this.state.managers[shaft.id].hired && !shaft.task) this.startMining(shaft.id);
+    }
+
+    if (this.state.managers.lift.hired && !this.state.lift.task) this.startLift();
+    if (this.state.managers.hub.hired && !this.state.hub.task) this.startHub();
   }
 
   private applySpeedUpgrade(baseDuration: number, level: number): number {

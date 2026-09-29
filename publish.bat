@@ -1,111 +1,90 @@
 @echo off
-chcp 65001 >nul
 setlocal EnableExtensions
 cd /d "%~dp0"
 
-set "REPO_URL=https://github.com/divangames/DEEPFORGE.git"
-set "PAGE_URL=https://divangames.github.io/DEEPFORGE/"
-
-REM Сообщение коммита задаём ДО любых скобочных блоков.
-REM Это важно для cmd.exe: переменные вида %%VAR%% внутри блока раскрываются заранее.
 set "MSG=%~1"
-if not defined MSG set "MSG=auto: DEEPFORGE update"
-
-echo ==================================================
-echo   DEEPFORGE - CHECK ^> COMMIT ^> PUSH ^> PAGES
-echo ==================================================
-echo.
+if "%MSG%"=="" set "MSG=auto: DEEPFORGE update"
 
 where git >nul 2>nul
 if errorlevel 1 (
-  echo [ERROR] Git не найден. Установи Git for Windows.
-  goto :error
+  echo [ERROR] Git is not installed or not in PATH.
+  pause
+  exit /b 1
 )
 
-where node >nul 2>nul
-if errorlevel 1 (
-  echo [ERROR] Node.js не найден. Нужен Node.js 22+.
-  goto :error
-)
-
-if not exist node_modules (
-  echo [1/7] Устанавливаю зависимости...
+if not exist "node_modules" (
+  echo [1/8] Installing dependencies...
   call npm install
-  if errorlevel 1 goto :error
+  if errorlevel 1 goto :fail
 ) else (
-  echo [1/7] Зависимости уже установлены.
+  echo [1/8] Dependencies already installed.
 )
 
-echo [2/7] TypeScript check...
+echo [2/8] TypeScript check...
 call npm run typecheck
-if errorlevel 1 goto :error
+if errorlevel 1 goto :fail
 
-echo [3/7] Tests...
+echo [3/8] Tests...
 call npm test
-if errorlevel 1 goto :error
+if errorlevel 1 goto :fail
 
-echo [4/7] Production build...
+echo [4/8] Production build...
 call npm run build
-if errorlevel 1 goto :error
+if errorlevel 1 goto :fail
 
-if not exist .git (
-  echo [5/7] Инициализирую Git...
+if not exist ".git" (
+  echo [5/8] Initializing Git repository...
   git init
   git branch -M main
-  git remote add origin "%REPO_URL%"
 ) else (
-  echo [5/7] Git уже инициализирован.
-  git remote get-url origin >nul 2>nul
-  if errorlevel 1 git remote add origin "%REPO_URL%"
+  echo [5/8] Git repository already initialized.
 )
 
-REM Git identity задаём только для DEEPFORGE, глобальные настройки не меняем.
-git config --local user.name >nul 2>nul
+git config user.name "divangames"
+git config user.email "61680664+divangames@users.noreply.github.com"
+git config core.autocrlf true
+
+git remote get-url origin >nul 2>nul
 if errorlevel 1 (
-  echo [GIT] Настраиваю имя автора: divangames
-  git config --local user.name "divangames"
+  git remote add origin https://github.com/divangames/DEEPFORGE.git
+) else (
+  git remote set-url origin https://github.com/divangames/DEEPFORGE.git
 )
 
-git config --local user.email >nul 2>nul
+echo [6/8] Syncing with GitHub...
+git fetch origin main
+if errorlevel 1 goto :fail
+git rebase --autostash origin/main
 if errorlevel 1 (
-  echo [GIT] Настраиваю GitHub noreply email...
-  git config --local user.email "61680664+divangames@users.noreply.github.com"
+  echo [ERROR] Git sync conflict. Send me a screenshot.
+  pause
+  exit /b 1
 )
 
-REM На всякий случай приводим origin к нужному репозиторию.
-git remote set-url origin "%REPO_URL%" >nul 2>nul
-
+echo [7/8] Commit: %MSG%
 git add -A
-if errorlevel 1 goto :error
-
 git diff --cached --quiet
-if not errorlevel 1 (
-  echo [6/7] Изменений для нового коммита нет.
-) else (
-  echo [6/7] Commit: %MSG%
+if errorlevel 1 (
   git commit -m "%MSG%"
-  if errorlevel 1 goto :error
+  if errorlevel 1 goto :fail
+) else (
+  echo [INFO] Nothing new to commit.
 )
 
-echo [7/7] Push в GitHub...
+echo [8/8] Push to GitHub...
 git push -u origin main
-if errorlevel 1 goto :error
+if errorlevel 1 goto :fail
 
 echo.
-echo [OK] Код отправлен: https://github.com/divangames/DEEPFORGE
-echo [OK] GitHub Actions теперь должен обновить Pages.
-echo [OK] Игра: %PAGE_URL%
-echo.
-echo Если это первый запуск Pages:
-echo GitHub ^> Settings ^> Pages ^> Source ^> GitHub Actions
-echo.
-start "" "%PAGE_URL%"
+echo [OK] Code pushed to https://github.com/divangames/DEEPFORGE
+echo [OK] GitHub Actions will update Pages automatically.
+echo [OK] Game: https://divangames.github.io/DEEPFORGE/
+start "" "https://divangames.github.io/DEEPFORGE/"
 pause
 exit /b 0
 
-:error
+:fail
 echo.
-echo [DEEPFORGE] Публикация остановлена из-за ошибки.
-echo Ничего после ошибочного шага не отправлялось.
+echo [ERROR] Publish stopped. No force-push was used.
 pause
 exit /b 1

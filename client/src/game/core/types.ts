@@ -35,6 +35,13 @@ export interface HubState {
   task: TimedTask | null;
 }
 
+export interface ManagerState {
+  facilityId: FacilityId;
+  hired: boolean;
+  activeRemaining: number;
+  cooldownRemaining: number;
+}
+
 export interface MineState {
   cash: number;
   surfaceBuffer: number;
@@ -42,8 +49,15 @@ export interface MineState {
   shafts: ShaftState[];
   lift: LiftState;
   hub: HubState;
+  managers: Record<FacilityId, ManagerState>;
   totalOreMined: number;
   totalCashEarned: number;
+}
+
+export interface PersistentManagerState {
+  hired: boolean;
+  activeRemaining: number;
+  cooldownRemaining: number;
 }
 
 export interface PersistentMineState {
@@ -53,6 +67,7 @@ export interface PersistentMineState {
   shaftBuffers: Record<ShaftId, number>;
   liftLevel: number;
   hubLevel: number;
+  managers?: Partial<Record<FacilityId, PersistentManagerState>>;
   totalOreMined: number;
   totalCashEarned: number;
 }
@@ -66,4 +81,20 @@ export interface FacilityStats {
   primaryValue: string;
   secondaryLabel: string;
   secondaryValue: string;
+}
+
+export interface ManagerView {
+  facilityId: FacilityId;
+  name: string;
+  role: string;
+  hired: boolean;
+  hireCost: number;
+  canHire: boolean;
+  passiveBonusPercent: number;
+  abilityName: string;
+  abilityMultiplier: number;
+  abilityDuration: number;
+  activeRemaining: number;
+  cooldownRemaining: number;
+  abilityReady: boolean;
 }

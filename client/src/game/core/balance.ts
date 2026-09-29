@@ -1,4 +1,4 @@
-import type { ShaftId } from './types';
+import type { FacilityId, ShaftId } from './types';
 
 export const STAGE_ONE_BALANCE = {
   resourceName: 'Ferrite Ore',
@@ -27,4 +27,40 @@ export const STAGE_ONE_BALANCE = {
     speedPerLevel: 0.035,
     maxSpeedReduction: 0.45,
   },
+  managers: {
+    'shaft-1': {
+      name: 'Mira Kane', role: 'Shift Foreman', hireCost: 24,
+      passiveMultiplier: 1.10, abilityName: 'Overdrive', abilityMultiplier: 2.4,
+      abilityDuration: 12, abilityCooldown: 36,
+    },
+    'shaft-2': {
+      name: 'Dax Holt', role: 'Deep Crew Lead', hireCost: 70,
+      passiveMultiplier: 1.12, abilityName: 'Overdrive', abilityMultiplier: 2.5,
+      abilityDuration: 12, abilityCooldown: 38,
+    },
+    'shaft-3': {
+      name: 'Yuna Voss', role: 'Extraction Chief', hireCost: 130,
+      passiveMultiplier: 1.14, abilityName: 'Overdrive', abilityMultiplier: 2.6,
+      abilityDuration: 12, abilityCooldown: 40,
+    },
+    lift: {
+      name: 'Bruno Vale', role: 'Lift Controller', hireCost: 52,
+      passiveMultiplier: 1.10, abilityName: 'Turbo Lift', abilityMultiplier: 2.35,
+      abilityDuration: 10, abilityCooldown: 34,
+    },
+    hub: {
+      name: 'Nika Cross', role: 'Dispatch Chief', hireCost: 42,
+      passiveMultiplier: 1.10, abilityName: 'Rush Dispatch', abilityMultiplier: 2.2,
+      abilityDuration: 10, abilityCooldown: 32,
+    },
+  } satisfies Record<FacilityId, {
+    name: string;
+    role: string;
+    hireCost: number;
+    passiveMultiplier: number;
+    abilityName: string;
+    abilityMultiplier: number;
+    abilityDuration: number;
+    abilityCooldown: number;
+  }>,
 } as const;

@@ -3,7 +3,7 @@ import { loadStageOneState, saveStageOneState } from '../../db/saveRepository';
 import { useGameStore } from '../../state/gameStore';
 import { formatCompact } from '../core/format';
 import { MineSimulation } from '../core/MineSimulation';
-import type { FacilityId, ShaftId, ShaftState } from '../core/types';
+import type { FacilityId, ShaftId } from '../core/types';
 import { onGameCommand, type GameCommand } from '../runtime/gameRuntime';
 
 interface ShaftVisual {
@@ -18,6 +18,7 @@ interface ShaftVisual {
   progressFill: Phaser.GameObjects.Rectangle;
   runButton: Phaser.GameObjects.Rectangle;
   runText: Phaser.GameObjects.Text;
+  autoBadge: Phaser.GameObjects.Text;
 }
 
 export class FoundationScene extends Phaser.Scene {
@@ -30,9 +31,11 @@ export class FoundationScene extends Phaser.Scene {
   private liftCage?: Phaser.GameObjects.Rectangle;
   private liftLabel?: Phaser.GameObjects.Text;
   private liftCargo?: Phaser.GameObjects.Text;
+  private liftAutoText?: Phaser.GameObjects.Text;
   private hubBuilding?: Phaser.GameObjects.Rectangle;
   private hubTruck?: Phaser.GameObjects.Rectangle;
   private hubLabel?: Phaser.GameObjects.Text;
+  private hubAutoText?: Phaser.GameObjects.Text;
   private surfaceBufferText?: Phaser.GameObjects.Text;
   private hint?: Phaser.GameObjects.Text;
   private syncAccumulator = 0;
@@ -84,9 +87,9 @@ export class FoundationScene extends Phaser.Scene {
     this.surface = this.add.rectangle(0, 0, 100, 100, 0x29333a).setOrigin(0.5);
     this.mine = this.add.rectangle(0, 0, 100, 100, 0x171b20).setOrigin(0.5);
 
-    this.hint = this.add.text(0, 0, 'ТАП: ДОБЫЧА → ЛИФТ → ЛОГИСТИКА', {
+    this.hint = this.add.text(0, 0, 'НАЙМИ МЕНЕДЖЕРОВ — ЦЕПОЧКА СТАНЕТ АВТОМАТИЧЕСКОЙ', {
       fontFamily: 'Arial, sans-serif',
-      fontSize: '11px',
+      fontSize: '10px',
       color: '#b9c5cc',
       fontStyle: 'bold',
       align: 'center',
@@ -116,8 +119,12 @@ export class FoundationScene extends Phaser.Scene {
         .setStrokeStyle(1, 0x66727c, 1)
         .setInteractive({ useHandCursor: true });
       const runText = this.add.text(0, 0, '▶', {
-        fontFamily: 'Arial, sans-serif', fontSize: '14px', color: '#ffffff', fontStyle: 'bold',
+        fontFamily: 'Arial, sans-serif', fontSize: '12px', color: '#ffffff', fontStyle: 'bold',
       }).setOrigin(0.5);
+      const autoBadge = this.add.text(0, 0, 'AUTO', {
+        fontFamily: 'Arial, sans-serif', fontSize: '9px', color: '#9ff0bd', fontStyle: 'bold',
+        backgroundColor: '#173326', padding: { x: 5, y: 3 },
+      }).setOrigin(0, 0.5).setVisible(false);
 
       const activate = () => {
         this.selectFacility(id);
@@ -127,7 +134,7 @@ export class FoundationScene extends Phaser.Scene {
       runButton.on('pointerdown', activate);
 
       this.shaftVisuals.set(id, {
-        bg, floor, title, buffer, workerBody, workerHead, ore, progressBg, progressFill, runButton, runText,
+        bg, floor, title, buffer, workerBody, workerHead, ore, progressBg, progressFill, runButton, runText, autoBadge,
       });
     }
   }
@@ -145,6 +152,10 @@ export class FoundationScene extends Phaser.Scene {
     this.liftCargo = this.add.text(0, 0, '0', {
       fontFamily: 'Arial, sans-serif', fontSize: '9px', color: '#101318', fontStyle: 'bold',
     }).setOrigin(0.5);
+    this.liftAutoText = this.add.text(0, 0, 'AUTO', {
+      fontFamily: 'Arial, sans-serif', fontSize: '9px', color: '#9ff0bd', fontStyle: 'bold',
+      backgroundColor: '#173326', padding: { x: 5, y: 3 },
+    }).setOrigin(0.5).setVisible(false);
 
     const activate = () => {
       this.selectFacility('lift');
@@ -164,6 +175,10 @@ export class FoundationScene extends Phaser.Scene {
     this.hubLabel = this.add.text(0, 0, 'LOGISTICS', {
       fontFamily: 'Arial, sans-serif', fontSize: '10px', color: '#f5f7fa', fontStyle: 'bold',
     }).setOrigin(0.5);
+    this.hubAutoText = this.add.text(0, 0, 'AUTO', {
+      fontFamily: 'Arial, sans-serif', fontSize: '9px', color: '#9ff0bd', fontStyle: 'bold',
+      backgroundColor: '#173326', padding: { x: 5, y: 3 },
+    }).setOrigin(0.5).setVisible(false);
     this.surfaceBufferText = this.add.text(0, 0, 'Surface: 0 ore', {
       fontFamily: 'Arial, sans-serif', fontSize: '11px', color: '#f0b429', fontStyle: 'bold',
     }).setOrigin(0.5);
@@ -193,6 +208,18 @@ export class FoundationScene extends Phaser.Scene {
       case 'UPGRADE':
         this.selectFacility(command.facilityId);
         this.simulation.upgrade(command.facilityId);
+        this.syncUi();
+        void this.persist();
+        break;
+      case 'HIRE_MANAGER':
+        this.selectFacility(command.facilityId);
+        this.simulation.hireManager(command.facilityId);
+        this.syncUi();
+        void this.persist();
+        break;
+      case 'ACTIVATE_MANAGER':
+        this.selectFacility(command.facilityId);
+        this.simulation.activateManagerAbility(command.facilityId);
         this.syncUi();
         void this.persist();
         break;
@@ -228,6 +255,7 @@ export class FoundationScene extends Phaser.Scene {
       const visual = this.shaftVisuals.get(shaft.id);
       if (!visual) return;
 
+      const manager = state.managers[shaft.id];
       const y = mineTop + rowHeight * (index + 0.5);
       const xStart = Math.max(40, this.scale.width * 0.11);
       const xEnd = Math.max(xStart + 80, this.scale.width * 0.62);
@@ -239,8 +267,11 @@ export class FoundationScene extends Phaser.Scene {
       visual.workerHead.setPosition(workerX, y - 10);
       visual.ore.setPosition(workerX + 10, y + 2).setVisible(Boolean(shaft.task && progress > 0.45));
       visual.buffer.setText(`${formatCompact(shaft.buffer)} ore`);
-      visual.runText.setText(shaft.task ? '…' : '▶');
-      visual.runButton.setFillStyle(shaft.task ? 0x252b31 : 0x313a42, 1);
+      visual.runText.setText(manager.hired ? 'AUTO' : shaft.task ? '…' : '▶');
+      visual.runButton.setFillStyle(manager.hired ? 0x1d4a34 : shaft.task ? 0x252b31 : 0x313a42, 1);
+      visual.autoBadge
+        .setVisible(manager.hired)
+        .setText(manager.activeRemaining > 0 ? '⚡ BOOST' : 'AUTO');
 
       const barWidth = Math.max(60, this.scale.width * 0.22);
       visual.progressFill.setSize(Math.max(1, barWidth * progress), 5);
@@ -259,6 +290,9 @@ export class FoundationScene extends Phaser.Scene {
     this.liftCage?.setY(cageY);
     this.liftLabel?.setY(cageY - 7);
     this.liftCargo?.setY(cageY + 8).setText(formatCompact(state.lift.cargo));
+    this.liftAutoText
+      ?.setVisible(state.managers.lift.hired)
+      .setText(state.managers.lift.activeRemaining > 0 ? '⚡ BOOST' : 'AUTO');
 
     const hubTask = state.hub.task;
     const hubProgress = hubTask ? Math.min(1, hubTask.elapsed / hubTask.duration) : 0;
@@ -267,6 +301,9 @@ export class FoundationScene extends Phaser.Scene {
     const truckWave = hubProgress < 0.5 ? hubProgress / 0.5 : (1 - hubProgress) / 0.5;
     this.hubTruck?.setX(Phaser.Math.Linear(truckStart, truckEnd, Math.max(0, Math.min(1, truckWave))));
     this.surfaceBufferText?.setText(`Surface: ${formatCompact(state.surfaceBuffer)} ore`);
+    this.hubAutoText
+      ?.setVisible(state.managers.hub.hired)
+      .setText(state.managers.hub.activeRemaining > 0 ? '⚡ BOOST' : 'AUTO');
   }
 
   private layout(gameSize: Phaser.Structs.Size) {
@@ -284,6 +321,7 @@ export class FoundationScene extends Phaser.Scene {
 
     this.hubBuilding?.setPosition(width * 0.84, surfaceHeight * 0.43).setSize(Math.max(68, width * 0.2), 46);
     this.hubLabel?.setPosition(width * 0.84, surfaceHeight * 0.43);
+    this.hubAutoText?.setPosition(width * 0.84, Math.max(22, surfaceHeight * 0.16));
     this.hubTruck?.setPosition(width * 0.62, surfaceHeight * 0.72).setSize(Math.max(46, width * 0.14), 22);
     this.surfaceBufferText?.setPosition(width * 0.42, surfaceHeight * 0.52);
 
@@ -291,6 +329,7 @@ export class FoundationScene extends Phaser.Scene {
     this.liftCage?.setX(liftX).setSize(Math.max(25, width * 0.062), Math.max(28, rowHeight * 0.38));
     this.liftLabel?.setX(liftX);
     this.liftCargo?.setX(liftX);
+    this.liftAutoText?.setPosition(liftX, mineTop + 16);
 
     this.simulation.getState().shafts.forEach((shaft, index) => {
       const visual = this.shaftVisuals.get(shaft.id);
@@ -303,10 +342,11 @@ export class FoundationScene extends Phaser.Scene {
       visual.bg.setPosition(rowX, y).setSize(rowWidth, Math.max(56, rowHeight - 10));
       visual.floor.setPosition(rowX, y + rowHeight * 0.28).setSize(rowWidth * 0.9, 4);
       visual.title.setPosition(14, y - rowHeight * 0.28);
+      visual.autoBadge.setPosition(14, y - rowHeight * 0.16);
       visual.buffer.setPosition(width * 0.61, y - rowHeight * 0.28);
       visual.progressBg.setPosition(14, y + rowHeight * 0.31).setSize(barWidth, 5);
       visual.progressFill.setPosition(14, y + rowHeight * 0.31);
-      visual.runButton.setPosition(width * 0.61, y + rowHeight * 0.18).setSize(Math.max(44, width * 0.11), 32);
+      visual.runButton.setPosition(width * 0.61, y + rowHeight * 0.18).setSize(Math.max(52, width * 0.11), 32);
       visual.runText.setPosition(width * 0.61, y + rowHeight * 0.18);
     });
 
@@ -322,6 +362,8 @@ export class FoundationScene extends Phaser.Scene {
       this.selectedFacility,
       stats,
       this.simulation.canUpgrade(this.selectedFacility),
+      this.simulation.getManagerView(this.selectedFacility),
+      this.simulation.getManagerRoster(),
     );
   }
 
@@ -347,7 +389,7 @@ export class FoundationScene extends Phaser.Scene {
         mine: this.simulation.serialize(),
       });
     } catch {
-      // На Stage 1 сохраняем молча; полноценный recovery UI появится на Stage 3.
+      // Recovery UI появится на Stage 3, пока сохранение не блокирует игровой цикл.
     }
   }
 

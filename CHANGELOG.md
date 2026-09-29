@@ -1,5 +1,29 @@
 # CHANGELOG — DEEPFORGE
 
+## 0.2.0 — Stage 2 Managers & Automation
+
+### Добавлено
+
+- 5 обычных Managers для трёх Deck, Cargo Lift и Logistics Hub.
+- Найм менеджеров за игровую валюту.
+- Полностью автоматический перезапуск рабочих циклов после найма.
+- Passive bonus менеджеров к добыче/вместимости.
+- Active abilities с multiplier, duration и cooldown.
+- Вкладка «Команда» с ростером менеджеров.
+- Управление наймом и abilities из панели выбранного объекта и общего ростера.
+- Статусы `AUTO` / `BOOST` на Phaser-сцене.
+- Сохранение найма, active timer и cooldown в IndexedDB.
+- Совместимость Stage 1 save: новые manager-поля опциональны.
+- Unit tests автоматизации и manager abilities.
+- `docs/STAGE_2.md`.
+- Усилен `.gitignore`: build metadata и локальные zip-снимки больше не должны попадать в Git.
+
+### UX
+
+- В шапке отображается количество нанятых менеджеров.
+- Панель выбранного объекта показывает назначенного Manager, бонус и ability.
+- Вкладка «Команда» работает как bottom sheet на телефоне и боковая панель на ПК.
+
 ## 0.1.0 — Stage 1 Core Vertical Slice
 
 ### Добавлено

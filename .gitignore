@@ -5,3 +5,10 @@ dist/
 .DS_Store
 .vscode/
 .idea/
+
+# Build metadata
+*.tsbuildinfo
+
+# Local packaged snapshots
+steps/*.zip
+*.zip
