@@ -87,3 +87,56 @@ describe('MineSimulation', () => {
     expect(boosted.getManagerView('shaft-1').cooldownRemaining).toBeGreaterThan(0);
   });
 });
+
+// Stage 3: offline-прогресс считается аналитически, без тысяч tick-вызовов.
+describe('Offline progress', () => {
+  it('начисляет idle-доход полностью автоматизированной цепочке', () => {
+    const sim = new MineSimulation(richState(2000));
+    sim.hireManager('shaft-1');
+    sim.hireManager('lift');
+    sim.hireManager('hub');
+
+    const before = sim.getState().cash;
+    const report = sim.applyOfflineProgress(60);
+
+    expect(report.fullChainAutomated).toBe(true);
+    expect(report.incomePerSecond).toBeGreaterThan(0);
+    expect(report.rewardCash).toBeGreaterThan(0);
+    expect(sim.getState().cash).toBeGreaterThan(before);
+    expect(sim.getState().totalCashEarned).toBeCloseTo(report.rewardCash, 5);
+  });
+
+  it('не печатает деньги без автоматизированного лифта и логистики', () => {
+    const sim = new MineSimulation(richState(2000));
+    sim.hireManager('shaft-1');
+
+    const report = sim.applyOfflineProgress(3600);
+    expect(report.fullChainAutomated).toBe(false);
+    expect(report.incomePerSecond).toBe(0);
+    expect(report.rewardCash).toBe(0);
+  });
+
+  it('ограничивает автономное начисление восемью часами', () => {
+    const sim = new MineSimulation(richState(2000));
+    sim.hireManager('shaft-1');
+    sim.hireManager('lift');
+    sim.hireManager('hub');
+
+    const report = sim.applyOfflineProgress(24 * 60 * 60);
+    expect(report.creditedSeconds).toBe(8 * 60 * 60);
+    expect(report.capped).toBe(true);
+  });
+
+  it('продвигает cooldown менеджеров во время отсутствия', () => {
+    const sim = new MineSimulation(richState(2000));
+    sim.hireManager('shaft-1');
+    sim.activateManagerAbility('shaft-1');
+
+    const before = sim.getManagerView('shaft-1').cooldownRemaining;
+    sim.applyOfflineProgress(20);
+    const after = sim.getManagerView('shaft-1');
+
+    expect(after.activeRemaining).toBe(0);
+    expect(after.cooldownRemaining).toBeCloseTo(Math.max(0, before - 20), 5);
+  });
+});

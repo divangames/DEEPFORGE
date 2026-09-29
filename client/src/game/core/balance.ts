@@ -27,6 +27,11 @@ export const STAGE_ONE_BALANCE = {
     speedPerLevel: 0.035,
     maxSpeedReduction: 0.45,
   },
+  idle: {
+    maxOfflineSeconds: 8 * 60 * 60,
+    minimumReportSeconds: 15,
+    incomeMultiplier: 1,
+  },
   managers: {
     'shaft-1': {
       name: 'Mira Kane', role: 'Shift Foreman', hireCost: 24,

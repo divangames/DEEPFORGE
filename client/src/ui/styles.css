@@ -369,3 +369,111 @@ button { min-height: 44px; -webkit-tap-highlight-color: transparent; }
     border-bottom: 0;
   }
 }
+
+/* Stage 3: автономный доход */
+.offline-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+.offline-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(3, 5, 7, .78);
+  backdrop-filter: blur(5px);
+}
+.offline-panel {
+  position: relative;
+  z-index: 1;
+  width: min(430px, 100%);
+  max-height: calc(100dvh - 36px);
+  overflow-y: auto;
+  padding: 22px;
+  border: 1px solid #3b454e;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 50% -20%, rgba(240, 180, 41, .18), transparent 48%),
+    linear-gradient(180deg, #1a2026, #12161a);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, .55);
+  text-align: center;
+}
+.offline-icon {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 10px;
+  border: 1px solid #f0b429;
+  border-radius: 15px;
+  background: linear-gradient(145deg, #f6c34a, #d89214);
+  color: #111418;
+  font-size: 17px;
+  font-weight: 1000;
+  box-shadow: 0 10px 24px rgba(240, 180, 41, .2);
+}
+.offline-eyebrow {
+  color: var(--gold);
+  font-size: 8px;
+  font-weight: 950;
+  letter-spacing: .15em;
+}
+.offline-panel h2 { margin: 6px 0 4px; font-size: 23px; line-height: 1.1; }
+.offline-away { margin: 0; color: #9ca8b1; font-size: 11px; }
+.offline-away b { color: #e7edf0; }
+.offline-reward {
+  display: grid;
+  gap: 3px;
+  margin: 17px 0 12px;
+  padding: 16px 12px;
+  border: 1px solid rgba(240, 180, 41, .34);
+  border-radius: 14px;
+  background: rgba(240, 180, 41, .08);
+}
+.offline-reward small { color: #9b874e; font-size: 8px; font-weight: 950; letter-spacing: .12em; }
+.offline-reward strong { color: #ffd15e; font-size: clamp(26px, 8vw, 38px); line-height: 1.08; }
+.offline-reward span { color: #9ca8b1; font-size: 9px; font-weight: 750; }
+.offline-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.offline-stats div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 6px;
+  border: 1px solid #303941;
+  border-radius: 10px;
+  background: #171c21;
+}
+.offline-stats span { color: #78848d; font-size: 7px; font-weight: 850; }
+.offline-stats b { overflow: hidden; text-overflow: ellipsis; color: #e4eaee; font-size: 9px; white-space: nowrap; }
+.offline-warning,
+.offline-cap {
+  margin: 10px 0 0;
+  padding: 9px 10px;
+  border-radius: 9px;
+  font-size: 8px;
+  line-height: 1.45;
+  text-align: left;
+}
+.offline-warning { border: 1px solid #665124; background: #272113; color: #e0c06f; }
+.offline-cap { border: 1px solid #344a5a; background: #16212a; color: #8fb5ce; }
+.offline-collect {
+  width: 100%;
+  min-height: 50px;
+  margin-top: 14px;
+  border: 1px solid #ffd365;
+  border-radius: 11px;
+  background: linear-gradient(180deg, #f5bc35, #d99b18);
+  color: #111418;
+  font-size: 10px;
+  font-weight: 1000;
+  cursor: pointer;
+}
+
+@media (max-width: 380px) {
+  .offline-overlay { padding: 10px; }
+  .offline-panel { padding: 17px 13px; border-radius: 15px; }
+  .offline-stats { gap: 4px; }
+  .offline-stats div { padding-inline: 3px; }
+}

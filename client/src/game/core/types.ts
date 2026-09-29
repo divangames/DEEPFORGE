@@ -72,6 +72,18 @@ export interface PersistentMineState {
   totalCashEarned: number;
 }
 
+
+export interface OfflineProgressReport {
+  rawSeconds: number;
+  creditedSeconds: number;
+  rewardCash: number;
+  processedOre: number;
+  incomePerSecond: number;
+  capped: boolean;
+  fullChainAutomated: boolean;
+  automatedShafts: number;
+}
+
 export interface FacilityStats {
   id: FacilityId;
   name: string;

@@ -2,7 +2,7 @@
   "name": "deepforge-idle-empire",
   "private": true,
   "version": "0.1.0",
-  "description": "DEEPFORGE: Idle Empire — Stage 1 Core Vertical Slice",
+  "description": "DEEPFORGE: Idle Empire — Stage 3 Offline Income & Save Recovery",
   "workspaces": [
     "client",
     "server"

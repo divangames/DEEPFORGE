@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { loadStageOneState, saveStageOneState } from '../../db/saveRepository';
 import { useGameStore } from '../../state/gameStore';
+import { STAGE_ONE_BALANCE } from '../core/balance';
 import { formatCompact } from '../core/format';
 import { MineSimulation } from '../core/MineSimulation';
 import type { FacilityId, ShaftId } from '../core/types';
@@ -41,7 +42,10 @@ export class FoundationScene extends Phaser.Scene {
   private syncAccumulator = 0;
   private unsubscribeCommands?: () => void;
   private saveCreatedAt = Date.now();
+  private persistenceReady = false;
+  private hiddenAt: number | null = null;
   private beforeUnloadHandler = () => { void this.persist(); };
+  private visibilityHandler = () => { void this.handleVisibilityChange(); };
 
   constructor() {
     super('FoundationScene');
@@ -56,6 +60,7 @@ export class FoundationScene extends Phaser.Scene {
 
     this.unsubscribeCommands = onGameCommand((command) => this.handleCommand(command));
     window.addEventListener('beforeunload', this.beforeUnloadHandler);
+    document.addEventListener('visibilitychange', this.visibilityHandler);
 
     this.scale.on('resize', this.layout, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cleanup());
@@ -73,6 +78,8 @@ export class FoundationScene extends Phaser.Scene {
   }
 
   update(_time: number, deltaMs: number) {
+    if (document.visibilityState === 'hidden') return;
+
     this.simulation.tick(deltaMs / 1000);
     this.renderSimulation();
 
@@ -370,26 +377,61 @@ export class FoundationScene extends Phaser.Scene {
   private async restore() {
     try {
       const save = await loadStageOneState();
-      if (!save) return;
-      this.saveCreatedAt = save.createdAt;
-      this.simulation = new MineSimulation(save.mine);
+      if (save) {
+        const now = Date.now();
+        this.saveCreatedAt = save.createdAt;
+        this.simulation = new MineSimulation(save.mine);
+        this.applyOfflineFrom(save.lastSeenAt, now);
+        this.syncUi();
+        this.renderSimulation();
+      }
+    } catch {
+      // Даже повреждённый локальный save не должен блокировать новую игру.
+    } finally {
+      this.persistenceReady = true;
+      await this.persist();
+    }
+  }
+
+  private applyOfflineFrom(lastSeenAt: number, now = Date.now()) {
+    const rawSeconds = Math.max(0, (now - lastSeenAt) / 1000);
+    if (rawSeconds <= 0) return;
+
+    const report = this.simulation.applyOfflineProgress(rawSeconds);
+    if (rawSeconds >= STAGE_ONE_BALANCE.idle.minimumReportSeconds) {
+      useGameStore.getState().setOfflineReport(report);
+    }
+  }
+
+  private async handleVisibilityChange() {
+    if (document.visibilityState === 'hidden') {
+      this.hiddenAt = Date.now();
+      await this.persist();
+      return;
+    }
+
+    if (this.hiddenAt !== null) {
+      const resumedAt = Date.now();
+      this.applyOfflineFrom(this.hiddenAt, resumedAt);
+      this.hiddenAt = null;
       this.syncUi();
       this.renderSimulation();
-    } catch {
-      // Локальный save не должен мешать запуску игры.
+      await this.persist();
     }
   }
 
   private async persist() {
+    if (!this.persistenceReady) return;
+
     try {
       await saveStageOneState({
         createdAt: this.saveCreatedAt,
-        lastSeenAt: Date.now(),
+        lastSeenAt: this.hiddenAt ?? Date.now(),
         settings: { quality: useGameStore.getState().quality },
         mine: this.simulation.serialize(),
       });
     } catch {
-      // Recovery UI появится на Stage 3, пока сохранение не блокирует игровой цикл.
+      // Основной слот сохраняется с backup; при ошибке игра продолжает работать.
     }
   }
 
@@ -397,6 +439,7 @@ export class FoundationScene extends Phaser.Scene {
     this.unsubscribeCommands?.();
     this.unsubscribeCommands = undefined;
     window.removeEventListener('beforeunload', this.beforeUnloadHandler);
+    document.removeEventListener('visibilitychange', this.visibilityHandler);
     this.scale.off('resize', this.layout, this);
   }
 }

@@ -1,3 +1,18 @@
+# Changelog
+
+## Stage 3 — Offline Income & Save Recovery
+
+- Добавлен аналитический offline income по реальному bottleneck производственной цепочки.
+- Добавлен 8-часовой cap автономного дохода.
+- Добавлено окно «Пока вас не было» с временем, доходом, ore и скоростью idle-экономики.
+- Менеджерские cooldown и active timers теперь продолжаются во время отсутствия.
+- Добавлена корректная обработка `visibilitychange` для мобильных браузеров и PWA.
+- Симуляция не тикает одновременно с offline-расчётом, что исключает двойное начисление.
+- После начисления состояние немедленно сохраняется, поэтому refresh не дублирует награду.
+- Добавлен backup-слот IndexedDB и fallback-загрузка при повреждении primary save.
+- Добавлены unit-тесты offline income, неполной автоматизации, cap и cooldown.
+- UI badge обновлён до `STAGE 3`.
+
 # CHANGELOG — DEEPFORGE
 
 ## 0.2.0 — Stage 2 Managers & Automation

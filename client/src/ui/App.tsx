@@ -34,6 +34,17 @@ function abilityLabel(manager: ManagerView) {
   return `${manager.abilityName} ×${manager.abilityMultiplier}`;
 }
 
+function formatAwayTime(seconds: number) {
+  const total = Math.max(0, Math.floor(seconds));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+
+  if (hours > 0) return `${hours} ч ${minutes} мин`;
+  if (minutes > 0) return `${minutes} мин ${secs} сек`;
+  return `${secs} сек`;
+}
+
 export function App() {
   const [teamOpen, setTeamOpen] = useState(false);
   const quality = useGameStore((state) => state.quality);
@@ -44,7 +55,9 @@ export function App() {
   const selectedManager = useGameStore((state) => state.selectedManager);
   const managerRoster = useGameStore((state) => state.managerRoster);
   const canUpgradeSelected = useGameStore((state) => state.canUpgradeSelected);
+  const offlineReport = useGameStore((state) => state.offlineReport);
   const setApiOnline = useGameStore((state) => state.setApiOnline);
+  const setOfflineReport = useGameStore((state) => state.setOfflineReport);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -94,7 +107,7 @@ export function App() {
         </div>
 
         <div className="stage-badge">
-          <strong>STAGE 2</strong>
+          <strong>STAGE 3</strong>
           <span>{quality}</span>
           <span className={apiOnline ? 'ok' : 'muted'}>{apiOnline ? 'API' : 'LOCAL'}</span>
         </div>
@@ -169,6 +182,44 @@ export function App() {
         <button type="button" className={teamOpen ? 'active' : ''} onClick={() => setTeamOpen(true)}><span>♟</span>Команда</button>
         <button type="button" disabled><span>•••</span>Ещё</button>
       </nav>
+
+      {offlineReport && (
+        <div className="offline-overlay" role="dialog" aria-modal="true" aria-label="Доход за время отсутствия">
+          <div className="offline-backdrop" />
+          <section className="offline-panel">
+            <div className="offline-icon" aria-hidden="true">DF</div>
+            <span className="offline-eyebrow">АВТОНОМНЫЙ РЕЖИМ</span>
+            <h2>Пока вас не было</h2>
+            <p className="offline-away">Объект работал <b>{formatAwayTime(offlineReport.rawSeconds)}</b></p>
+
+            <div className="offline-reward">
+              <small>ЗАРАБОТАНО</small>
+              <strong>$ {formatCompact(offlineReport.rewardCash)}</strong>
+              <span>{formatCompact(offlineReport.processedOre)} ore обработано</span>
+            </div>
+
+            <div className="offline-stats">
+              <div><span>Idle доход</span><b>$ {formatCompact(offlineReport.incomePerSecond)}/с</b></div>
+              <div><span>Авто-шахты</span><b>{offlineReport.automatedShafts}/3</b></div>
+              <div><span>Засчитано</span><b>{formatAwayTime(offlineReport.creditedSeconds)}</b></div>
+            </div>
+
+            {!offlineReport.fullChainAutomated && (
+              <p className="offline-warning">
+                Полная денежная цепочка не автоматизирована. Для idle-дохода нужны менеджеры хотя бы на одной шахте, Cargo Lift и Logistics Hub.
+              </p>
+            )}
+
+            {offlineReport.capped && (
+              <p className="offline-cap">Лимит автономной работы сейчас — 8 часов. Остальное время не начислялось.</p>
+            )}
+
+            <button type="button" className="offline-collect" onClick={() => setOfflineReport(null)}>
+              ЗАБРАТЬ · $ {formatCompact(offlineReport.rewardCash)}
+            </button>
+          </section>
+        </div>
+      )}
 
       {teamOpen && (
         <div className="team-overlay" role="dialog" aria-modal="true" aria-label="Команда менеджеров">

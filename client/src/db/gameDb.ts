@@ -1,7 +1,9 @@
 import Dexie, { type EntityTable } from 'dexie';
 
+export type SaveSlot = 'primary' | 'backup';
+
 export interface SaveRecord {
-  id: 'primary';
+  id: SaveSlot;
   schemaVersion: number;
   updatedAt: number;
   payload: unknown;

@@ -8,6 +8,7 @@ import type {
   ManagerState,
   ManagerView,
   MineState,
+  OfflineProgressReport,
   PersistentMineState,
   ShaftId,
   ShaftState,
@@ -116,6 +117,55 @@ export class MineSimulation {
       managers,
       totalOreMined: this.state.totalOreMined,
       totalCashEarned: this.state.totalCashEarned,
+    };
+  }
+
+  getOfflineIncomePerSecond(): number {
+    const automatedShafts = this.state.shafts.filter((shaft) => this.state.managers[shaft.id].hired);
+    const shaftThroughput = automatedShafts.reduce((sum, shaft) => {
+      return sum + this.getShaftYield(shaft) / this.getShaftDuration(shaft);
+    }, 0);
+
+    if (shaftThroughput <= EPSILON || !this.state.managers.lift.hired || !this.state.managers.hub.hired) {
+      return 0;
+    }
+
+    const liftThroughput = this.getLiftCapacity(this.state.lift) / this.getLiftDuration(this.state.lift);
+    const hubThroughput = this.getHubCapacity(this.state.hub) / this.getHubDuration(this.state.hub);
+    const effectiveOrePerSecond = Math.min(shaftThroughput, liftThroughput, hubThroughput);
+    return effectiveOrePerSecond * this.state.resourcePrice * STAGE_ONE_BALANCE.idle.incomeMultiplier;
+  }
+
+  applyOfflineProgress(rawSeconds: number): OfflineProgressReport {
+    const safeRawSeconds = Math.max(0, Number.isFinite(rawSeconds) ? rawSeconds : 0);
+    const creditedSeconds = Math.min(safeRawSeconds, STAGE_ONE_BALANCE.idle.maxOfflineSeconds);
+    const incomePerSecond = this.getOfflineIncomePerSecond();
+    const rewardCash = incomePerSecond * creditedSeconds;
+    const processedOre = this.state.resourcePrice > 0 ? rewardCash / this.state.resourcePrice : 0;
+
+    if (rewardCash > 0) {
+      this.state.cash += rewardCash;
+      this.state.totalCashEarned += rewardCash;
+      this.state.totalOreMined += processedOre;
+    }
+
+    // Активные способности не действуют в фоне, но их таймеры и cooldown продолжают идти.
+    for (const id of FACILITY_IDS) {
+      const manager = this.state.managers[id];
+      manager.activeRemaining = Math.max(0, manager.activeRemaining - safeRawSeconds);
+      manager.cooldownRemaining = Math.max(0, manager.cooldownRemaining - safeRawSeconds);
+    }
+
+    const automatedShafts = this.state.shafts.filter((shaft) => this.state.managers[shaft.id].hired).length;
+    return {
+      rawSeconds: safeRawSeconds,
+      creditedSeconds,
+      rewardCash,
+      processedOre,
+      incomePerSecond,
+      capped: safeRawSeconds > creditedSeconds + EPSILON,
+      fullChainAutomated: automatedShafts > 0 && this.state.managers.lift.hired && this.state.managers.hub.hired,
+      automatedShafts,
     };
   }
 

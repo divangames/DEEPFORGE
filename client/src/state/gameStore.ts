@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { QualityTier } from '../core/device';
 import { detectQualityTier } from '../core/device';
-import type { FacilityId, FacilityStats, ManagerView, MineState } from '../game/core/types';
+import type { FacilityId, FacilityStats, ManagerView, MineState, OfflineProgressReport } from '../game/core/types';
 
 interface GameState {
   quality: QualityTier;
@@ -12,8 +12,10 @@ interface GameState {
   selectedManager: ManagerView | null;
   managerRoster: ManagerView[];
   canUpgradeSelected: boolean;
+  offlineReport: OfflineProgressReport | null;
   setApiOnline: (online: boolean) => void;
   setQuality: (quality: QualityTier) => void;
+  setOfflineReport: (report: OfflineProgressReport | null) => void;
   syncSimulation: (
     simulation: MineState,
     selectedFacility: FacilityId,
@@ -33,8 +35,10 @@ export const useGameStore = create<GameState>((set) => ({
   selectedManager: null,
   managerRoster: [],
   canUpgradeSelected: false,
+  offlineReport: null,
   setApiOnline: (apiOnline) => set({ apiOnline }),
   setQuality: (quality) => set({ quality }),
+  setOfflineReport: (offlineReport) => set({ offlineReport }),
   syncSimulation: (
     simulation,
     selectedFacility,
