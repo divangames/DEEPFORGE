@@ -1,3 +1,4 @@
+export type MineId = 'rust-01' | 'rust-02' | 'rust-03' | 'rust-04' | 'rust-05';
 export type ShaftId = `shaft-${number}`;
 export type FacilityId = ShaftId | 'lift' | 'hub';
 export type TaskKind = 'mining' | 'lift' | 'hub';
@@ -82,6 +83,13 @@ export interface PersistentMineState {
   totalCashEarned: number;
 }
 
+export interface PersistentWorldState {
+  activeMineId: MineId;
+  unlockedMines: MineId[];
+  mines: Partial<Record<MineId, PersistentMineState>>;
+  lastSimulatedAt: Partial<Record<MineId, number>>;
+}
+
 export interface OfflineProgressReport {
   rawSeconds: number;
   creditedSeconds: number;
@@ -91,6 +99,30 @@ export interface OfflineProgressReport {
   capped: boolean;
   fullChainAutomated: boolean;
   automatedShafts: number;
+  operatingMines?: number;
+  unlockedMines?: number;
+}
+
+export interface WorldMineView {
+  id: MineId;
+  code: string;
+  name: string;
+  resourceName: string;
+  description: string;
+  unlocked: boolean;
+  active: boolean;
+  canUnlock: boolean;
+  unlockEarnedRequired: number;
+  previousMineName: string | null;
+  previousMineEarned: number;
+  cash: number;
+  totalCashEarned: number;
+  incomePerSecond: number;
+  unlockedDecks: number;
+  mapX: number;
+  mapY: number;
+  accent: string;
+  accentSoft: string;
 }
 
 export interface MilestoneView {

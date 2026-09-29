@@ -13,6 +13,7 @@ import {
   STAGE_ONE_BALANCE,
 } from './balance';
 import { formatCompact } from './format';
+import { DEFAULT_MINE_TUNING, type MineTuning } from './worldConfig';
 import type {
   BarrierView,
   BottleneckKind,
@@ -60,8 +61,10 @@ function cloneState(state: MineState): MineState {
 
 export class MineSimulation {
   private state: MineState;
+  private tuning: MineTuning;
 
-  constructor(persisted?: PersistentMineState | null) {
+  constructor(persisted?: PersistentMineState | null, tuning: MineTuning = DEFAULT_MINE_TUNING) {
+    this.tuning = tuning;
     const legacyUnlocked = new Set<ShaftId>();
     if (persisted?.unlockedShafts?.length) {
       persisted.unlockedShafts.forEach((id) => legacyUnlocked.add(id));
@@ -81,8 +84,8 @@ export class MineSimulation {
         depth: config.depth,
         level: Math.max(1, persisted?.shaftLevels?.[id] ?? 1),
         buffer: Math.max(0, persisted?.shaftBuffers?.[id] ?? 0),
-        baseYield: config.baseYield,
-        baseDuration: config.baseDuration,
+        baseYield: config.baseYield * this.tuning.yieldMultiplier,
+        baseDuration: config.baseDuration * this.tuning.durationMultiplier,
         unlocked: legacyUnlocked.has(id),
         task: null,
       };
@@ -107,7 +110,7 @@ export class MineSimulation {
     this.state = {
       cash: Math.max(0, persisted?.cash ?? 0),
       surfaceBuffer: Math.max(0, persisted?.surfaceBuffer ?? 0),
-      resourcePrice: STAGE_ONE_BALANCE.resourcePrice,
+      resourcePrice: this.tuning.resourcePrice,
       shafts,
       lift: {
         level: Math.max(1, persisted?.liftLevel ?? 1),
@@ -644,7 +647,7 @@ export class MineSimulation {
   getLiftCapacity(lift: LiftState): number {
     const levelMultiplier = 1 + STAGE_ONE_BALANCE.upgrades.liftCapacityPerLevel * (lift.level - 1);
     return Math.max(1, Math.floor(
-      STAGE_ONE_BALANCE.lift.baseCapacity * levelMultiplier * this.getMilestoneMultiplier(lift.level) * this.getPassiveMultiplier('lift'),
+      STAGE_ONE_BALANCE.lift.baseCapacity * this.tuning.liftCapacityMultiplier * levelMultiplier * this.getMilestoneMultiplier(lift.level) * this.getPassiveMultiplier('lift'),
     ));
   }
 
@@ -655,7 +658,7 @@ export class MineSimulation {
   getHubCapacity(hub: HubState): number {
     const levelMultiplier = 1 + STAGE_ONE_BALANCE.upgrades.hubCapacityPerLevel * (hub.level - 1);
     return Math.max(1, Math.floor(
-      STAGE_ONE_BALANCE.hub.baseCapacity * levelMultiplier * this.getMilestoneMultiplier(hub.level) * this.getPassiveMultiplier('hub'),
+      STAGE_ONE_BALANCE.hub.baseCapacity * this.tuning.hubCapacityMultiplier * levelMultiplier * this.getMilestoneMultiplier(hub.level) * this.getPassiveMultiplier('hub'),
     ));
   }
 

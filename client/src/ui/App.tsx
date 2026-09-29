@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getApiHealth } from '../services/api';
 import { formatCompact } from '../game/core/format';
-import type { BulkUpgradeMode, BulkUpgradeQuote, FacilityId, ManagerView } from '../game/core/types';
+import type { BulkUpgradeMode, BulkUpgradeQuote, FacilityId, ManagerView, MineId, WorldMineView } from '../game/core/types';
 import { sendGameCommand } from '../game/runtime/gameRuntime';
 import { useGameStore } from '../state/gameStore';
 import { GameCanvas } from './GameCanvas';
@@ -45,12 +45,119 @@ function quoteLabel(quote: BulkUpgradeQuote | null, mode: BulkUpgradeMode) {
   return `×${mode}`;
 }
 
+function WorldMap({
+  mines,
+  selectedId,
+  onSelect,
+  onClose,
+}: {
+  mines: WorldMineView[];
+  selectedId: MineId;
+  onSelect: (id: MineId) => void;
+  onClose: () => void;
+}) {
+  const selected = mines.find((mine) => mine.id === selectedId) ?? mines[0];
+  const unlockedCount = mines.filter((mine) => mine.unlocked).length;
+  const points = mines.map((mine) => `${mine.mapX},${mine.mapY}`).join(' ');
+  const progress = selected && !selected.unlocked && selected.unlockEarnedRequired > 0
+    ? Math.min(100, (selected.previousMineEarned / selected.unlockEarnedRequired) * 100)
+    : 100;
+
+  return (
+    <div className="world-map-overlay" role="dialog" aria-modal="true" aria-label="Карта Rust Valley">
+      <header className="world-map-header">
+        <div>
+          <span>SECTOR 01 · RUST VALLEY</span>
+          <strong>Карта добывающих объектов</strong>
+          <small>{unlockedCount}/{mines.length} объектов открыто</small>
+        </div>
+        <button type="button" onClick={onClose}>✕</button>
+      </header>
+
+      <div className="world-map-layout">
+        <section className="world-map-canvas" aria-label="Маршрут Rust Valley">
+          <div className="map-haze map-haze-a" />
+          <div className="map-haze map-haze-b" />
+          <svg className="world-route" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <polyline points={points} />
+          </svg>
+          <div className="map-sector-label"><b>RUST VALLEY</b><span>INDUSTRIAL FRONTIER · 5 SITES</span></div>
+          {mines.map((mine, index) => (
+            <button
+              key={mine.id}
+              type="button"
+              className={`world-node ${mine.unlocked ? 'unlocked' : 'locked'} ${mine.active ? 'current' : ''} ${selectedId === mine.id ? 'selected' : ''}`}
+              style={{ left: `${mine.mapX}%`, top: `${mine.mapY}%`, '--mine-accent': mine.accent, '--mine-soft': mine.accentSoft } as React.CSSProperties}
+              onClick={() => onSelect(mine.id)}
+            >
+              <span className="node-index">{String(index + 1).padStart(2, '0')}</span>
+              <span className="node-core">{mine.unlocked ? (mine.active ? '◆' : '◇') : '×'}</span>
+              <span className="node-label"><b>{mine.code}</b><small>{mine.name}</small></span>
+            </button>
+          ))}
+          <div className="map-legend"><span>◆ текущий</span><span>◇ открыт</span><span>× закрыт</span></div>
+        </section>
+
+        {selected && (
+          <aside className="world-map-info" style={{ '--mine-accent': selected.accent, '--mine-soft': selected.accentSoft } as React.CSSProperties}>
+            <div className="map-info-kicker"><span>{selected.code}</span><em>{selected.active ? 'ТЕКУЩИЙ ОБЪЕКТ' : selected.unlocked ? 'ОТКРЫТ' : 'ЗАКРЫТ'}</em></div>
+            <h2>{selected.name}</h2>
+            <p>{selected.description}</p>
+            <div className="map-resource"><span>РЕСУРС</span><b>{selected.resourceName}</b></div>
+            <div className="map-stats-grid">
+              <div><span>Касса</span><b>$ {formatCompact(selected.cash)}</b></div>
+              <div><span>Доход</span><b>$ {formatCompact(selected.incomePerSecond)}/с</b></div>
+              <div><span>Deck</span><b>{selected.unlockedDecks}/30</b></div>
+              <div><span>Всего</span><b>$ {formatCompact(selected.totalCashEarned)}</b></div>
+            </div>
+
+            {!selected.unlocked && (
+              <div className="map-unlock-progress">
+                <div><span>Условие открытия</span><b>{selected.previousMineName ?? '—'}</b></div>
+                <div className="map-progress-track"><i style={{ width: `${progress}%` }} /></div>
+                <small>$ {formatCompact(selected.previousMineEarned)} / $ {formatCompact(selected.unlockEarnedRequired)} заработано</small>
+              </div>
+            )}
+
+            {selected.unlocked ? (
+              <button
+                type="button"
+                className="map-primary-action"
+                disabled={selected.active}
+                onClick={() => {
+                  sendGameCommand({ type: 'OPEN_MINE', mineId: selected.id });
+                  onClose();
+                }}
+              >
+                {selected.active ? 'ВЫ УЖЕ ЗДЕСЬ' : 'ПЕРЕЙТИ НА ОБЪЕКТ'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="map-primary-action"
+                disabled={!selected.canUnlock}
+                onClick={() => sendGameCommand({ type: 'UNLOCK_MINE', mineId: selected.id })}
+              >
+                {selected.canUnlock ? 'ОТКРЫТЬ ОБЪЕКТ' : 'ТРЕБОВАНИЕ НЕ ВЫПОЛНЕНО'}
+              </button>
+            )}
+          </aside>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function App() {
   const [teamOpen, setTeamOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [mapSelection, setMapSelection] = useState<MineId>('rust-01');
   const [bulkMode, setBulkMode] = useState<BulkUpgradeMode>(1);
   const quality = useGameStore((state) => state.quality);
   const apiOnline = useGameStore((state) => state.apiOnline);
   const simulation = useGameStore((state) => state.simulation);
+  const activeMineId = useGameStore((state) => state.activeMineId);
+  const worldMines = useGameStore((state) => state.worldMines);
   const selectedFacility = useGameStore((state) => state.selectedFacility);
   const selectedStats = useGameStore((state) => state.selectedStats);
   const selectedManager = useGameStore((state) => state.selectedManager);
@@ -86,6 +193,7 @@ export function App() {
       : bulkMode === 25
         ? selectedBulkQuotes?.x25
         : selectedBulkQuotes?.max;
+  const activeMine = worldMines.find((mine) => mine.id === activeMineId);
 
   return (
     <main className="app-shell">
@@ -94,7 +202,7 @@ export function App() {
           <span className="brand-mark">DF</span>
           <div className="brand-copy">
             <strong>DEEPFORGE</strong>
-            <span>RUST VALLEY · MINE 01</span>
+            <span>RUST VALLEY · {activeMine?.code ?? 'RV-01'} · {activeMine?.name ?? 'Scrapline Quarry'}</span>
           </div>
         </div>
         <div className="topbar-meta">
@@ -150,7 +258,7 @@ export function App() {
         )}
 
         <div className="stage-badge">
-          <strong>STAGE 4</strong>
+          <strong>STAGE 5</strong>
           <span>{quality}</span>
           <span className={apiOnline ? 'ok' : 'muted'}>{apiOnline ? 'API' : 'LOCAL'}</span>
         </div>
@@ -276,11 +384,20 @@ export function App() {
       </section>
 
       <nav className="bottom-nav" aria-label="Главная навигация">
-        <button type="button" className={!teamOpen ? 'active' : ''} onClick={() => setTeamOpen(false)}><span>◆</span>Объект</button>
-        <button type="button" disabled><span>⌖</span>Карта</button>
-        <button type="button" className={teamOpen ? 'active' : ''} onClick={() => setTeamOpen(true)}><span>♟</span>Команда</button>
+        <button type="button" className={!teamOpen && !mapOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setMapOpen(false); }}><span>◆</span>Объект</button>
+        <button type="button" className={mapOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setMapSelection(activeMineId); setMapOpen(true); }}><span>⌖</span>Карта</button>
+        <button type="button" className={teamOpen ? 'active' : ''} onClick={() => { setMapOpen(false); setTeamOpen(true); }}><span>♟</span>Команда</button>
         <button type="button" disabled><span>•••</span>Ещё</button>
       </nav>
+
+      {mapOpen && (
+        <WorldMap
+          mines={worldMines}
+          selectedId={mapSelection}
+          onSelect={setMapSelection}
+          onClose={() => setMapOpen(false)}
+        />
+      )}
 
       {offlineReport && (
         <div className="offline-overlay" role="dialog" aria-modal="true" aria-label="Доход за время отсутствия">
@@ -297,11 +414,11 @@ export function App() {
             </div>
             <div className="offline-stats">
               <div><span>Idle доход</span><b>$ {formatCompact(offlineReport.incomePerSecond)}/с</b></div>
-              <div><span>Авто-шахты</span><b>{offlineReport.automatedShafts}/{unlockedShafts}</b></div>
+              <div><span>Работало объектов</span><b>{offlineReport.operatingMines ?? (offlineReport.fullChainAutomated ? 1 : 0)}/{offlineReport.unlockedMines ?? 1}</b></div>
               <div><span>Засчитано</span><b>{formatAwayTime(offlineReport.creditedSeconds)}</b></div>
             </div>
             {!offlineReport.fullChainAutomated && (
-              <p className="offline-warning">Для idle-дохода нужны менеджеры хотя бы на одном открытом Deck, Cargo Lift и Logistics Hub.</p>
+              <p className="offline-warning">Для фонового дохода объекту нужны менеджеры хотя бы на одном Deck, Cargo Lift и Logistics Hub.</p>
             )}
             {offlineReport.capped && <p className="offline-cap">Лимит автономной работы сейчас — 8 часов.</p>}
             <button type="button" className="offline-collect" onClick={() => setOfflineReport(null)}>

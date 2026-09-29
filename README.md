@@ -1,21 +1,26 @@
 # DEEPFORGE: Idle Empire
 
-Browser-first idle / tycoon game. Текущая версия: **Stage 4 — Full Mine**.
+Browser-first idle / tycoon game. Текущая версия: **Stage 5 — World Map / Rust Valley**.
 
 ## Уже работает
 
-- 30 добывающих Deck;
+- интерактивная карта Rust Valley;
+- 5 независимых добывающих объектов;
+- переход между шахтами без потери прогресса;
+- фоновая работа автоматизированных неактивных шахт;
+- разные ресурсы и экономические коэффициенты объектов;
+- 30 добывающих Deck на каждом объекте;
 - ручная и автоматическая добыча;
 - Cargo Lift и Logistics Hub;
 - regular Managers и активные способности;
 - offline income до 8 часов;
 - primary + backup save в IndexedDB;
-- последовательное открытие уровней;
+- последовательное открытие Deck;
 - барьеры между секциями шахты;
 - bulk upgrades ×1 / ×10 / ×25 / MAX;
 - milestones производительности;
 - bottleneck-индикатор;
-- мобильный свайп и desktop wheel по шахте;
+- mobile swipe / desktop wheel;
 - PWA;
 - GitHub Pages deployment.
 
@@ -29,7 +34,7 @@ dev.bat
 
 API: `http://localhost:3001/api/health`
 
-## Проверка production build
+## Production check
 
 ```bat
 build.bat
@@ -38,10 +43,10 @@ build.bat
 ## Публикация
 
 ```bat
-publish.bat "feat: stage 4 full mine progression"
+publish.bat "feat: stage 5 rust valley world map"
 ```
 
-`publish.bat` выполняет синхронизацию с `origin/main`, typecheck, tests, production build, commit и push. После push GitHub Actions обновляет GitHub Pages.
+`publish.bat` синхронизируется с `origin/main`, запускает typecheck, tests, production build, создаёт commit и делает push. GitHub Actions затем обновляет Pages.
 
 Публичная версия:
 
@@ -54,3 +59,4 @@ publish.bat "feat: stage 4 full mine progression"
 - `docs/STAGE_2.md`
 - `docs/STAGE_3.md`
 - `docs/STAGE_4.md`
+- `docs/STAGE_5.md`

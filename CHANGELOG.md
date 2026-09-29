@@ -101,3 +101,24 @@
 - Панель объекта различает unlocked / accessible / sealed уровни.
 - Team roster показывает менеджеров только открытых звеньев.
 - Stage badge обновлён до Stage 4.
+
+## Stage 5 — World Map / Rust Valley
+
+### Added
+- Full-screen Rust Valley world map.
+- Five independent mine sites with their own progress and save state.
+- Sequential site unlock progression.
+- Per-mine resources, prices and production/logistics tuning.
+- Background idle progression for inactive automated mines.
+- Per-mine `lastSimulatedAt` timestamps.
+- World map site cards with cash, income/s, Deck count and lifetime earnings.
+- Mobile map layout and desktop side information panel.
+- `worldConfig.ts` data-driven mine definitions.
+- Save schema v3 and automatic single-mine save migration.
+- Stage 5 world configuration and migration tests.
+
+### Changed
+- Top bar now displays the active Rust Valley site.
+- Offline summary can aggregate multiple operating mines.
+- Phaser environment receives a temporary theme per site.
+- Stage badge updated to Stage 5.

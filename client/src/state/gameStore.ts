@@ -8,14 +8,18 @@ import type {
   FacilityId,
   FacilityStats,
   ManagerView,
+  MineId,
   MineState,
   OfflineProgressReport,
+  WorldMineView,
 } from '../game/core/types';
 
 interface GameState {
   quality: QualityTier;
   apiOnline: boolean | null;
   simulation: MineState | null;
+  activeMineId: MineId;
+  worldMines: WorldMineView[];
   selectedFacility: FacilityId;
   selectedStats: FacilityStats | null;
   selectedManager: ManagerView | null;
@@ -38,6 +42,8 @@ interface GameState {
     selectedBulkQuotes: BulkUpgradeQuotes,
     bottleneck: BottleneckView,
     barrier: BarrierView | null,
+    activeMineId: MineId,
+    worldMines: WorldMineView[],
   ) => void;
 }
 
@@ -45,6 +51,8 @@ export const useGameStore = create<GameState>((set) => ({
   quality: detectQualityTier(),
   apiOnline: null,
   simulation: null,
+  activeMineId: 'rust-01',
+  worldMines: [],
   selectedFacility: 'shaft-1',
   selectedStats: null,
   selectedManager: null,
@@ -67,6 +75,8 @@ export const useGameStore = create<GameState>((set) => ({
     selectedBulkQuotes,
     bottleneck,
     barrier,
+    activeMineId,
+    worldMines,
   ) => set({
     simulation,
     selectedFacility,
@@ -77,5 +87,7 @@ export const useGameStore = create<GameState>((set) => ({
     selectedBulkQuotes,
     bottleneck,
     barrier,
+    activeMineId,
+    worldMines,
   }),
 }));

@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
-import { loadStageOneState, saveStageOneState } from '../../db/saveRepository';
+import { loadGameState, saveGameState } from '../../db/saveRepository';
 import { useGameStore } from '../../state/gameStore';
 import { makeShaftId, SHAFT_COUNT, SHAFTS_PER_BARRIER, STAGE_ONE_BALANCE } from '../core/balance';
 import { formatCompact } from '../core/format';
 import { MineSimulation } from '../core/MineSimulation';
-import type { FacilityId, ShaftId } from '../core/types';
+import type { FacilityId, MineId, OfflineProgressReport, PersistentMineState, ShaftId, WorldMineView } from '../core/types';
+import { DEFAULT_MINE_ID, getMineDefinition, RUST_VALLEY_MINES } from '../core/worldConfig';
 import { onGameCommand, type GameCommand } from '../runtime/gameRuntime';
 
 interface ShaftVisual {
@@ -31,7 +32,11 @@ interface BarrierVisual {
 }
 
 export class FoundationScene extends Phaser.Scene {
-  private simulation = new MineSimulation();
+  private activeMineId: MineId = DEFAULT_MINE_ID;
+  private unlockedMines = new Set<MineId>([DEFAULT_MINE_ID]);
+  private mineStates: Partial<Record<MineId, PersistentMineState>> = {};
+  private lastSimulatedAt: Partial<Record<MineId, number>> = {};
+  private simulation = new MineSimulation(undefined, getMineDefinition(DEFAULT_MINE_ID).tuning);
   private selectedFacility: FacilityId = 'shaft-1';
   private shaftVisuals = new Map<ShaftId, ShaftVisual>();
   private barrierVisuals = new Map<number, BarrierVisual>();
@@ -61,6 +66,8 @@ export class FoundationScene extends Phaser.Scene {
   private dragStartY = 0;
   private dragStartScrollY = 0;
   private dragging = false;
+  private worldViewsCache: WorldMineView[] = [];
+  private worldViewsCacheAt = 0;
   private beforeUnloadHandler = () => { void this.persist(); };
   private visibilityHandler = () => { void this.handleVisibilityChange(); };
 
@@ -333,7 +340,179 @@ export class FoundationScene extends Phaser.Scene {
       case 'SELECT':
         this.selectFacility(command.facilityId, true);
         break;
+      case 'OPEN_MINE':
+        void this.openMine(command.mineId);
+        break;
+      case 'UNLOCK_MINE':
+        this.unlockMine(command.mineId);
+        break;
     }
+  }
+
+  private getPersistentMine(id: MineId): PersistentMineState {
+    if (id === this.activeMineId) return this.simulation.serialize();
+    return this.mineStates[id] ?? new MineSimulation(undefined, getMineDefinition(id).tuning).serialize();
+  }
+
+  private canUnlockMine(id: MineId): boolean {
+    const definition = getMineDefinition(id);
+    if (this.unlockedMines.has(id)) return false;
+    if (!definition.previousMineId || !this.unlockedMines.has(definition.previousMineId)) return false;
+    const previous = this.getPersistentMine(definition.previousMineId);
+    return previous.totalCashEarned + 0.0001 >= definition.unlockEarnedRequired;
+  }
+
+  private unlockMine(id: MineId) {
+    if (!this.canUnlockMine(id)) return;
+    const now = Date.now();
+    this.unlockedMines.add(id);
+    this.worldViewsCacheAt = 0;
+    this.mineStates[id] = new MineSimulation(undefined, getMineDefinition(id).tuning).serialize();
+    this.lastSimulatedAt[id] = now;
+    this.syncUi();
+    void this.persist();
+  }
+
+  private openMine(id: MineId) {
+    if (!this.unlockedMines.has(id)) return;
+    const now = Date.now();
+
+    // Фиксируем текущий объект в его собственном save перед переключением.
+    this.mineStates[this.activeMineId] = this.simulation.serialize();
+    this.lastSimulatedAt[this.activeMineId] = now;
+
+    const definition = getMineDefinition(id);
+    const target = new MineSimulation(this.mineStates[id], definition.tuning);
+    const lastAt = this.lastSimulatedAt[id] ?? now;
+    const rawSeconds = Math.max(0, (now - lastAt) / 1000);
+    const report = rawSeconds > 0 ? target.applyOfflineProgress(rawSeconds) : null;
+
+    this.activeMineId = id;
+    this.worldViewsCacheAt = 0;
+    this.simulation = target;
+    this.mineStates[id] = target.serialize();
+    this.lastSimulatedAt[id] = now;
+    this.selectedFacility = 'shaft-1';
+    this.applyMineTheme();
+    this.setCameraScroll(0);
+    this.syncUi();
+    this.renderSimulation();
+
+    if (report && rawSeconds >= STAGE_ONE_BALANCE.idle.minimumReportSeconds) {
+      useGameStore.getState().setOfflineReport({ ...report, operatingMines: report.rewardCash > 0 ? 1 : 0, unlockedMines: this.unlockedMines.size });
+    }
+    void this.persist();
+  }
+
+  private applyMineTheme() {
+    const definition = getMineDefinition(this.activeMineId);
+    this.mine?.setFillStyle(definition.theme.mine, 1);
+    this.surface?.setFillStyle(definition.theme.surface, 1);
+    this.hint?.setText(`${definition.code} · ${definition.name.toUpperCase()} · ${definition.resourceName.toUpperCase()}`);
+  }
+
+  private getWorldMineViews(): WorldMineView[] {
+    const now = Date.now();
+    if (this.worldViewsCache.length && now - this.worldViewsCacheAt < 500) return this.worldViewsCache;
+
+    const views = RUST_VALLEY_MINES.map((definition) => {
+      const unlocked = this.unlockedMines.has(definition.id);
+      const state = unlocked ? this.getPersistentMine(definition.id) : null;
+      const sim = state ? new MineSimulation(state, definition.tuning) : null;
+      const previousState = definition.previousMineId ? this.getPersistentMine(definition.previousMineId) : null;
+      const previousDefinition = definition.previousMineId ? getMineDefinition(definition.previousMineId) : null;
+      return {
+        id: definition.id,
+        code: definition.code,
+        name: definition.name,
+        resourceName: definition.resourceName,
+        description: definition.description,
+        unlocked,
+        active: definition.id === this.activeMineId,
+        canUnlock: this.canUnlockMine(definition.id),
+        unlockEarnedRequired: definition.unlockEarnedRequired,
+        previousMineName: previousDefinition?.name ?? null,
+        previousMineEarned: previousState?.totalCashEarned ?? 0,
+        cash: state?.cash ?? 0,
+        totalCashEarned: state?.totalCashEarned ?? 0,
+        incomePerSecond: sim?.getOfflineIncomePerSecond() ?? 0,
+        unlockedDecks: sim?.getUnlockedShaftCount() ?? 0,
+        mapX: definition.mapX,
+        mapY: definition.mapY,
+        accent: definition.theme.accent,
+        accentSoft: definition.theme.accentSoft,
+      };
+    });
+    this.worldViewsCache = views;
+    this.worldViewsCacheAt = now;
+    return views;
+  }
+
+  private advanceInactiveMines(now: number) {
+    for (const id of this.unlockedMines) {
+      if (id === this.activeMineId) continue;
+      const definition = getMineDefinition(id);
+      const state = this.mineStates[id] ?? new MineSimulation(undefined, definition.tuning).serialize();
+      const sim = new MineSimulation(state, definition.tuning);
+      const lastAt = this.lastSimulatedAt[id] ?? now;
+      const rawSeconds = Math.max(0, (now - lastAt) / 1000);
+      if (rawSeconds > 0) sim.applyOfflineProgress(rawSeconds);
+      this.mineStates[id] = sim.serialize();
+      this.lastSimulatedAt[id] = now;
+    }
+    this.worldViewsCacheAt = 0;
+  }
+
+  private applyBackgroundProgress(now: number): OfflineProgressReport | null {
+    let rewardCash = 0;
+    let processedOre = 0;
+    let incomePerSecond = 0;
+    let automatedShafts = 0;
+    let operatingMines = 0;
+    let maxRawSeconds = 0;
+    let maxCreditedSeconds = 0;
+    let capped = false;
+
+    // Сначала записываем текущее состояние активной шахты, не меняя её timestamp.
+    this.mineStates[this.activeMineId] = this.simulation.serialize();
+
+    for (const id of this.unlockedMines) {
+      const definition = getMineDefinition(id);
+      const state = this.mineStates[id] ?? new MineSimulation(undefined, definition.tuning).serialize();
+      const sim = new MineSimulation(state, definition.tuning);
+      const lastAt = this.lastSimulatedAt[id] ?? now;
+      const rawSeconds = Math.max(0, (now - lastAt) / 1000);
+      const report = sim.applyOfflineProgress(rawSeconds);
+
+      this.mineStates[id] = sim.serialize();
+      this.lastSimulatedAt[id] = now;
+      rewardCash += report.rewardCash;
+      processedOre += report.processedOre;
+      incomePerSecond += report.incomePerSecond;
+      automatedShafts += report.automatedShafts;
+      if (report.rewardCash > 0) operatingMines += 1;
+      maxRawSeconds = Math.max(maxRawSeconds, report.rawSeconds);
+      maxCreditedSeconds = Math.max(maxCreditedSeconds, report.creditedSeconds);
+      capped ||= report.capped;
+    }
+
+    const activeDefinition = getMineDefinition(this.activeMineId);
+    this.simulation = new MineSimulation(this.mineStates[this.activeMineId], activeDefinition.tuning);
+    this.worldViewsCacheAt = 0;
+
+    if (maxRawSeconds <= 0) return null;
+    return {
+      rawSeconds: maxRawSeconds,
+      creditedSeconds: maxCreditedSeconds,
+      rewardCash,
+      processedOre,
+      incomePerSecond,
+      capped,
+      fullChainAutomated: operatingMines > 0,
+      automatedShafts,
+      operatingMines,
+      unlockedMines: this.unlockedMines.size,
+    };
   }
 
   private selectFacility(id: FacilityId, scrollIntoView = false) {
@@ -562,35 +741,59 @@ export class FoundationScene extends Phaser.Scene {
       this.simulation.getBulkUpgradeQuotes(this.selectedFacility),
       this.simulation.getBottleneckView(),
       this.simulation.getCurrentBarrierView(),
+      this.activeMineId,
+      this.getWorldMineViews(),
     );
   }
 
+  private initializeFreshWorld(now = Date.now()) {
+    this.activeMineId = DEFAULT_MINE_ID;
+    this.unlockedMines = new Set<MineId>([DEFAULT_MINE_ID]);
+    const definition = getMineDefinition(DEFAULT_MINE_ID);
+    this.simulation = new MineSimulation(undefined, definition.tuning);
+    this.mineStates = { [DEFAULT_MINE_ID]: this.simulation.serialize() };
+    this.lastSimulatedAt = { [DEFAULT_MINE_ID]: now };
+  }
+
   private async restore() {
+    const now = Date.now();
     try {
-      const save = await loadStageOneState();
+      const save = await loadGameState();
       if (save) {
-        const now = Date.now();
         this.saveCreatedAt = save.createdAt;
-        this.simulation = new MineSimulation(save.mine);
-        this.applyOfflineFrom(save.lastSeenAt, now);
-        this.syncUi();
-        this.renderSimulation();
+        useGameStore.getState().setQuality(save.settings.quality);
+
+        const knownIds = new Set(RUST_VALLEY_MINES.map((mine) => mine.id));
+        const unlocked = save.world.unlockedMines.filter((id) => knownIds.has(id));
+        this.unlockedMines = new Set<MineId>(unlocked.length ? unlocked : [DEFAULT_MINE_ID]);
+        this.activeMineId = this.unlockedMines.has(save.world.activeMineId)
+          ? save.world.activeMineId
+          : [...this.unlockedMines][0] ?? DEFAULT_MINE_ID;
+        this.mineStates = { ...save.world.mines };
+        this.lastSimulatedAt = { ...save.world.lastSimulatedAt };
+
+        for (const id of this.unlockedMines) {
+          if (!this.mineStates[id]) this.mineStates[id] = new MineSimulation(undefined, getMineDefinition(id).tuning).serialize();
+          if (!this.lastSimulatedAt[id]) this.lastSimulatedAt[id] = save.lastSeenAt;
+        }
+
+        this.simulation = new MineSimulation(this.mineStates[this.activeMineId], getMineDefinition(this.activeMineId).tuning);
+        const report = this.applyBackgroundProgress(now);
+        if (report && report.rawSeconds >= STAGE_ONE_BALANCE.idle.minimumReportSeconds) {
+          useGameStore.getState().setOfflineReport(report);
+        }
+      } else {
+        this.initializeFreshWorld(now);
       }
     } catch {
       // Даже повреждённый локальный save не должен блокировать новую игру.
+      this.initializeFreshWorld(now);
     } finally {
+      this.applyMineTheme();
+      this.syncUi();
+      this.renderSimulation();
       this.persistenceReady = true;
       await this.persist();
-    }
-  }
-
-  private applyOfflineFrom(lastSeenAt: number, now = Date.now()) {
-    const rawSeconds = Math.max(0, (now - lastSeenAt) / 1000);
-    if (rawSeconds <= 0) return;
-
-    const report = this.simulation.applyOfflineProgress(rawSeconds);
-    if (rawSeconds >= STAGE_ONE_BALANCE.idle.minimumReportSeconds) {
-      useGameStore.getState().setOfflineReport(report);
     }
   }
 
@@ -603,8 +806,12 @@ export class FoundationScene extends Phaser.Scene {
 
     if (this.hiddenAt !== null) {
       const resumedAt = Date.now();
-      this.applyOfflineFrom(this.hiddenAt, resumedAt);
+      const report = this.applyBackgroundProgress(resumedAt);
+      if (report && report.rawSeconds >= STAGE_ONE_BALANCE.idle.minimumReportSeconds) {
+        useGameStore.getState().setOfflineReport(report);
+      }
       this.hiddenAt = null;
+      this.applyMineTheme();
       this.syncUi();
       this.renderSimulation();
       await this.persist();
@@ -615,11 +822,22 @@ export class FoundationScene extends Phaser.Scene {
     if (!this.persistenceReady) return;
 
     try {
-      await saveStageOneState({
+      const now = this.hiddenAt ?? Date.now();
+      // Пока игрок находится на одном объекте, остальные автоматизированные шахты
+      // получают фоновый доход каждые 5 секунд вместе с autosave.
+      this.advanceInactiveMines(now);
+      this.mineStates[this.activeMineId] = this.simulation.serialize();
+      this.lastSimulatedAt[this.activeMineId] = now;
+      await saveGameState({
         createdAt: this.saveCreatedAt,
-        lastSeenAt: this.hiddenAt ?? Date.now(),
+        lastSeenAt: now,
         settings: { quality: useGameStore.getState().quality },
-        mine: this.simulation.serialize(),
+        world: {
+          activeMineId: this.activeMineId,
+          unlockedMines: [...this.unlockedMines],
+          mines: { ...this.mineStates },
+          lastSimulatedAt: { ...this.lastSimulatedAt },
+        },
       });
     } catch {
       // Основной слот сохраняется с backup; при ошибке игра продолжает работать.
