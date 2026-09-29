@@ -11,6 +11,7 @@ import type {
   MineId,
   MineState,
   OfflineProgressReport,
+  RebuildView,
   SectorId,
   WorldMineView,
   WorldSectorView,
@@ -31,6 +32,7 @@ interface GameState {
   selectedBulkQuotes: BulkUpgradeQuotes | null;
   bottleneck: BottleneckView | null;
   barrier: BarrierView | null;
+  rebuild: RebuildView | null;
   canUpgradeSelected: boolean;
   offlineReport: OfflineProgressReport | null;
   setApiOnline: (online: boolean) => void;
@@ -46,6 +48,7 @@ interface GameState {
     selectedBulkQuotes: BulkUpgradeQuotes,
     bottleneck: BottleneckView,
     barrier: BarrierView | null,
+    rebuild: RebuildView,
     activeMineId: MineId,
     activeSectorId: SectorId,
     worldMines: WorldMineView[],
@@ -68,6 +71,7 @@ export const useGameStore = create<GameState>((set) => ({
   selectedBulkQuotes: null,
   bottleneck: null,
   barrier: null,
+  rebuild: null,
   canUpgradeSelected: false,
   offlineReport: null,
   setApiOnline: (apiOnline) => set({ apiOnline }),
@@ -83,6 +87,7 @@ export const useGameStore = create<GameState>((set) => ({
     selectedBulkQuotes,
     bottleneck,
     barrier,
+    rebuild,
     activeMineId,
     activeSectorId,
     worldMines,
@@ -97,6 +102,7 @@ export const useGameStore = create<GameState>((set) => ({
     selectedBulkQuotes,
     bottleneck,
     barrier,
+    rebuild,
     activeMineId,
     activeSectorId,
     worldMines,

@@ -198,6 +198,7 @@ function WorldMap({
                   <div><span>Доход объекта</span><b>{selectedMine.currencyCode} {formatCompact(selectedMine.incomePerSecond)}/с</b></div>
                   <div><span>Deck</span><b>{selectedMine.unlockedDecks}/30</b></div>
                   <div><span>Lifetime</span><b>{selectedMine.currencyCode} {formatCompact(selectedMine.totalCashEarned)}</b></div>
+                  <div><span>Rebuild</span><b>R{selectedMine.rebuildLevel} · ×{selectedMine.rebuildMultiplier}</b></div>
                 </div>
 
                 {!selectedMine.unlocked && (
@@ -242,6 +243,7 @@ function WorldMap({
 export function App() {
   const [teamOpen, setTeamOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  const [rebuildOpen, setRebuildOpen] = useState(false);
   const [bulkMode, setBulkMode] = useState<BulkUpgradeMode>(1);
   const quality = useGameStore((state) => state.quality);
   const apiOnline = useGameStore((state) => state.apiOnline);
@@ -257,6 +259,7 @@ export function App() {
   const selectedBulkQuotes = useGameStore((state) => state.selectedBulkQuotes);
   const bottleneck = useGameStore((state) => state.bottleneck);
   const barrier = useGameStore((state) => state.barrier);
+  const rebuild = useGameStore((state) => state.rebuild);
   const offlineReport = useGameStore((state) => state.offlineReport);
   const setApiOnline = useGameStore((state) => state.setApiOnline);
   const setOfflineReport = useGameStore((state) => state.setOfflineReport);
@@ -324,6 +327,7 @@ export function App() {
           <span><b>{formatCompact(rawOre)}</b> ORE</span>
           <span><b>{unlockedShafts}/30</b> DECKS</span>
           <span><b>{formatCompact(simulation?.surfaceBuffer ?? 0)}</b> SURFACE</span>
+          <span className="rebuild-status"><b>R{rebuild?.level ?? 0}</b> ×{rebuild?.currentMultiplier ?? 1}</span>
         </div>
 
         {bottleneck && (
@@ -360,7 +364,7 @@ export function App() {
         )}
 
         <div className="stage-badge">
-          <strong>STAGE 6</strong>
+          <strong>STAGE 7</strong>
           <span>{quality}</span>
           <span className={apiOnline ? 'ok' : 'muted'}>{apiOnline ? 'API' : 'LOCAL'}</span>
         </div>
@@ -486,10 +490,10 @@ export function App() {
       </section>
 
       <nav className="bottom-nav" aria-label="Главная навигация">
-        <button type="button" className={!teamOpen && !mapOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setMapOpen(false); }}><span>◆</span>Объект</button>
-        <button type="button" className={mapOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setMapOpen(true); }}><span>⌖</span>Карта</button>
-        <button type="button" className={teamOpen ? 'active' : ''} onClick={() => { setMapOpen(false); setTeamOpen(true); }}><span>♟</span>Команда</button>
-        <button type="button" disabled><span>•••</span>Ещё</button>
+        <button type="button" className={!teamOpen && !mapOpen && !rebuildOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setMapOpen(false); setRebuildOpen(false); }}><span>◆</span>Объект</button>
+        <button type="button" className={mapOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setRebuildOpen(false); setMapOpen(true); }}><span>⌖</span>Карта</button>
+        <button type="button" className={teamOpen ? 'active' : ''} onClick={() => { setMapOpen(false); setRebuildOpen(false); setTeamOpen(true); }}><span>♟</span>Команда</button>
+        <button type="button" className={rebuildOpen ? 'active rebuild-nav' : 'rebuild-nav'} onClick={() => { setMapOpen(false); setTeamOpen(false); setRebuildOpen(true); }}><span>↻</span>Rebuild</button>
       </nav>
 
       {mapOpen && (
@@ -500,6 +504,75 @@ export function App() {
           activeMineId={activeMineId}
           onClose={() => setMapOpen(false)}
         />
+      )}
+
+      {rebuildOpen && rebuild && (
+        <div className="rebuild-overlay" role="dialog" aria-modal="true" aria-label="Rebuild объекта">
+          <button type="button" className="rebuild-backdrop" aria-label="Закрыть" onClick={() => setRebuildOpen(false)} />
+          <section className="rebuild-panel">
+            <header className="rebuild-header">
+              <div>
+                <span>PERMANENT PROGRESSION</span>
+                <strong>Rebuild объекта</strong>
+                <small>{activeMine?.code ?? '—'} · {activeMine?.name ?? 'Mining Site'}</small>
+              </div>
+              <button type="button" onClick={() => setRebuildOpen(false)}>✕</button>
+            </header>
+
+            <div className="rebuild-hero">
+              <div className="rebuild-rank">R{rebuild.level}</div>
+              <div>
+                <span>Текущий постоянный множитель</span>
+                <strong>×{rebuild.currentMultiplier}</strong>
+                <small>{rebuild.maxed ? 'Максимальный уровень Rebuild достигнут' : `После Rebuild: ×${rebuild.nextMultiplier}`}</small>
+              </div>
+            </div>
+
+            {!rebuild.maxed && (
+              <div className="rebuild-requirements">
+                <div className="rebuild-progress-item">
+                  <div><span>Глубина объекта</span><b>{rebuild.unlockedDecks}/{rebuild.requiredDecks} Deck</b></div>
+                  <div className="rebuild-track"><i style={{ width: `${Math.round(rebuild.deckProgress * 100)}%` }} /></div>
+                </div>
+                <div className="rebuild-progress-item">
+                  <div><span>Выручка текущего цикла</span><b>{currencyCode} {formatCompact(rebuild.cycleEarned)} / {formatCompact(rebuild.requiredRevenue)}</b></div>
+                  <div className="rebuild-track"><i style={{ width: `${Math.round(rebuild.revenueProgress * 100)}%` }} /></div>
+                </div>
+              </div>
+            )}
+
+            <div className="rebuild-columns">
+              <div className="rebuild-loss">
+                <strong>СБРОСИТСЯ</strong>
+                <span>• уровни Deck / Lift / Logistics</span>
+                <span>• открытые Deck и барьеры</span>
+                <span>• локальные менеджеры</span>
+                <span>• руда в буферах</span>
+              </div>
+              <div className="rebuild-keep">
+                <strong>СОХРАНИТСЯ</strong>
+                <span>• кошелёк сектора</span>
+                <span>• открытые шахты и сектора</span>
+                <span>• lifetime статистика</span>
+                <span>• Rebuild multiplier навсегда</span>
+              </div>
+            </div>
+
+            <p className="rebuild-note">Rebuild применяется только к текущему объекту. Остальные шахты сектора продолжают работать и не сбрасываются.</p>
+
+            <button
+              type="button"
+              className="rebuild-confirm"
+              disabled={!rebuild.canRebuild || rebuild.maxed}
+              onClick={() => {
+                sendGameCommand({ type: 'REBUILD_MINE' });
+                setRebuildOpen(false);
+              }}
+            >
+              {rebuild.maxed ? 'MAX REBUILD' : rebuild.canRebuild ? `REBUILD → R${rebuild.level + 1} · ×${rebuild.nextMultiplier}` : 'ТРЕБОВАНИЯ НЕ ВЫПОЛНЕНЫ'}
+            </button>
+          </section>
+        </div>
       )}
 
       {offlineReport && (

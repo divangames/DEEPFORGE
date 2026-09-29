@@ -921,3 +921,301 @@ button { min-height: 44px; -webkit-tap-highlight-color: transparent; }
 /* Stage 6 topbar currency/sector safety */
 .brand-copy span { overflow: hidden; text-overflow: ellipsis; max-width: min(52vw, 520px); }
 .resource-pill span { min-width: 18px; text-align: center; }
+
+/* Stage 7: Rebuild / Prestige */
+.rebuild-status b { color: #a9e6ff; }
+.rebuild-nav span { color: #8bdcf6; }
+
+.rebuild-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 145;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+.rebuild-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: rgba(2, 5, 8, .80);
+  backdrop-filter: blur(5px);
+}
+.rebuild-panel {
+  position: relative;
+  z-index: 1;
+  width: min(560px, 100%);
+  max-height: calc(100dvh - 36px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 18px;
+  border: 1px solid #33505e;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 90% -10%, rgba(72, 190, 235, .16), transparent 40%),
+    linear-gradient(180deg, #172027, #101519 74%);
+  box-shadow: 0 30px 90px rgba(0,0,0,.58);
+}
+.rebuild-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #293841;
+}
+.rebuild-header > div { display: grid; min-width: 0; gap: 3px; }
+.rebuild-header span { color: #73cce9; font-size: 8px; font-weight: 950; letter-spacing: .13em; }
+.rebuild-header strong { font-size: 22px; line-height: 1.05; }
+.rebuild-header small { overflow: hidden; text-overflow: ellipsis; color: #778a95; font-size: 9px; white-space: nowrap; }
+.rebuild-header button {
+  flex: 0 0 44px;
+  width: 44px;
+  min-height: 44px;
+  border: 1px solid #38505b;
+  border-radius: 10px;
+  background: #1c2a31;
+  color: #e7f7fd;
+}
+.rebuild-hero {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 13px;
+  align-items: center;
+  margin-top: 14px;
+  padding: 13px;
+  border: 1px solid #315163;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(61, 166, 207, .13), rgba(16, 22, 27, .75));
+}
+.rebuild-rank {
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  border: 1px solid #6dd3f4;
+  border-radius: 18px;
+  background: linear-gradient(145deg, #1b5266, #17303a);
+  color: #b9efff;
+  font-size: 24px;
+  font-weight: 1000;
+  box-shadow: inset 0 0 22px rgba(93, 209, 245, .11);
+}
+.rebuild-hero > div:last-child { display: grid; gap: 4px; min-width: 0; }
+.rebuild-hero span { color: #8096a1; font-size: 8px; font-weight: 850; }
+.rebuild-hero strong { color: #a9eaff; font-size: 30px; line-height: 1; }
+.rebuild-hero small { color: #8fb4c4; font-size: 9px; }
+.rebuild-requirements { display: grid; gap: 9px; margin-top: 12px; }
+.rebuild-progress-item {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid #2c3941;
+  border-radius: 10px;
+  background: #141b20;
+}
+.rebuild-progress-item > div:first-child { display: flex; justify-content: space-between; gap: 12px; }
+.rebuild-progress-item span { color: #768690; font-size: 8px; font-weight: 850; }
+.rebuild-progress-item b { overflow: hidden; text-overflow: ellipsis; color: #d8e8ef; font-size: 9px; white-space: nowrap; }
+.rebuild-track { height: 7px; overflow: hidden; border-radius: 99px; background: #0b1013; }
+.rebuild-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #32738d, #6dd3f4); }
+.rebuild-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+.rebuild-loss,
+.rebuild-keep {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
+  padding: 11px;
+  border-radius: 10px;
+  font-size: 8px;
+  line-height: 1.4;
+}
+.rebuild-loss { border: 1px solid #5b3936; background: #241817; color: #b78d88; }
+.rebuild-loss strong { color: #f1a49a; }
+.rebuild-keep { border: 1px solid #2f5d4a; background: #14221c; color: #87b5a0; }
+.rebuild-keep strong { color: #9fe5be; }
+.rebuild-note {
+  margin: 10px 0 0;
+  padding: 9px 10px;
+  border: 1px solid #33424b;
+  border-radius: 9px;
+  background: #151c21;
+  color: #81919a;
+  font-size: 8px;
+  line-height: 1.45;
+}
+.rebuild-confirm {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 12px;
+  border: 1px solid #8de0fb;
+  border-radius: 11px;
+  background: linear-gradient(180deg, #67caec, #3297ba);
+  color: #071217;
+  font-size: 10px;
+  font-weight: 1000;
+  letter-spacing: .03em;
+}
+.rebuild-confirm:disabled {
+  border-color: #344149;
+  background: #20282d;
+  color: #66747c;
+}
+
+/* Stage 7: portrait-first UX and mobile performance pass */
+@media (max-width: 520px) and (orientation: portrait) {
+  .app-shell {
+    grid-template-rows: auto minmax(170px, 1fr) auto auto;
+  }
+  .topbar {
+    min-height: 52px;
+    gap: 5px;
+    padding: 5px 7px;
+  }
+  .brand { gap: 6px; }
+  .brand-mark { width: 32px; height: 32px; border-radius: 7px; font-size: 11px; }
+  .brand-copy strong { font-size: 11px; }
+  .brand-copy span { max-width: 42vw; margin-top: 3px; font-size: 7px; letter-spacing: .02em; }
+  .topbar-meta { gap: 4px; }
+  .manager-count,
+  .resource-pill { min-height: 36px; padding-inline: 7px; border-radius: 9px; font-size: 9px; }
+  .manager-count { min-width: 48px; }
+  .resource-pill { min-width: 70px; }
+
+  .upgrade-dock {
+    max-height: 39dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+    gap: 6px;
+    padding: 7px 8px;
+  }
+  .upgrade-dock::-webkit-scrollbar { display: none; }
+  .facility-title-row { gap: 5px; }
+  .facility-title-row strong { font-size: 12px; }
+  .facility-title-row span,
+  .facility-title-row em { padding: 2px 5px; font-size: 8px; }
+  .facility-stats { gap: 3px 10px; margin-top: 4px; font-size: 8px; }
+  .milestone-line { margin-top: 4px; gap: 2px 7px; font-size: 6.5px; }
+  .manager-card { grid-template-columns: 34px minmax(0, 1fr) minmax(82px, auto); gap: 6px; padding: 6px; }
+  .manager-avatar { width: 34px; height: 34px; font-size: 10px; }
+  .manager-copy strong { font-size: 10px; }
+  .manager-copy span,
+  .manager-copy small { font-size: 7px; }
+  .manager-card button { min-height: 40px; padding-inline: 6px; font-size: 7px; }
+  .bulk-selector { gap: 4px; }
+  .bulk-selector button { min-height: 36px; font-size: 7px; }
+  .facility-actions { gap: 5px; }
+  .facility-actions button { min-height: 40px; font-size: 8px; }
+  .locked-facility-card { gap: 5px; padding: 8px; }
+  .locked-facility-card strong,
+  .locked-facility-card span { font-size: 8px; }
+  .locked-facility-card button { min-height: 40px; }
+
+  .bottom-nav { min-height: 58px; gap: 2px; padding: 4px 5px max(4px, var(--safe-bottom)); }
+  .bottom-nav button { min-height: 48px; gap: 1px; border-radius: 8px; font-size: 8px; }
+  .bottom-nav button span { font-size: 11px; }
+
+  .stage-status {
+    top: 59px;
+    right: 6px;
+    gap: 2px;
+    padding: 4px 6px;
+    font-size: 6px;
+  }
+  .stage-status b { font-size: 8px; }
+  .bottleneck-hud,
+  .stage-status,
+  .barrier-strip { backdrop-filter: none; }
+  .stage-badge { display: none; }
+  .barrier-strip { left: 6px; bottom: 6px; right: 70px; max-width: none; min-height: 40px; padding: 5px 6px 5px 8px; }
+  .barrier-strip strong { font-size: 7px; }
+  .barrier-strip span { max-width: 46vw; font-size: 6px; }
+  .barrier-strip button { min-height: 36px; max-width: 88px; padding-inline: 6px; font-size: 6px; }
+
+  .team-panel { max-height: 86dvh; }
+  .team-header { padding: 11px 10px 8px; }
+  .team-header strong { font-size: 15px; }
+  .team-summary { padding: 7px 10px; }
+  .manager-list { padding: 6px 7px; }
+
+  .world-map-header { min-height: 54px; gap: 8px; padding: 6px 8px; }
+  .world-map-header strong { font-size: 12px; }
+  .world-map-header span,
+  .world-map-header small { font-size: 6.5px; }
+  .world-map-header button { width: 40px; height: 40px; min-height: 40px; }
+  .world-map-layout {
+    grid-template-rows: minmax(235px, 42dvh) minmax(0, 1fr);
+    overflow: hidden;
+  }
+  .world-map-canvas { min-height: 0; height: 100%; }
+  .world-map-info {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 11px 10px calc(12px + var(--safe-bottom));
+  }
+  .world-map-info h2 { font-size: 18px; }
+  .world-map-info > p { font-size: 8px; }
+  .map-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+  .map-stats-grid div { padding: 7px; }
+  .map-primary-action { min-height: 44px; }
+  .world-node { box-shadow: 0 6px 18px rgba(0,0,0,.26); backdrop-filter: none; }
+  .map-haze { filter: blur(22px); opacity: .15; }
+
+  .offline-overlay,
+  .rebuild-overlay { padding: 9px; }
+  .offline-panel,
+  .rebuild-panel { max-height: calc(100dvh - 18px); border-radius: 14px; }
+  .rebuild-panel { padding: 12px; }
+  .rebuild-header { padding-bottom: 9px; }
+  .rebuild-header strong { font-size: 18px; }
+  .rebuild-header button { flex-basis: 40px; width: 40px; min-height: 40px; }
+  .rebuild-hero { grid-template-columns: 58px minmax(0, 1fr); gap: 9px; margin-top: 9px; padding: 9px; }
+  .rebuild-rank { width: 54px; height: 54px; border-radius: 14px; font-size: 19px; }
+  .rebuild-hero strong { font-size: 24px; }
+  .rebuild-requirements { gap: 6px; margin-top: 8px; }
+  .rebuild-progress-item { gap: 5px; padding: 8px; }
+  .rebuild-progress-item span { font-size: 7px; }
+  .rebuild-progress-item b { font-size: 8px; }
+  .rebuild-columns { gap: 5px; margin-top: 8px; }
+  .rebuild-loss,
+  .rebuild-keep { padding: 8px; gap: 4px; font-size: 7px; }
+  .rebuild-note { margin-top: 7px; padding: 7px 8px; font-size: 7px; }
+  .rebuild-confirm { min-height: 46px; margin-top: 8px; font-size: 9px; }
+}
+
+@media (max-width: 390px) and (orientation: portrait) {
+  .brand-copy span { max-width: 34vw; }
+  .manager-count { display: none; }
+  .resource-pill { min-width: 74px; }
+  .upgrade-dock { max-height: 41dvh; }
+  .stage-status span:nth-child(1),
+  .stage-status span:nth-child(3) { display: none; }
+  .world-map-layout { grid-template-rows: minmax(220px, 39dvh) minmax(0, 1fr); }
+  .rebuild-columns { grid-template-columns: 1fr; }
+}
+
+@media (max-height: 700px) and (max-width: 520px) and (orientation: portrait) {
+  .topbar { min-height: 48px; }
+  .upgrade-dock { max-height: 36dvh; }
+  .world-map-header small { display: none; }
+  .world-map-layout { grid-template-rows: minmax(200px, 35dvh) minmax(0, 1fr); }
+  .team-panel { max-height: 91dvh; }
+  .rebuild-header small { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
+}

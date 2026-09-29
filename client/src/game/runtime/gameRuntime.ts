@@ -13,7 +13,8 @@ export type GameCommand =
   | { type: 'SELECT'; facilityId: FacilityId }
   | { type: 'OPEN_MINE'; mineId: MineId }
   | { type: 'UNLOCK_MINE'; mineId: MineId }
-  | { type: 'UNLOCK_SECTOR'; sectorId: SectorId };
+  | { type: 'UNLOCK_SECTOR'; sectorId: SectorId }
+  | { type: 'REBUILD_MINE' };
 
 type CommandListener = (command: GameCommand) => void;
 

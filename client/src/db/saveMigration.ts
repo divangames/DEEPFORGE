@@ -47,7 +47,7 @@ function inferUnlockedSectors(unlockedMines: MineId[]): SectorId[] {
   return [...result];
 }
 
-function parseStageSix(record: SaveRecord): DeepforgeSave | null {
+function parseStageSeven(record: SaveRecord): DeepforgeSave | null {
   if (record.schemaVersion !== APP_CONFIG.saveSchemaVersion) return null;
   const payload = record.payload as Partial<DeepforgeSave> | null;
   if (!payload?.world || !isSettings(payload.settings) || typeof payload.createdAt !== 'number' || typeof payload.lastSeenAt !== 'number') return null;
@@ -56,7 +56,49 @@ function parseStageSix(record: SaveRecord): DeepforgeSave | null {
   const unlockedMines = payload.world.unlockedMines;
   payload.world.unlockedSectors ??= inferUnlockedSectors(unlockedMines);
   payload.world.sectorWallets ??= {};
+  const mines: Partial<Record<MineId, PersistentMineState>> = {};
+  for (const [id, state] of Object.entries(payload.world.mines) as [MineId, PersistentMineState][]) {
+    if (!state) continue;
+    mines[id] = {
+      ...state,
+      rebuildLevel: Math.max(0, Math.floor(state.rebuildLevel ?? 0)),
+      rebuildCycleCashEarned: Math.max(0, state.rebuildCycleCashEarned ?? state.totalCashEarned ?? 0),
+    };
+  }
+  payload.world.mines = mines;
   return payload as DeepforgeSave;
+}
+
+function migrateStageSix(record: SaveRecord): DeepforgeSave | null {
+  if (record.schemaVersion !== 4) return null;
+  const payload = record.payload as Partial<DeepforgeSave> | null;
+  if (!payload?.world || !isSettings(payload.settings) || typeof payload.createdAt !== 'number' || typeof payload.lastSeenAt !== 'number') return null;
+  if (!payload.world.activeMineId || !Array.isArray(payload.world.unlockedMines) || !payload.world.mines) return null;
+
+  const unlockedMines = payload.world.unlockedMines;
+  const mines: Partial<Record<MineId, PersistentMineState>> = {};
+  for (const [id, state] of Object.entries(payload.world.mines) as [MineId, PersistentMineState][]) {
+    if (!state) continue;
+    mines[id] = {
+      ...state,
+      rebuildLevel: 0,
+      rebuildCycleCashEarned: Math.max(0, state.totalCashEarned ?? 0),
+    };
+  }
+
+  return {
+    createdAt: payload.createdAt,
+    lastSeenAt: payload.lastSeenAt,
+    settings: payload.settings,
+    world: {
+      activeMineId: payload.world.activeMineId,
+      unlockedSectors: payload.world.unlockedSectors ?? inferUnlockedSectors(unlockedMines),
+      sectorWallets: { ...(payload.world.sectorWallets ?? {}) },
+      unlockedMines: [...unlockedMines],
+      mines,
+      lastSimulatedAt: { ...(payload.world.lastSimulatedAt ?? {}) },
+    },
+  };
 }
 
 function migrateStageFive(record: SaveRecord): DeepforgeSave | null {
@@ -119,5 +161,5 @@ function migrateLegacy(record: SaveRecord): DeepforgeSave | null {
 
 export function parseSaveRecord(record: SaveRecord | undefined): DeepforgeSave | null {
   if (!record) return null;
-  return parseStageSix(record) ?? migrateStageFive(record) ?? migrateLegacy(record);
+  return parseStageSeven(record) ?? migrateStageSix(record) ?? migrateStageFive(record) ?? migrateLegacy(record);
 }

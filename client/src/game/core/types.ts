@@ -53,6 +53,9 @@ export interface BarrierState {
 
 export interface MineState {
   cash: number;
+  rebuildLevel: number;
+  rebuildMultiplier: number;
+  rebuildCycleCashEarned: number;
   surfaceBuffer: number;
   resourcePrice: number;
   shafts: ShaftState[];
@@ -71,6 +74,8 @@ export interface PersistentManagerState {
 }
 
 export interface PersistentMineState {
+  rebuildLevel?: number;
+  rebuildCycleCashEarned?: number;
   /** @deprecated Начиная со Stage 6 деньги хранятся в общем кошельке сектора. */
   cash: number;
   surfaceBuffer: number;
@@ -129,6 +134,8 @@ export interface WorldMineView {
   totalCashEarned: number;
   incomePerSecond: number;
   unlockedDecks: number;
+  rebuildLevel: number;
+  rebuildMultiplier: number;
   mapX: number;
   mapY: number;
   accent: string;
@@ -157,6 +164,22 @@ export interface WorldSectorView {
   mapY: number;
   accent: string;
   accentSoft: string;
+}
+
+
+export interface RebuildView {
+  level: number;
+  maxLevel: number;
+  currentMultiplier: number;
+  nextMultiplier: number | null;
+  requiredDecks: number;
+  unlockedDecks: number;
+  requiredRevenue: number;
+  cycleEarned: number;
+  deckProgress: number;
+  revenueProgress: number;
+  canRebuild: boolean;
+  maxed: boolean;
 }
 
 export interface MilestoneView {

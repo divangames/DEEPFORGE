@@ -1,6 +1,6 @@
 # DEEPFORGE: Idle Empire
 
-Browser-first idle / tycoon game. Текущая версия: **Stage 6 — Multi-Sector Economy**.
+Browser-first idle / tycoon game. Текущая версия: **Stage 7 — Rebuild / Prestige + Mobile Portrait Optimization**.
 
 ## Уже работает
 
@@ -10,6 +10,7 @@ Browser-first idle / tycoon game. Текущая версия: **Stage 6 — Mul
 - общий кошелёк пяти шахт внутри одного сектора;
 - последовательное открытие секторов и объектов;
 - независимый прогресс каждой шахты;
+- **Rebuild / Prestige для каждой шахты с постоянным multiplier**;
 - background income неактивных автоматизированных шахт;
 - offline income по правильным валютам регионов;
 - 30 добывающих Deck на каждом объекте;
@@ -18,15 +19,51 @@ Browser-first idle / tycoon game. Текущая версия: **Stage 6 — Mul
 - barriers, bulk upgrades и milestones;
 - bottleneck HUD;
 - primary + backup IndexedDB save;
-- mobile-first swipe / desktop wheel;
+- save schema v5 с миграцией старых Stage 0–6;
+- mobile-first portrait UI 360–430 px;
+- swipe / touch в шахте, scrollable panels и safe-area support;
+- adaptive LOW / MEDIUM / HIGH render profile;
+- offscreen culling Deck и barriers;
 - PWA;
 - GitHub Pages deployment.
 
-## Сектора мира
+## Rebuild
 
-`Rust Valley → Glacier Belt → Ember Fault → Aurora Steppe → Twilight Basin → Relic Wastes → Sunken Shelf → Storm Cradle`
+Rebuild применяется **только к текущему объекту**.
 
-Новая зона открывается только после прогресса предыдущей. У каждой — собственная экономика и валюта.
+Сбрасываются:
+
+- уровни Deck / Lift / Logistics;
+- открытые Deck и barriers;
+- локальные Managers;
+- локальные ore buffers.
+
+Сохраняются:
+
+- общий кошелёк сектора;
+- открытые шахты и сектора;
+- lifetime earnings / ore statistics;
+- Rebuild level и постоянный multiplier.
+
+Текущие Rebuild-множители:
+
+`R0 ×1 → R1 ×1.8 → R2 ×3 → R3 ×4.7 → R4 ×7 → R5 ×10.5 → R6 ×16`
+
+Требования зависят от глубины шахты и revenue текущего Rebuild-цикла. Экономика вынесена в `client/src/game/core/balance.ts`.
+
+## Mobile portrait
+
+Основной мобильный режим: **вертикальный экран**.
+
+Проверять минимум:
+
+- 360×640;
+- 375×667;
+- 390×844;
+- 412×915;
+- 430×932.
+
+На коротких экранах нижняя панель объекта имеет собственный scroll, карта делится на viewport карты + scrollable information area, а debug badge скрывается.
 
 ## Запуск разработки
 
@@ -47,7 +84,7 @@ build.bat
 ## Публикация
 
 ```bat
-publish.bat "feat: stage 6 multi sector economy"
+publish.bat "feat: stage 7 rebuild prestige mobile portrait"
 ```
 
 `publish.bat` сначала синхронизируется с `origin/main`, затем запускает typecheck, tests, production build, commit и push. GitHub Actions обновляет Pages.
@@ -65,3 +102,4 @@ publish.bat "feat: stage 6 multi sector economy"
 - `docs/STAGE_4.md`
 - `docs/STAGE_5.md`
 - `docs/STAGE_6.md`
+- `docs/STAGE_7.md`

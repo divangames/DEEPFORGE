@@ -2,6 +2,9 @@ import {
   getBarrierCost,
   getBarrierDuration,
   getManagerConfig,
+  getNextRebuildTier,
+  getRebuildRevenueRequirement,
+  getRebuildMultiplier,
   getShaftDepth,
   getShaftUnlockCost,
   INITIAL_ACCESSIBLE_DEPTH,
@@ -30,6 +33,7 @@ import type {
   MineState,
   OfflineProgressReport,
   PersistentMineState,
+  RebuildView,
   ShaftId,
   ShaftState,
 } from './types';
@@ -107,10 +111,16 @@ export class MineSimulation {
       Math.ceil(Math.max(...shafts.filter((shaft) => shaft.unlocked).map((shaft) => shaft.depth), INITIAL_UNLOCKED_DEPTH) / SHAFTS_PER_BARRIER) * SHAFTS_PER_BARRIER,
     );
 
+    const rebuildLevel = Math.max(0, Math.floor(persisted?.rebuildLevel ?? 0));
+    const rebuildMultiplier = getRebuildMultiplier(rebuildLevel);
+
     this.state = {
       cash: Math.max(0, persisted?.cash ?? 0),
+      rebuildLevel,
+      rebuildMultiplier,
+      rebuildCycleCashEarned: Math.max(0, persisted?.rebuildCycleCashEarned ?? persisted?.totalCashEarned ?? 0),
       surfaceBuffer: Math.max(0, persisted?.surfaceBuffer ?? 0),
-      resourcePrice: this.tuning.resourcePrice,
+      resourcePrice: this.tuning.resourcePrice * rebuildMultiplier,
       shafts,
       lift: {
         level: Math.max(1, persisted?.liftLevel ?? 1),
@@ -179,6 +189,8 @@ export class MineSimulation {
     }
 
     return {
+      rebuildLevel: this.state.rebuildLevel,
+      rebuildCycleCashEarned: this.state.rebuildCycleCashEarned,
       cash: this.state.cash,
       surfaceBuffer: this.state.surfaceBuffer,
       shaftLevels,
@@ -226,6 +238,7 @@ export class MineSimulation {
     if (rewardCash > 0) {
       this.state.cash += rewardCash;
       this.state.totalCashEarned += rewardCash;
+      this.state.rebuildCycleCashEarned += rewardCash;
       this.state.totalOreMined += processedOre;
     }
 
@@ -250,6 +263,72 @@ export class MineSimulation {
       fullChainAutomated: automatedShafts > 0 && this.state.managers.lift.hired && this.state.managers.hub.hired,
       automatedShafts,
     };
+  }
+
+  getRebuildView(): RebuildView {
+    const nextTier = getNextRebuildTier(this.state.rebuildLevel);
+    const unlockedDecks = this.getUnlockedShaftCount();
+    const requiredRevenue = getRebuildRevenueRequirement(this.state.rebuildLevel, this.tuning.resourcePrice);
+    const requiredDecks = nextTier?.requiredDecks ?? SHAFT_COUNT;
+    const maxed = nextTier === null;
+    return {
+      level: this.state.rebuildLevel,
+      maxLevel: STAGE_ONE_BALANCE.rebuild.tiers.length,
+      currentMultiplier: this.state.rebuildMultiplier,
+      nextMultiplier: nextTier?.multiplier ?? null,
+      requiredDecks,
+      unlockedDecks,
+      requiredRevenue,
+      cycleEarned: this.state.rebuildCycleCashEarned,
+      deckProgress: maxed ? 1 : Math.min(1, unlockedDecks / Math.max(1, requiredDecks)),
+      revenueProgress: maxed ? 1 : Math.min(1, this.state.rebuildCycleCashEarned / Math.max(1, requiredRevenue)),
+      canRebuild: !maxed && unlockedDecks >= requiredDecks && this.state.rebuildCycleCashEarned + EPSILON >= requiredRevenue,
+      maxed,
+    };
+  }
+
+  performRebuild(): boolean {
+    const view = this.getRebuildView();
+    if (!view.canRebuild || view.maxed) return false;
+
+    const nextLevel = this.state.rebuildLevel + 1;
+    const preservedCash = this.state.cash;
+    const preservedLifetimeCash = this.state.totalCashEarned;
+    const preservedLifetimeOre = this.state.totalOreMined;
+
+    for (const shaft of this.state.shafts) {
+      shaft.level = 1;
+      shaft.buffer = 0;
+      shaft.unlocked = shaft.depth <= INITIAL_UNLOCKED_DEPTH;
+      shaft.task = null;
+    }
+
+    this.state.surfaceBuffer = 0;
+    this.state.lift.level = 1;
+    this.state.lift.cargo = 0;
+    this.state.lift.task = null;
+    this.state.hub.level = 1;
+    this.state.hub.cargo = 0;
+    this.state.hub.task = null;
+    this.state.barrier.maxAccessibleDepth = INITIAL_ACCESSIBLE_DEPTH;
+    this.state.barrier.remaining = 0;
+
+    for (const id of allFacilityIds()) {
+      const manager = this.state.managers[id];
+      if (!manager) continue;
+      manager.hired = false;
+      manager.activeRemaining = 0;
+      manager.cooldownRemaining = 0;
+    }
+
+    this.state.cash = preservedCash;
+    this.state.totalCashEarned = preservedLifetimeCash;
+    this.state.rebuildCycleCashEarned = 0;
+    this.state.totalOreMined = preservedLifetimeOre;
+    this.state.rebuildLevel = nextLevel;
+    this.state.rebuildMultiplier = getRebuildMultiplier(nextLevel);
+    this.state.resourcePrice = this.tuning.resourcePrice * this.state.rebuildMultiplier;
+    return true;
   }
 
   startMining(id: ShaftId): boolean {
@@ -454,6 +533,7 @@ export class MineSimulation {
         const revenue = cargo * this.state.resourcePrice;
         this.state.cash += revenue;
         this.state.totalCashEarned += revenue;
+        this.state.rebuildCycleCashEarned += revenue;
         this.state.hub.cargo = 0;
         this.state.hub.task = null;
       }

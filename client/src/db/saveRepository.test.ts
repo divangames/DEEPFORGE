@@ -64,3 +64,31 @@ describe('Stage 6 save migration', () => {
     expect(migrated?.world.mines['rust-02']?.cash).toBe(0);
   });
 });
+
+describe('Stage 7 save migration', () => {
+  it('добавляет rebuildLevel=0 в Stage 6 save', () => {
+    const record: SaveRecord = {
+      id: 'primary',
+      schemaVersion: 4,
+      updatedAt: 1000,
+      payload: {
+        createdAt: 10,
+        lastSeenAt: 900,
+        settings: { quality: 'HIGH' },
+        world: {
+          activeMineId: 'rust-01',
+          unlockedSectors: ['rust'],
+          sectorWallets: { rust: 500 },
+          unlockedMines: ['rust-01'],
+          mines: { 'rust-01': { ...legacyMine, cash: 0 } },
+          lastSimulatedAt: { 'rust-01': 850 },
+        },
+      },
+    };
+
+    const migrated = parseSaveRecord(record);
+    expect(migrated?.world.mines['rust-01']?.rebuildLevel).toBe(0);
+    expect(migrated?.world.mines['rust-01']?.rebuildCycleCashEarned).toBe(789);
+    expect(migrated?.world.sectorWallets?.rust).toBe(500);
+  });
+});

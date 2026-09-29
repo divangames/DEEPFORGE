@@ -84,6 +84,16 @@ export const STAGE_ONE_BALANCE = {
     minimumReportSeconds: 15,
     incomeMultiplier: 1,
   },
+  rebuild: {
+    tiers: [
+      { level: 1, multiplier: 1.8, requiredDecks: 12, baseCycleRevenueRequired: 25_000 },
+      { level: 2, multiplier: 3.0, requiredDecks: 16, baseCycleRevenueRequired: 150_000 },
+      { level: 3, multiplier: 4.7, requiredDecks: 20, baseCycleRevenueRequired: 900_000 },
+      { level: 4, multiplier: 7.0, requiredDecks: 24, baseCycleRevenueRequired: 5_000_000 },
+      { level: 5, multiplier: 10.5, requiredDecks: 27, baseCycleRevenueRequired: 25_000_000 },
+      { level: 6, multiplier: 16.0, requiredDecks: 30, baseCycleRevenueRequired: 120_000_000 },
+    ],
+  },
   managers: {
     lift: {
       name: 'Bruno Vale', role: 'Lift Controller', hireCost: 52,
@@ -161,4 +171,24 @@ export function getManagerConfig(id: FacilityId) {
     abilityDuration: 12,
     abilityCooldown: 38 + tier * 2,
   };
+}
+
+
+export function getRebuildMultiplier(level: number): number {
+  if (level <= 0) return 1;
+  const tiers = STAGE_ONE_BALANCE.rebuild.tiers;
+  const tier = tiers.find((entry) => entry.level === Math.floor(level)) ?? tiers[tiers.length - 1];
+  return tier.multiplier;
+}
+
+export function getNextRebuildTier(level: number) {
+  return STAGE_ONE_BALANCE.rebuild.tiers.find((entry) => entry.level === Math.floor(level) + 1) ?? null;
+}
+
+export function getRebuildRevenueRequirement(level: number, resourcePrice: number): number {
+  const tier = getNextRebuildTier(level);
+  if (!tier) return 0;
+  // Более дорогие месторождения требуют чуть больше выручки за цикл Rebuild, но рост мягкий.
+  const economyScale = Math.max(1, Math.sqrt(Math.max(1, resourcePrice) / 2));
+  return Math.floor(tier.baseCycleRevenueRequired * economyScale);
 }

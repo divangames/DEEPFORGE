@@ -188,3 +188,55 @@ describe('Stage 6 shared sector wallet hooks', () => {
     expect(sim.getCash()).toBe(0);
   });
 });
+
+describe('Stage 7 Rebuild', () => {
+  it('не разрешает Rebuild до выполнения требований', () => {
+    const sim = new MineSimulation(richState(1_000_000));
+    const view = sim.getRebuildView();
+    expect(view.level).toBe(0);
+    expect(view.canRebuild).toBe(false);
+    expect(sim.performRebuild()).toBe(false);
+  });
+
+  it('сбрасывает локальный прогресс и выдаёт постоянный множитель', () => {
+    const unlocked = Array.from({ length: 12 }, (_, index) => `shaft-${index + 1}` as const);
+    const sim = new MineSimulation({
+      ...richState(5_000_000),
+      unlockedShafts: unlocked,
+      maxAccessibleDepth: 15,
+      shaftLevels: Object.fromEntries(unlocked.map((id) => [id, 25])),
+      managers: {
+        'shaft-1': { hired: true, activeRemaining: 0, cooldownRemaining: 0 },
+        lift: { hired: true, activeRemaining: 0, cooldownRemaining: 0 },
+        hub: { hired: true, activeRemaining: 0, cooldownRemaining: 0 },
+      },
+      totalCashEarned: 100_000,
+    });
+
+    const beforeCash = sim.getCash();
+    expect(sim.getRebuildView().canRebuild).toBe(true);
+    expect(sim.performRebuild()).toBe(true);
+
+    const state = sim.getState();
+    expect(state.rebuildLevel).toBe(1);
+    expect(state.rebuildMultiplier).toBe(1.8);
+    expect(state.shafts.filter((shaft) => shaft.unlocked)).toHaveLength(3);
+    expect(state.shafts[0].level).toBe(1);
+    expect(state.lift.level).toBe(1);
+    expect(state.hub.level).toBe(1);
+    expect(state.managers['shaft-1'].hired).toBe(false);
+    expect(state.barrier.maxAccessibleDepth).toBe(5);
+    expect(state.cash).toBe(beforeCash);
+    expect(state.totalCashEarned).toBe(100_000);
+    expect(state.rebuildCycleCashEarned).toBe(0);
+    expect(sim.getRebuildView().cycleEarned).toBe(0);
+    expect(sim.getRebuildView().canRebuild).toBe(false);
+    expect(state.resourcePrice).toBeCloseTo(3.6);
+  });
+
+  it('сохраняет Rebuild level в сериализованном состоянии', () => {
+    const sim = new MineSimulation({ ...richState(10), rebuildLevel: 3 });
+    expect(sim.getState().rebuildMultiplier).toBe(4.7);
+    expect(sim.serialize().rebuildLevel).toBe(3);
+  });
+});

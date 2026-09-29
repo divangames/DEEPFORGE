@@ -1,3 +1,34 @@
+# CHANGELOG — DEEPFORGE
+
+## 0.7.0 — Stage 7 Rebuild / Prestige + Mobile Portrait Optimization
+
+### Добавлено
+
+- Rebuild / Prestige для каждой отдельной шахты.
+- 6 уровней Rebuild с постоянными multiplier до ×16.
+- Требования по unlocked Deck и revenue текущего Rebuild-цикла.
+- Полноценный Rebuild preview с явным списком потерь и сохраняемого прогресса.
+- Rebuild status в HUD и на World Map.
+- Save schema v5 и автоматическая миграция Stage 6 → Stage 7.
+- После Rebuild выручка текущего цикла сбрасывается, поэтому следующий tier нельзя получить за старую lifetime-статистику.
+- Unit coverage для eligibility, reset, multiplier и save persistence.
+
+### Mobile / UX
+
+- Отдельный portrait-first pass для 360–430 px.
+- Upgrade dock получил max-height и внутренний scroll на телефоне.
+- World Map теперь использует фиксированный canvas + scrollable info panel в portrait.
+- Более компактные topbar, bottom nav, manager cards, bulk controls и HUD.
+- Отдельные правила для коротких экранов до 700 px.
+- Safe-area сохранён для iPhone / PWA.
+
+### Performance
+
+- Offscreen culling для 30 Deck и barrier visuals.
+- LOW quality target: 30 FPS, antialias off, 1x render resolution.
+- HIGH DPR ограничен 1.5, чтобы мобильные Retina-экраны не рендерили лишние пиксели.
+- Background mines по-прежнему считаются аналитически без дополнительных Phaser scenes.
+
 # Changelog
 
 ## Stage 6 — Multi-Sector Economy

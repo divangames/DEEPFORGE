@@ -57,6 +57,7 @@ export class FoundationScene extends Phaser.Scene {
   private hint?: Phaser.GameObjects.Text;
   private depthText?: Phaser.GameObjects.Text;
   private syncAccumulator = 0;
+  private uiSyncInterval = 140;
   private unsubscribeCommands?: () => void;
   private saveCreatedAt = Date.now();
   private persistenceReady = false;
@@ -81,6 +82,9 @@ export class FoundationScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.setBackgroundColor('#101318');
+    const quality = useGameStore.getState().quality;
+    this.uiSyncInterval = quality === 'LOW' ? 250 : quality === 'MEDIUM' ? 160 : 120;
+
     this.createEnvironment();
     this.createShaftVisuals();
     this.createBarrierVisuals();
@@ -114,7 +118,7 @@ export class FoundationScene extends Phaser.Scene {
     this.renderSimulation();
 
     this.syncAccumulator += deltaMs;
-    if (this.syncAccumulator >= 120) {
+    if (this.syncAccumulator >= this.uiSyncInterval) {
       this.syncAccumulator = 0;
       this.syncUi();
     }
@@ -353,6 +357,19 @@ export class FoundationScene extends Phaser.Scene {
       case 'UNLOCK_SECTOR':
         this.unlockSector(command.sectorId);
         break;
+      case 'REBUILD_MINE':
+        if (this.simulation.performRebuild()) {
+          this.selectedFacility = 'shaft-1';
+          this.worldViewsCacheAt = 0;
+          this.sectorViewsCacheAt = 0;
+          this.mineStates[this.activeMineId] = this.serializeMine(this.simulation);
+          this.lastSimulatedAt[this.activeMineId] = Date.now();
+          this.setCameraScroll(0);
+          this.syncUi();
+          this.renderSimulation();
+          void this.persist();
+        }
+        break;
     }
   }
 
@@ -488,9 +505,14 @@ export class FoundationScene extends Phaser.Scene {
     this.hint?.setText(`${sector.code} · ${definition.code} · ${definition.name.toUpperCase()} · ${definition.resourceName.toUpperCase()}`);
   }
 
+  private getWorldViewCacheMs(): number {
+    const quality = useGameStore.getState().quality;
+    return quality === 'LOW' ? 3000 : quality === 'MEDIUM' ? 2000 : 1200;
+  }
+
   private getWorldMineViews(): WorldMineView[] {
     const now = Date.now();
-    if (this.worldViewsCache.length && now - this.worldViewsCacheAt < 500) return this.worldViewsCache;
+    if (this.worldViewsCache.length && now - this.worldViewsCacheAt < this.getWorldViewCacheMs()) return this.worldViewsCache;
 
     const views = WORLD_MINES.map((definition) => {
       const sector = getSectorDefinition(definition.sectorId);
@@ -500,6 +522,7 @@ export class FoundationScene extends Phaser.Scene {
       if (sim) sim.setCash(this.getSectorWallet(definition.sectorId));
       const previousState = definition.previousMineId ? this.getPersistentMine(definition.previousMineId) : null;
       const previousDefinition = definition.previousMineId ? getMineDefinition(definition.previousMineId) : null;
+      const rebuild = sim?.getRebuildView();
       return {
         id: definition.id,
         sectorId: definition.sectorId,
@@ -519,6 +542,8 @@ export class FoundationScene extends Phaser.Scene {
         totalCashEarned: state?.totalCashEarned ?? 0,
         incomePerSecond: sim?.getOfflineIncomePerSecond() ?? 0,
         unlockedDecks: sim?.getUnlockedShaftCount() ?? 0,
+        rebuildLevel: rebuild?.level ?? 0,
+        rebuildMultiplier: rebuild?.currentMultiplier ?? 1,
         mapX: definition.mapX,
         mapY: definition.mapY,
         accent: definition.theme.accent,
@@ -532,7 +557,7 @@ export class FoundationScene extends Phaser.Scene {
 
   private getWorldSectorViews(): WorldSectorView[] {
     const now = Date.now();
-    if (this.sectorViewsCache.length && now - this.sectorViewsCacheAt < 500) return this.sectorViewsCache;
+    if (this.sectorViewsCache.length && now - this.sectorViewsCacheAt < this.getWorldViewCacheMs()) return this.sectorViewsCache;
 
     const mineViews = this.getWorldMineViews();
     const views = WORLD_SECTORS.map((definition) => {
@@ -690,6 +715,8 @@ export class FoundationScene extends Phaser.Scene {
   private renderSimulation() {
     const state = this.simulation.getState();
     const currencyCode = getSectorDefinition(getMineDefinition(this.activeMineId).sectorId).currencyCode;
+    const viewportTop = this.cameras.main.scrollY - this.rowHeight;
+    const viewportBottom = this.cameras.main.scrollY + this.scale.height + this.rowHeight;
 
     for (const shaft of state.shafts) {
       const visual = this.shaftVisuals.get(shaft.id);
@@ -697,6 +724,21 @@ export class FoundationScene extends Phaser.Scene {
 
       const manager = state.managers[shaft.id];
       const y = this.shaftY(shaft.depth);
+      const inViewport = y >= viewportTop && y <= viewportBottom;
+      visual.bg.setVisible(inViewport);
+      visual.floor.setVisible(inViewport);
+      visual.title.setVisible(inViewport);
+      visual.buffer.setVisible(inViewport);
+      visual.workerBody.setVisible(inViewport);
+      visual.workerHead.setVisible(inViewport);
+      visual.ore.setVisible(inViewport);
+      visual.progressBg.setVisible(inViewport);
+      visual.progressFill.setVisible(inViewport);
+      visual.runButton.setVisible(inViewport);
+      visual.runText.setVisible(inViewport);
+      visual.autoBadge.setVisible(inViewport);
+      if (!inViewport) continue;
+
       const xStart = Math.max(44, this.scale.width * 0.08);
       const liftX = this.liftX();
       const xEnd = Math.max(xStart + 80, liftX - Math.max(88, this.scale.width * 0.12));
@@ -742,6 +784,14 @@ export class FoundationScene extends Phaser.Scene {
     for (const barrier of barrierViews) {
       const visual = this.barrierVisuals.get(barrier.boundaryDepth);
       if (!visual) continue;
+      const barrierY = this.barrierY(barrier.boundaryDepth);
+      const inViewport = barrierY >= viewportTop && barrierY <= viewportBottom;
+      visual.bg.setVisible(inViewport);
+      visual.title.setVisible(inViewport);
+      visual.subtitle.setVisible(inViewport);
+      visual.button.setVisible(inViewport);
+      visual.buttonText.setVisible(inViewport);
+      if (!inViewport) continue;
 
       if (barrier.cleared) {
         visual.bg.setFillStyle(0x17261e, 0.78).setStrokeStyle(1, 0x315943, 1);
@@ -886,6 +936,7 @@ export class FoundationScene extends Phaser.Scene {
       this.simulation.getBulkUpgradeQuotes(this.selectedFacility),
       this.simulation.getBottleneckView(),
       this.simulation.getCurrentBarrierView(),
+      this.simulation.getRebuildView(),
       this.activeMineId,
       activeSectorId,
       this.getWorldMineViews(),
