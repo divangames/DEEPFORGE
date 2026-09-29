@@ -11,7 +11,9 @@ import type {
   MineId,
   MineState,
   OfflineProgressReport,
+  SectorId,
   WorldMineView,
+  WorldSectorView,
 } from '../game/core/types';
 
 interface GameState {
@@ -19,7 +21,9 @@ interface GameState {
   apiOnline: boolean | null;
   simulation: MineState | null;
   activeMineId: MineId;
+  activeSectorId: SectorId;
   worldMines: WorldMineView[];
+  worldSectors: WorldSectorView[];
   selectedFacility: FacilityId;
   selectedStats: FacilityStats | null;
   selectedManager: ManagerView | null;
@@ -43,7 +47,9 @@ interface GameState {
     bottleneck: BottleneckView,
     barrier: BarrierView | null,
     activeMineId: MineId,
+    activeSectorId: SectorId,
     worldMines: WorldMineView[],
+    worldSectors: WorldSectorView[],
   ) => void;
 }
 
@@ -52,7 +58,9 @@ export const useGameStore = create<GameState>((set) => ({
   apiOnline: null,
   simulation: null,
   activeMineId: 'rust-01',
+  activeSectorId: 'rust',
   worldMines: [],
+  worldSectors: [],
   selectedFacility: 'shaft-1',
   selectedStats: null,
   selectedManager: null,
@@ -76,7 +84,9 @@ export const useGameStore = create<GameState>((set) => ({
     bottleneck,
     barrier,
     activeMineId,
+    activeSectorId,
     worldMines,
+    worldSectors,
   ) => set({
     simulation,
     selectedFacility,
@@ -88,6 +98,8 @@ export const useGameStore = create<GameState>((set) => ({
     bottleneck,
     barrier,
     activeMineId,
+    activeSectorId,
     worldMines,
+    worldSectors,
   }),
 }));

@@ -1,28 +1,32 @@
 # DEEPFORGE: Idle Empire
 
-Browser-first idle / tycoon game. Текущая версия: **Stage 5 — World Map / Rust Valley**.
+Browser-first idle / tycoon game. Текущая версия: **Stage 6 — Multi-Sector Economy**.
 
 ## Уже работает
 
-- интерактивная карта Rust Valley;
-- 5 независимых добывающих объектов;
-- переход между шахтами без потери прогресса;
-- фоновая работа автоматизированных неактивных шахт;
-- разные ресурсы и экономические коэффициенты объектов;
+- глобальная карта из 8 секторов;
+- 40 data-driven добывающих объектов — по 5 на сектор;
+- отдельная валюта каждого сектора;
+- общий кошелёк пяти шахт внутри одного сектора;
+- последовательное открытие секторов и объектов;
+- независимый прогресс каждой шахты;
+- background income неактивных автоматизированных шахт;
+- offline income по правильным валютам регионов;
 - 30 добывающих Deck на каждом объекте;
-- ручная и автоматическая добыча;
 - Cargo Lift и Logistics Hub;
-- regular Managers и активные способности;
-- offline income до 8 часов;
-- primary + backup save в IndexedDB;
-- последовательное открытие Deck;
-- барьеры между секциями шахты;
-- bulk upgrades ×1 / ×10 / ×25 / MAX;
-- milestones производительности;
-- bottleneck-индикатор;
-- mobile swipe / desktop wheel;
+- Managers, AUTO и active abilities;
+- barriers, bulk upgrades и milestones;
+- bottleneck HUD;
+- primary + backup IndexedDB save;
+- mobile-first swipe / desktop wheel;
 - PWA;
 - GitHub Pages deployment.
+
+## Сектора мира
+
+`Rust Valley → Glacier Belt → Ember Fault → Aurora Steppe → Twilight Basin → Relic Wastes → Sunken Shelf → Storm Cradle`
+
+Новая зона открывается только после прогресса предыдущей. У каждой — собственная экономика и валюта.
 
 ## Запуск разработки
 
@@ -43,10 +47,10 @@ build.bat
 ## Публикация
 
 ```bat
-publish.bat "feat: stage 5 rust valley world map"
+publish.bat "feat: stage 6 multi sector economy"
 ```
 
-`publish.bat` синхронизируется с `origin/main`, запускает typecheck, tests, production build, создаёт commit и делает push. GitHub Actions затем обновляет Pages.
+`publish.bat` сначала синхронизируется с `origin/main`, затем запускает typecheck, tests, production build, commit и push. GitHub Actions обновляет Pages.
 
 Публичная версия:
 
@@ -60,3 +64,4 @@ publish.bat "feat: stage 5 rust valley world map"
 - `docs/STAGE_3.md`
 - `docs/STAGE_4.md`
 - `docs/STAGE_5.md`
+- `docs/STAGE_6.md`

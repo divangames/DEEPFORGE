@@ -177,3 +177,14 @@ describe('Managers and offline progress', () => {
     expect(report.capped).toBe(true);
   });
 });
+
+describe('Stage 6 shared sector wallet hooks', () => {
+  it('позволяет сцене безопасно синхронизировать общий кошелек сектора', () => {
+    const sim = new MineSimulation(richState(10));
+    sim.setCash(12_345);
+    expect(sim.getCash()).toBe(12_345);
+    expect(sim.getState().cash).toBe(12_345);
+    sim.setCash(-100);
+    expect(sim.getCash()).toBe(0);
+  });
+});

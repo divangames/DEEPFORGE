@@ -1,6 +1,6 @@
 export const APP_CONFIG = {
   gameName: 'DEEPFORGE: Idle Empire',
-  saveSchemaVersion: 3,
+  saveSchemaVersion: 4,
   apiBaseUrl: import.meta.env.VITE_API_URL ?? 'http://localhost:3001',
   mobileMinWidth: 360,
   targetFpsHigh: 60,

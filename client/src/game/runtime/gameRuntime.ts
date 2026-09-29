@@ -1,4 +1,4 @@
-import type { BulkUpgradeMode, FacilityId, MineId, ShaftId } from '../core/types';
+import type { BulkUpgradeMode, FacilityId, MineId, SectorId, ShaftId } from '../core/types';
 
 export type GameCommand =
   | { type: 'START_SHAFT'; shaftId: ShaftId }
@@ -12,7 +12,8 @@ export type GameCommand =
   | { type: 'ACTIVATE_MANAGER'; facilityId: FacilityId }
   | { type: 'SELECT'; facilityId: FacilityId }
   | { type: 'OPEN_MINE'; mineId: MineId }
-  | { type: 'UNLOCK_MINE'; mineId: MineId };
+  | { type: 'UNLOCK_MINE'; mineId: MineId }
+  | { type: 'UNLOCK_SECTOR'; sectorId: SectorId };
 
 type CommandListener = (command: GameCommand) => void;
 

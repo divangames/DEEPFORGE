@@ -4,8 +4,8 @@ import { useGameStore } from '../../state/gameStore';
 import { makeShaftId, SHAFT_COUNT, SHAFTS_PER_BARRIER, STAGE_ONE_BALANCE } from '../core/balance';
 import { formatCompact } from '../core/format';
 import { MineSimulation } from '../core/MineSimulation';
-import type { FacilityId, MineId, OfflineProgressReport, PersistentMineState, ShaftId, WorldMineView } from '../core/types';
-import { DEFAULT_MINE_ID, getMineDefinition, RUST_VALLEY_MINES } from '../core/worldConfig';
+import type { FacilityId, MineId, OfflineProgressReport, PersistentMineState, SectorId, ShaftId, WorldMineView, WorldSectorView } from '../core/types';
+import { DEFAULT_MINE_ID, DEFAULT_SECTOR_ID, getFirstMineId, getMineDefinition, getSectorDefinition, WORLD_MINES, WORLD_SECTORS } from '../core/worldConfig';
 import { onGameCommand, type GameCommand } from '../runtime/gameRuntime';
 
 interface ShaftVisual {
@@ -33,6 +33,8 @@ interface BarrierVisual {
 
 export class FoundationScene extends Phaser.Scene {
   private activeMineId: MineId = DEFAULT_MINE_ID;
+  private unlockedSectors = new Set<SectorId>([DEFAULT_SECTOR_ID]);
+  private sectorWallets: Partial<Record<SectorId, number>> = { [DEFAULT_SECTOR_ID]: 0 };
   private unlockedMines = new Set<MineId>([DEFAULT_MINE_ID]);
   private mineStates: Partial<Record<MineId, PersistentMineState>> = {};
   private lastSimulatedAt: Partial<Record<MineId, number>> = {};
@@ -67,7 +69,9 @@ export class FoundationScene extends Phaser.Scene {
   private dragStartScrollY = 0;
   private dragging = false;
   private worldViewsCache: WorldMineView[] = [];
+  private sectorViewsCache: WorldSectorView[] = [];
   private worldViewsCacheAt = 0;
+  private sectorViewsCacheAt = 0;
   private beforeUnloadHandler = () => { void this.persist(); };
   private visibilityHandler = () => { void this.handleVisibilityChange(); };
 
@@ -235,8 +239,8 @@ export class FoundationScene extends Phaser.Scene {
       this.selectFacility('lift');
       this.simulation.startLift();
     };
-    this.liftRail.on('pointerup', activate);
-    this.liftCage.on('pointerup', activate);
+    this.liftRail?.on('pointerup', activate);
+    this.liftCage?.on('pointerup', activate);
   }
 
   private createHubVisuals() {
@@ -262,8 +266,8 @@ export class FoundationScene extends Phaser.Scene {
       this.selectFacility('hub');
       this.simulation.startHub();
     };
-    this.hubBuilding.on('pointerup', activate);
-    this.hubTruck.on('pointerup', activate);
+    this.hubBuilding?.on('pointerup', activate);
+    this.hubTruck?.on('pointerup', activate);
   }
 
   private createScrollInput() {
@@ -346,17 +350,78 @@ export class FoundationScene extends Phaser.Scene {
       case 'UNLOCK_MINE':
         this.unlockMine(command.mineId);
         break;
+      case 'UNLOCK_SECTOR':
+        this.unlockSector(command.sectorId);
+        break;
     }
   }
 
+  private serializeMine(simulation: MineSimulation): PersistentMineState {
+    const state = simulation.serialize();
+    // Начиная со Stage 6 деньги живут в кошельке сектора, а не внутри конкретной шахты.
+    state.cash = 0;
+    return state;
+  }
+
+  private getSectorWallet(id: SectorId): number {
+    return Math.max(0, this.sectorWallets[id] ?? 0);
+  }
+
+  private setSectorWallet(id: SectorId, value: number) {
+    this.sectorWallets[id] = Math.max(0, Number.isFinite(value) ? value : 0);
+  }
+
+  private addSectorWallet(id: SectorId, value: number) {
+    if (value <= 0) return;
+    this.setSectorWallet(id, this.getSectorWallet(id) + value);
+  }
+
+  private syncActiveWalletFromSimulation() {
+    const sectorId = getMineDefinition(this.activeMineId).sectorId;
+    this.setSectorWallet(sectorId, this.simulation.getCash());
+  }
+
   private getPersistentMine(id: MineId): PersistentMineState {
-    if (id === this.activeMineId) return this.simulation.serialize();
-    return this.mineStates[id] ?? new MineSimulation(undefined, getMineDefinition(id).tuning).serialize();
+    if (id === this.activeMineId) return this.serializeMine(this.simulation);
+    return this.mineStates[id] ?? this.serializeMine(new MineSimulation(undefined, getMineDefinition(id).tuning));
+  }
+
+  private getSectorLifetimeEarned(id: SectorId): number {
+    const definition = getSectorDefinition(id);
+    return definition.mines.reduce((sum, mine) => {
+      if (!this.unlockedMines.has(mine.id)) return sum;
+      return sum + this.getPersistentMine(mine.id).totalCashEarned;
+    }, 0);
+  }
+
+  private canUnlockSector(id: SectorId): boolean {
+    const definition = getSectorDefinition(id);
+    if (this.unlockedSectors.has(id)) return false;
+    if (!definition.previousSectorId || !this.unlockedSectors.has(definition.previousSectorId)) return false;
+    const previous = getSectorDefinition(definition.previousSectorId);
+    const previousCompleted = previous.mines.every((mine) => this.unlockedMines.has(mine.id));
+    if (!previousCompleted) return false;
+    return this.getSectorLifetimeEarned(definition.previousSectorId) + 0.0001 >= definition.unlockEarnedRequired;
+  }
+
+  private unlockSector(id: SectorId) {
+    if (!this.canUnlockSector(id)) return;
+    const now = Date.now();
+    const firstMineId = getFirstMineId(id);
+    this.unlockedSectors.add(id);
+    this.unlockedMines.add(firstMineId);
+    this.setSectorWallet(id, 0);
+    this.mineStates[firstMineId] = this.serializeMine(new MineSimulation(undefined, getMineDefinition(firstMineId).tuning));
+    this.lastSimulatedAt[firstMineId] = now;
+    this.worldViewsCacheAt = 0;
+    this.sectorViewsCacheAt = 0;
+    this.syncUi();
+    void this.persist();
   }
 
   private canUnlockMine(id: MineId): boolean {
     const definition = getMineDefinition(id);
-    if (this.unlockedMines.has(id)) return false;
+    if (!this.unlockedSectors.has(definition.sectorId) || this.unlockedMines.has(id)) return false;
     if (!definition.previousMineId || !this.unlockedMines.has(definition.previousMineId)) return false;
     const previous = this.getPersistentMine(definition.previousMineId);
     return previous.totalCashEarned + 0.0001 >= definition.unlockEarnedRequired;
@@ -367,7 +432,8 @@ export class FoundationScene extends Phaser.Scene {
     const now = Date.now();
     this.unlockedMines.add(id);
     this.worldViewsCacheAt = 0;
-    this.mineStates[id] = new MineSimulation(undefined, getMineDefinition(id).tuning).serialize();
+    this.sectorViewsCacheAt = 0;
+    this.mineStates[id] = this.serializeMine(new MineSimulation(undefined, getMineDefinition(id).tuning));
     this.lastSimulatedAt[id] = now;
     this.syncUi();
     void this.persist();
@@ -377,20 +443,24 @@ export class FoundationScene extends Phaser.Scene {
     if (!this.unlockedMines.has(id)) return;
     const now = Date.now();
 
-    // Фиксируем текущий объект в его собственном save перед переключением.
-    this.mineStates[this.activeMineId] = this.simulation.serialize();
+    // Фиксируем текущий объект и общий кошелек его сектора перед переключением.
+    this.syncActiveWalletFromSimulation();
+    this.mineStates[this.activeMineId] = this.serializeMine(this.simulation);
     this.lastSimulatedAt[this.activeMineId] = now;
 
     const definition = getMineDefinition(id);
     const target = new MineSimulation(this.mineStates[id], definition.tuning);
+    target.setCash(this.getSectorWallet(definition.sectorId));
     const lastAt = this.lastSimulatedAt[id] ?? now;
     const rawSeconds = Math.max(0, (now - lastAt) / 1000);
     const report = rawSeconds > 0 ? target.applyOfflineProgress(rawSeconds) : null;
+    this.setSectorWallet(definition.sectorId, target.getCash());
 
     this.activeMineId = id;
     this.worldViewsCacheAt = 0;
+    this.sectorViewsCacheAt = 0;
     this.simulation = target;
-    this.mineStates[id] = target.serialize();
+    this.mineStates[id] = this.serializeMine(target);
     this.lastSimulatedAt[id] = now;
     this.selectedFacility = 'shaft-1';
     this.applyMineTheme();
@@ -399,41 +469,53 @@ export class FoundationScene extends Phaser.Scene {
     this.renderSimulation();
 
     if (report && rawSeconds >= STAGE_ONE_BALANCE.idle.minimumReportSeconds) {
-      useGameStore.getState().setOfflineReport({ ...report, operatingMines: report.rewardCash > 0 ? 1 : 0, unlockedMines: this.unlockedMines.size });
+      useGameStore.getState().setOfflineReport({
+        ...report,
+        operatingMines: report.rewardCash > 0 ? 1 : 0,
+        unlockedMines: this.unlockedMines.size,
+        unlockedSectors: this.unlockedSectors.size,
+        sectorRewards: report.rewardCash > 0 ? { [definition.sectorId]: report.rewardCash } : {},
+      });
     }
     void this.persist();
   }
 
   private applyMineTheme() {
     const definition = getMineDefinition(this.activeMineId);
+    const sector = getSectorDefinition(definition.sectorId);
     this.mine?.setFillStyle(definition.theme.mine, 1);
     this.surface?.setFillStyle(definition.theme.surface, 1);
-    this.hint?.setText(`${definition.code} · ${definition.name.toUpperCase()} · ${definition.resourceName.toUpperCase()}`);
+    this.hint?.setText(`${sector.code} · ${definition.code} · ${definition.name.toUpperCase()} · ${definition.resourceName.toUpperCase()}`);
   }
 
   private getWorldMineViews(): WorldMineView[] {
     const now = Date.now();
     if (this.worldViewsCache.length && now - this.worldViewsCacheAt < 500) return this.worldViewsCache;
 
-    const views = RUST_VALLEY_MINES.map((definition) => {
+    const views = WORLD_MINES.map((definition) => {
+      const sector = getSectorDefinition(definition.sectorId);
       const unlocked = this.unlockedMines.has(definition.id);
       const state = unlocked ? this.getPersistentMine(definition.id) : null;
       const sim = state ? new MineSimulation(state, definition.tuning) : null;
+      if (sim) sim.setCash(this.getSectorWallet(definition.sectorId));
       const previousState = definition.previousMineId ? this.getPersistentMine(definition.previousMineId) : null;
       const previousDefinition = definition.previousMineId ? getMineDefinition(definition.previousMineId) : null;
       return {
         id: definition.id,
+        sectorId: definition.sectorId,
         code: definition.code,
         name: definition.name,
         resourceName: definition.resourceName,
         description: definition.description,
+        currencyCode: sector.currencyCode,
+        currencyName: sector.currencyName,
         unlocked,
         active: definition.id === this.activeMineId,
         canUnlock: this.canUnlockMine(definition.id),
         unlockEarnedRequired: definition.unlockEarnedRequired,
         previousMineName: previousDefinition?.name ?? null,
         previousMineEarned: previousState?.totalCashEarned ?? 0,
-        cash: state?.cash ?? 0,
+        cash: this.getSectorWallet(definition.sectorId),
         totalCashEarned: state?.totalCashEarned ?? 0,
         incomePerSecond: sim?.getOfflineIncomePerSecond() ?? 0,
         unlockedDecks: sim?.getUnlockedShaftCount() ?? 0,
@@ -448,19 +530,68 @@ export class FoundationScene extends Phaser.Scene {
     return views;
   }
 
+  private getWorldSectorViews(): WorldSectorView[] {
+    const now = Date.now();
+    if (this.sectorViewsCache.length && now - this.sectorViewsCacheAt < 500) return this.sectorViewsCache;
+
+    const mineViews = this.getWorldMineViews();
+    const views = WORLD_SECTORS.map((definition) => {
+      const sectorMines = mineViews.filter((mine) => mine.sectorId === definition.id);
+      const previous = definition.previousSectorId ? getSectorDefinition(definition.previousSectorId) : null;
+      return {
+        id: definition.id,
+        code: definition.code,
+        name: definition.name,
+        currencyCode: definition.currencyCode,
+        currencyName: definition.currencyName,
+        description: definition.description,
+        unlocked: this.unlockedSectors.has(definition.id),
+        active: getMineDefinition(this.activeMineId).sectorId === definition.id,
+        canUnlock: this.canUnlockSector(definition.id),
+        unlockEarnedRequired: definition.unlockEarnedRequired,
+        previousSectorName: previous?.name ?? null,
+        previousSectorEarned: previous ? this.getSectorLifetimeEarned(previous.id) : 0,
+        wallet: this.getSectorWallet(definition.id),
+        totalCashEarned: this.getSectorLifetimeEarned(definition.id),
+        incomePerSecond: sectorMines.reduce((sum, mine) => sum + (mine.unlocked ? mine.incomePerSecond : 0), 0),
+        unlockedMines: sectorMines.filter((mine) => mine.unlocked).length,
+        totalMines: definition.mines.length,
+        mapX: definition.mapX,
+        mapY: definition.mapY,
+        accent: definition.accent,
+        accentSoft: definition.accentSoft,
+      };
+    });
+    this.sectorViewsCache = views;
+    this.sectorViewsCacheAt = now;
+    return views;
+  }
+
   private advanceInactiveMines(now: number) {
+    // Доход активной шахты уже находится в симуляции — сначала переносим его в общий кошелек.
+    this.syncActiveWalletFromSimulation();
+    this.mineStates[this.activeMineId] = this.serializeMine(this.simulation);
+
     for (const id of this.unlockedMines) {
       if (id === this.activeMineId) continue;
       const definition = getMineDefinition(id);
-      const state = this.mineStates[id] ?? new MineSimulation(undefined, definition.tuning).serialize();
+      const state = this.mineStates[id] ?? this.serializeMine(new MineSimulation(undefined, definition.tuning));
       const sim = new MineSimulation(state, definition.tuning);
+      // Ноль позволяет получить только заработок конкретной шахты и не дублировать общий кошелек сектора.
+      sim.setCash(0);
       const lastAt = this.lastSimulatedAt[id] ?? now;
       const rawSeconds = Math.max(0, (now - lastAt) / 1000);
-      if (rawSeconds > 0) sim.applyOfflineProgress(rawSeconds);
-      this.mineStates[id] = sim.serialize();
+      const report = rawSeconds > 0 ? sim.applyOfflineProgress(rawSeconds) : null;
+      if (report?.rewardCash) this.addSectorWallet(definition.sectorId, report.rewardCash);
+      sim.setCash(0);
+      this.mineStates[id] = this.serializeMine(sim);
       this.lastSimulatedAt[id] = now;
     }
+
+    const activeSectorId = getMineDefinition(this.activeMineId).sectorId;
+    this.simulation.setCash(this.getSectorWallet(activeSectorId));
     this.worldViewsCacheAt = 0;
+    this.sectorViewsCacheAt = 0;
   }
 
   private applyBackgroundProgress(now: number): OfflineProgressReport | null {
@@ -472,19 +603,26 @@ export class FoundationScene extends Phaser.Scene {
     let maxRawSeconds = 0;
     let maxCreditedSeconds = 0;
     let capped = false;
+    const sectorRewards: Partial<Record<SectorId, number>> = {};
 
-    // Сначала записываем текущее состояние активной шахты, не меняя её timestamp.
-    this.mineStates[this.activeMineId] = this.simulation.serialize();
+    this.syncActiveWalletFromSimulation();
+    this.mineStates[this.activeMineId] = this.serializeMine(this.simulation);
 
     for (const id of this.unlockedMines) {
       const definition = getMineDefinition(id);
-      const state = this.mineStates[id] ?? new MineSimulation(undefined, definition.tuning).serialize();
+      const state = this.mineStates[id] ?? this.serializeMine(new MineSimulation(undefined, definition.tuning));
       const sim = new MineSimulation(state, definition.tuning);
+      sim.setCash(0);
       const lastAt = this.lastSimulatedAt[id] ?? now;
       const rawSeconds = Math.max(0, (now - lastAt) / 1000);
       const report = sim.applyOfflineProgress(rawSeconds);
 
-      this.mineStates[id] = sim.serialize();
+      if (report.rewardCash > 0) {
+        this.addSectorWallet(definition.sectorId, report.rewardCash);
+        sectorRewards[definition.sectorId] = (sectorRewards[definition.sectorId] ?? 0) + report.rewardCash;
+      }
+      sim.setCash(0);
+      this.mineStates[id] = this.serializeMine(sim);
       this.lastSimulatedAt[id] = now;
       rewardCash += report.rewardCash;
       processedOre += report.processedOre;
@@ -498,7 +636,9 @@ export class FoundationScene extends Phaser.Scene {
 
     const activeDefinition = getMineDefinition(this.activeMineId);
     this.simulation = new MineSimulation(this.mineStates[this.activeMineId], activeDefinition.tuning);
+    this.simulation.setCash(this.getSectorWallet(activeDefinition.sectorId));
     this.worldViewsCacheAt = 0;
+    this.sectorViewsCacheAt = 0;
 
     if (maxRawSeconds <= 0) return null;
     return {
@@ -512,6 +652,8 @@ export class FoundationScene extends Phaser.Scene {
       automatedShafts,
       operatingMines,
       unlockedMines: this.unlockedMines.size,
+      unlockedSectors: this.unlockedSectors.size,
+      sectorRewards,
     };
   }
 
@@ -547,6 +689,7 @@ export class FoundationScene extends Phaser.Scene {
 
   private renderSimulation() {
     const state = this.simulation.getState();
+    const currencyCode = getSectorDefinition(getMineDefinition(this.activeMineId).sectorId).currencyCode;
 
     for (const shaft of state.shafts) {
       const visual = this.shaftVisuals.get(shaft.id);
@@ -581,7 +724,7 @@ export class FoundationScene extends Phaser.Scene {
       } else if (accessible) {
         const stats = this.simulation.getFacilityStats(shaft.id);
         visual.title.setText(`${shaft.name.toUpperCase()} · LOCKED`).setColor('#aab4bb');
-        visual.buffer.setText(`$${formatCompact(stats.unlockCost)}`).setColor('#f0b429');
+        visual.buffer.setText(`${currencyCode} ${formatCompact(stats.unlockCost)}`).setColor('#f0b429');
         visual.runText.setText(stats.canUnlock ? 'UNLOCK' : 'LOCKED').setColor(stats.canUnlock ? '#16120a' : '#8d7c55');
         visual.runButton.setFillStyle(stats.canUnlock ? 0xd49b22 : 0x3b3425, 1);
       } else {
@@ -616,7 +759,7 @@ export class FoundationScene extends Phaser.Scene {
           .setText(barrier.requirementsMet ? `CLEAR TO ${barrier.targetDepth}00 m` : `UNLOCK DECK ${barrier.boundaryDepth} FIRST`)
           .setColor(barrier.requirementsMet ? '#d5b45e' : '#8d7c55');
         visual.button.setFillStyle(barrier.canStart ? 0xb17d1b : 0x4b3d20, 1);
-        visual.buttonText.setText(`$${formatCompact(barrier.cost)}`).setColor(barrier.canStart ? '#15100a' : '#9b8754');
+        visual.buttonText.setText(`${currencyCode} ${formatCompact(barrier.cost)}`).setColor(barrier.canStart ? '#15100a' : '#9b8754');
       } else {
         visual.bg.setFillStyle(0x151719, 0.8).setStrokeStyle(1, 0x33383d, 1);
         visual.subtitle.setText('SEALED').setColor('#565f66');
@@ -729,8 +872,10 @@ export class FoundationScene extends Phaser.Scene {
   }
 
   private syncUi() {
+    this.syncActiveWalletFromSimulation();
     const snapshot = this.simulation.getSnapshot();
     const stats = this.simulation.getFacilityStats(this.selectedFacility);
+    const activeSectorId = getMineDefinition(this.activeMineId).sectorId;
     useGameStore.getState().syncSimulation(
       snapshot,
       this.selectedFacility,
@@ -742,17 +887,24 @@ export class FoundationScene extends Phaser.Scene {
       this.simulation.getBottleneckView(),
       this.simulation.getCurrentBarrierView(),
       this.activeMineId,
+      activeSectorId,
       this.getWorldMineViews(),
+      this.getWorldSectorViews(),
     );
   }
 
   private initializeFreshWorld(now = Date.now()) {
     this.activeMineId = DEFAULT_MINE_ID;
+    this.unlockedSectors = new Set<SectorId>([DEFAULT_SECTOR_ID]);
+    this.sectorWallets = { [DEFAULT_SECTOR_ID]: 0 };
     this.unlockedMines = new Set<MineId>([DEFAULT_MINE_ID]);
     const definition = getMineDefinition(DEFAULT_MINE_ID);
     this.simulation = new MineSimulation(undefined, definition.tuning);
-    this.mineStates = { [DEFAULT_MINE_ID]: this.simulation.serialize() };
+    this.simulation.setCash(0);
+    this.mineStates = { [DEFAULT_MINE_ID]: this.serializeMine(this.simulation) };
     this.lastSimulatedAt = { [DEFAULT_MINE_ID]: now };
+    this.worldViewsCacheAt = 0;
+    this.sectorViewsCacheAt = 0;
   }
 
   private async restore() {
@@ -763,21 +915,36 @@ export class FoundationScene extends Phaser.Scene {
         this.saveCreatedAt = save.createdAt;
         useGameStore.getState().setQuality(save.settings.quality);
 
-        const knownIds = new Set(RUST_VALLEY_MINES.map((mine) => mine.id));
-        const unlocked = save.world.unlockedMines.filter((id) => knownIds.has(id));
-        this.unlockedMines = new Set<MineId>(unlocked.length ? unlocked : [DEFAULT_MINE_ID]);
+        const knownMineIds = new Set(WORLD_MINES.map((mine) => mine.id));
+        const knownSectorIds = new Set(WORLD_SECTORS.map((sector) => sector.id));
+        const unlockedMines = save.world.unlockedMines.filter((id) => knownMineIds.has(id));
+        const inferredSectors = unlockedMines.map((id) => getMineDefinition(id).sectorId);
+        const unlockedSectors = (save.world.unlockedSectors ?? inferredSectors).filter((id) => knownSectorIds.has(id));
+
+        this.unlockedSectors = new Set<SectorId>(unlockedSectors.length ? unlockedSectors : [DEFAULT_SECTOR_ID]);
+        this.unlockedMines = new Set<MineId>(unlockedMines.length ? unlockedMines : [DEFAULT_MINE_ID]);
+        // Любой открытый объект автоматически подтверждает открытие своего сектора.
+        for (const id of this.unlockedMines) this.unlockedSectors.add(getMineDefinition(id).sectorId);
+
         this.activeMineId = this.unlockedMines.has(save.world.activeMineId)
           ? save.world.activeMineId
           : [...this.unlockedMines][0] ?? DEFAULT_MINE_ID;
         this.mineStates = { ...save.world.mines };
         this.lastSimulatedAt = { ...save.world.lastSimulatedAt };
+        this.sectorWallets = { ...save.world.sectorWallets };
+        for (const sectorId of this.unlockedSectors) {
+          if (this.sectorWallets[sectorId] === undefined) this.sectorWallets[sectorId] = 0;
+        }
 
         for (const id of this.unlockedMines) {
-          if (!this.mineStates[id]) this.mineStates[id] = new MineSimulation(undefined, getMineDefinition(id).tuning).serialize();
+          if (!this.mineStates[id]) this.mineStates[id] = this.serializeMine(new MineSimulation(undefined, getMineDefinition(id).tuning));
+          else this.mineStates[id] = { ...this.mineStates[id]!, cash: 0 };
           if (!this.lastSimulatedAt[id]) this.lastSimulatedAt[id] = save.lastSeenAt;
         }
 
-        this.simulation = new MineSimulation(this.mineStates[this.activeMineId], getMineDefinition(this.activeMineId).tuning);
+        const activeDefinition = getMineDefinition(this.activeMineId);
+        this.simulation = new MineSimulation(this.mineStates[this.activeMineId], activeDefinition.tuning);
+        this.simulation.setCash(this.getSectorWallet(activeDefinition.sectorId));
         const report = this.applyBackgroundProgress(now);
         if (report && report.rawSeconds >= STAGE_ONE_BALANCE.idle.minimumReportSeconds) {
           useGameStore.getState().setOfflineReport(report);
@@ -826,7 +993,8 @@ export class FoundationScene extends Phaser.Scene {
       // Пока игрок находится на одном объекте, остальные автоматизированные шахты
       // получают фоновый доход каждые 5 секунд вместе с autosave.
       this.advanceInactiveMines(now);
-      this.mineStates[this.activeMineId] = this.simulation.serialize();
+      this.syncActiveWalletFromSimulation();
+      this.mineStates[this.activeMineId] = this.serializeMine(this.simulation);
       this.lastSimulatedAt[this.activeMineId] = now;
       await saveGameState({
         createdAt: this.saveCreatedAt,
@@ -834,6 +1002,8 @@ export class FoundationScene extends Phaser.Scene {
         settings: { quality: useGameStore.getState().quality },
         world: {
           activeMineId: this.activeMineId,
+          unlockedSectors: [...this.unlockedSectors],
+          sectorWallets: { ...this.sectorWallets },
           unlockedMines: [...this.unlockedMines],
           mines: { ...this.mineStates },
           lastSimulatedAt: { ...this.lastSimulatedAt },

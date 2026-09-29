@@ -1,4 +1,6 @@
-export type MineId = 'rust-01' | 'rust-02' | 'rust-03' | 'rust-04' | 'rust-05';
+export type SectorId = 'rust' | 'glacier' | 'ember' | 'aurora' | 'twilight' | 'relic' | 'sunken' | 'storm';
+export type MineOrdinal = '01' | '02' | '03' | '04' | '05';
+export type MineId = `${SectorId}-${MineOrdinal}`;
 export type ShaftId = `shaft-${number}`;
 export type FacilityId = ShaftId | 'lift' | 'hub';
 export type TaskKind = 'mining' | 'lift' | 'hub';
@@ -69,6 +71,7 @@ export interface PersistentManagerState {
 }
 
 export interface PersistentMineState {
+  /** @deprecated Начиная со Stage 6 деньги хранятся в общем кошельке сектора. */
   cash: number;
   surfaceBuffer: number;
   shaftLevels: Partial<Record<ShaftId, number>>;
@@ -85,6 +88,8 @@ export interface PersistentMineState {
 
 export interface PersistentWorldState {
   activeMineId: MineId;
+  unlockedSectors?: SectorId[];
+  sectorWallets?: Partial<Record<SectorId, number>>;
   unlockedMines: MineId[];
   mines: Partial<Record<MineId, PersistentMineState>>;
   lastSimulatedAt: Partial<Record<MineId, number>>;
@@ -101,14 +106,19 @@ export interface OfflineProgressReport {
   automatedShafts: number;
   operatingMines?: number;
   unlockedMines?: number;
+  unlockedSectors?: number;
+  sectorRewards?: Partial<Record<SectorId, number>>;
 }
 
 export interface WorldMineView {
   id: MineId;
+  sectorId: SectorId;
   code: string;
   name: string;
   resourceName: string;
   description: string;
+  currencyCode: string;
+  currencyName: string;
   unlocked: boolean;
   active: boolean;
   canUnlock: boolean;
@@ -119,6 +129,30 @@ export interface WorldMineView {
   totalCashEarned: number;
   incomePerSecond: number;
   unlockedDecks: number;
+  mapX: number;
+  mapY: number;
+  accent: string;
+  accentSoft: string;
+}
+
+export interface WorldSectorView {
+  id: SectorId;
+  code: string;
+  name: string;
+  currencyCode: string;
+  currencyName: string;
+  description: string;
+  unlocked: boolean;
+  active: boolean;
+  canUnlock: boolean;
+  unlockEarnedRequired: number;
+  previousSectorName: string | null;
+  previousSectorEarned: number;
+  wallet: number;
+  totalCashEarned: number;
+  incomePerSecond: number;
+  unlockedMines: number;
+  totalMines: number;
   mapX: number;
   mapY: number;
   accent: string;

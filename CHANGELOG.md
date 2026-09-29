@@ -1,5 +1,20 @@
 # Changelog
 
+## Stage 6 — Multi-Sector Economy
+
+- Добавлен World Atlas из 8 секторов и 40 mine definitions.
+- Добавлена отдельная валюта для каждого сектора.
+- Пять шахт одного сектора теперь используют общий wallet.
+- Добавлены условия последовательного открытия секторов.
+- Добавлена двухуровневая навигация World Atlas → Sector Map.
+- Background/offline income распределяется по правильным sector wallets.
+- Offline summary показывает награды отдельно по валютам.
+- Добавлены Glacier Belt, Ember Fault, Aurora Steppe, Twilight Basin, Relic Wastes, Sunken Shelf и Storm Cradle.
+- Save schema обновлена до v4.
+- Stage 5 cash автоматически мигрирует в Rust Credits без потери накоплений.
+- Добавлены Stage 6 world configuration и save migration tests.
+- Stage badge обновлён до Stage 6.
+
 ## Stage 3 — Offline Income & Save Recovery
 
 - Добавлен аналитический offline income по реальному bottleneck производственной цепочки.

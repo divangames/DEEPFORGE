@@ -854,3 +854,70 @@ button { min-height: 44px; -webkit-tap-highlight-color: transparent; }
   .world-map-info { overflow-y: auto; align-content: start; border-top: 0; border-left: 1px solid #343d44; padding: 22px; }
   .world-map-info h2 { font-size: 28px; }
 }
+
+/* Stage 6: multi-sector atlas */
+.world-map-header-actions {
+  display: flex !important;
+  grid-auto-flow: column;
+  gap: 7px !important;
+  min-width: auto !important;
+}
+.atlas-canvas {
+  background:
+    linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
+    radial-gradient(circle at 14% 67%, rgba(230, 150, 51, .14), transparent 22%),
+    radial-gradient(circle at 31% 29%, rgba(73, 176, 236, .12), transparent 18%),
+    radial-gradient(circle at 48% 59%, rgba(234, 91, 50, .11), transparent 20%),
+    radial-gradient(circle at 71% 51%, rgba(145, 104, 255, .12), transparent 22%),
+    radial-gradient(circle at 67% 83%, rgba(51, 198, 204, .12), transparent 18%),
+    linear-gradient(145deg, #15191b 0%, #0c1115 50%, #171317 100%);
+  background-size: 40px 40px, 40px 40px, auto, auto, auto, auto, auto, auto;
+}
+.sector-route polyline {
+  stroke: rgba(163, 182, 194, .33);
+  stroke-dasharray: 1.4 1.8;
+}
+.sector-node {
+  grid-template-columns: 23px 38px auto;
+  min-width: 132px;
+  min-height: 48px;
+}
+.sector-node .node-core {
+  width: 36px;
+  height: 36px;
+}
+.sector-node .node-label small { max-width: 112px; }
+.offline-sector-rewards {
+  width: min(100%, 360px);
+  display: grid;
+  gap: 5px;
+}
+.offline-sector-rewards > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 9px;
+  border: 1px solid #4a4026;
+  border-radius: 8px;
+  background: rgba(24, 21, 14, .75);
+}
+.offline-sector-rewards span { color: #a99b75; }
+.offline-sector-rewards strong { color: #ffd15e; font-size: 15px; }
+
+@media (max-width: 520px) {
+  .sector-node { grid-template-columns: 27px auto; min-width: 82px; min-height: 39px; }
+  .sector-node .node-core { width: 27px; height: 27px; }
+  .sector-node .node-label small { max-width: 76px; }
+  .atlas-canvas .map-sector-label b { font-size: 18px; }
+}
+
+@media (max-width: 380px) {
+  .sector-node { min-width: 68px; }
+  .sector-node .node-label small { display: none; }
+}
+
+/* Stage 6 topbar currency/sector safety */
+.brand-copy span { overflow: hidden; text-overflow: ellipsis; max-width: min(52vw, 520px); }
+.resource-pill span { min-width: 18px; text-align: center; }

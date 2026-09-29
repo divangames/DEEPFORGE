@@ -140,6 +140,18 @@ export class MineSimulation {
     return this.getState();
   }
 
+  /**
+   * Stage 6: все шахты одного сектора используют общий кошелек.
+   * Сцена синхронизирует его с активной симуляцией через эти методы.
+   */
+  getCash(): number {
+    return this.state.cash;
+  }
+
+  setCash(value: number): void {
+    this.state.cash = Math.max(0, Number.isFinite(value) ? value : 0);
+  }
+
   serialize(): PersistentMineState {
     const shaftLevels: Partial<Record<ShaftId, number>> = {};
     const shaftBuffers: Partial<Record<ShaftId, number>> = {};
