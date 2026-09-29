@@ -1,0 +1,6 @@
+# Единые окончания строк в репозитории.
+* text=auto eol=lf
+
+# Windows-скрипты должны оставаться CRLF в рабочей копии.
+*.bat text eol=crlf
+*.cmd text eol=crlf

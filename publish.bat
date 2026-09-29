@@ -1,9 +1,15 @@
 @echo off
+chcp 65001 >nul
 setlocal EnableExtensions
 cd /d "%~dp0"
 
 set "REPO_URL=https://github.com/divangames/DEEPFORGE.git"
 set "PAGE_URL=https://divangames.github.io/DEEPFORGE/"
+
+REM Сообщение коммита задаём ДО любых скобочных блоков.
+REM Это важно для cmd.exe: переменные вида %%VAR%% внутри блока раскрываются заранее.
+set "MSG=%~1"
+if not defined MSG set "MSG=auto: DEEPFORGE update"
 
 echo ==================================================
 echo   DEEPFORGE - CHECK ^> COMMIT ^> PUSH ^> PAGES
@@ -53,33 +59,45 @@ if not exist .git (
   if errorlevel 1 git remote add origin "%REPO_URL%"
 )
 
+REM Git identity задаём только для DEEPFORGE, глобальные настройки не меняем.
+git config --local user.name >nul 2>nul
+if errorlevel 1 (
+  echo [GIT] Настраиваю имя автора: divangames
+  git config --local user.name "divangames"
+)
+
+git config --local user.email >nul 2>nul
+if errorlevel 1 (
+  echo [GIT] Настраиваю GitHub noreply email...
+  git config --local user.email "61680664+divangames@users.noreply.github.com"
+)
+
+REM На всякий случай приводим origin к нужному репозиторию.
+git remote set-url origin "%REPO_URL%" >nul 2>nul
+
 git add -A
+if errorlevel 1 goto :error
+
 git diff --cached --quiet
 if not errorlevel 1 (
-  echo [6/7] Изменений для коммита нет.
+  echo [6/7] Изменений для нового коммита нет.
 ) else (
-  if "%~1"=="" (
-    for /f "tokens=1-3 delims=./- " %%a in ("%date%") do set "D=%%a-%%b-%%c"
-    set "MSG=auto: DEEPFORGE update %date% %time:~0,5%"
-  ) else (
-    set "MSG=%~1"
-  )
   echo [6/7] Commit: %MSG%
   git commit -m "%MSG%"
   if errorlevel 1 goto :error
 )
 
-echo [7/7] Push в GitHub. После push GitHub Actions обновит Pages...
+echo [7/7] Push в GitHub...
 git push -u origin main
 if errorlevel 1 goto :error
 
 echo.
 echo [OK] Код отправлен: https://github.com/divangames/DEEPFORGE
-echo [OK] GitHub Pages: %PAGE_URL%
+echo [OK] GitHub Actions теперь должен обновить Pages.
+echo [OK] Игра: %PAGE_URL%
 echo.
-echo Если это самый первый деплой репозитория, GitHub может один раз потребовать:
-echo Settings ^> Pages ^> Source ^> GitHub Actions.
-echo После этого все следующие публикации полностью автоматические.
+echo Если это первый запуск Pages:
+echo GitHub ^> Settings ^> Pages ^> Source ^> GitHub Actions
 echo.
 start "" "%PAGE_URL%"
 pause
@@ -87,6 +105,7 @@ exit /b 0
 
 :error
 echo.
-echo [DEEPFORGE] Публикация остановлена из-за ошибки. Ничего не пушилось после сбоя проверки.
+echo [DEEPFORGE] Публикация остановлена из-за ошибки.
+echo Ничего после ошибочного шага не отправлялось.
 pause
 exit /b 1
