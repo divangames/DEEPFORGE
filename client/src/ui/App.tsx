@@ -1,27 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getApiHealth } from '../services/api';
 import { formatCompact } from '../game/core/format';
-import type { FacilityId, ManagerView } from '../game/core/types';
+import type { BulkUpgradeMode, BulkUpgradeQuote, FacilityId, ManagerView } from '../game/core/types';
 import { sendGameCommand } from '../game/runtime/gameRuntime';
 import { useGameStore } from '../state/gameStore';
 import { GameCanvas } from './GameCanvas';
 
 function runFacility(id: FacilityId) {
-  if (id === 'lift') {
-    sendGameCommand({ type: 'START_LIFT' });
-    return;
-  }
-  if (id === 'hub') {
-    sendGameCommand({ type: 'START_HUB' });
-    return;
-  }
+  if (id === 'lift') return sendGameCommand({ type: 'START_LIFT' });
+  if (id === 'hub') return sendGameCommand({ type: 'START_HUB' });
   sendGameCommand({ type: 'START_SHAFT', shaftId: id });
 }
 
 function facilityName(id: FacilityId) {
   if (id === 'lift') return 'Cargo Lift';
   if (id === 'hub') return 'Logistics Hub';
-  return `Deck 0${Number(id.at(-1))}`;
+  const depth = Number(id.slice('shaft-'.length));
+  return `Deck ${String(depth).padStart(2, '0')}`;
 }
 
 function managerInitials(name: string) {
@@ -39,14 +34,20 @@ function formatAwayTime(seconds: number) {
   const hours = Math.floor(total / 3600);
   const minutes = Math.floor((total % 3600) / 60);
   const secs = total % 60;
-
   if (hours > 0) return `${hours} ч ${minutes} мин`;
   if (minutes > 0) return `${minutes} мин ${secs} сек`;
   return `${secs} сек`;
 }
 
+function quoteLabel(quote: BulkUpgradeQuote | null, mode: BulkUpgradeMode) {
+  if (!quote) return mode === 'MAX' ? 'MAX' : `×${mode}`;
+  if (mode === 'MAX') return quote.levels > 0 ? `MAX +${quote.levels}` : 'MAX';
+  return `×${mode}`;
+}
+
 export function App() {
   const [teamOpen, setTeamOpen] = useState(false);
+  const [bulkMode, setBulkMode] = useState<BulkUpgradeMode>(1);
   const quality = useGameStore((state) => state.quality);
   const apiOnline = useGameStore((state) => state.apiOnline);
   const simulation = useGameStore((state) => state.simulation);
@@ -54,7 +55,9 @@ export function App() {
   const selectedStats = useGameStore((state) => state.selectedStats);
   const selectedManager = useGameStore((state) => state.selectedManager);
   const managerRoster = useGameStore((state) => state.managerRoster);
-  const canUpgradeSelected = useGameStore((state) => state.canUpgradeSelected);
+  const selectedBulkQuotes = useGameStore((state) => state.selectedBulkQuotes);
+  const bottleneck = useGameStore((state) => state.bottleneck);
+  const barrier = useGameStore((state) => state.barrier);
   const offlineReport = useGameStore((state) => state.offlineReport);
   const setApiOnline = useGameStore((state) => state.setApiOnline);
   const setOfflineReport = useGameStore((state) => state.setOfflineReport);
@@ -62,12 +65,10 @@ export function App() {
   useEffect(() => {
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), 1800);
-
     getApiHealth(controller.signal)
       .then(() => setApiOnline(true))
       .catch(() => setApiOnline(false))
       .finally(() => window.clearTimeout(timer));
-
     return () => {
       window.clearTimeout(timer);
       controller.abort();
@@ -75,8 +76,16 @@ export function App() {
   }, [setApiOnline]);
 
   const rawOre = simulation?.shafts.reduce((sum, shaft) => sum + shaft.buffer, 0) ?? 0;
+  const unlockedShafts = simulation?.shafts.filter((shaft) => shaft.unlocked).length ?? 0;
   const hiredManagers = useMemo(() => managerRoster.filter((manager) => manager.hired).length, [managerRoster]);
   const selectedIsAutomated = selectedManager?.hired ?? false;
+  const selectedQuote = bulkMode === 1
+    ? selectedBulkQuotes?.x1
+    : bulkMode === 10
+      ? selectedBulkQuotes?.x10
+      : bulkMode === 25
+        ? selectedBulkQuotes?.x25
+        : selectedBulkQuotes?.max;
 
   return (
     <main className="app-shell">
@@ -85,12 +94,12 @@ export function App() {
           <span className="brand-mark">DF</span>
           <div className="brand-copy">
             <strong>DEEPFORGE</strong>
-            <span>RUST VALLEY · 01</span>
+            <span>RUST VALLEY · MINE 01</span>
           </div>
         </div>
         <div className="topbar-meta">
           <div className="manager-count" aria-label="Нанятые менеджеры">
-            <span>♟</span>{hiredManagers}/5
+            <span>♟</span>{hiredManagers}/{managerRoster.length || 5}
           </div>
           <div className="resource-pill" aria-label="Деньги">
             <span>$</span>{formatCompact(simulation?.cash ?? 0)}
@@ -103,11 +112,45 @@ export function App() {
 
         <div className="stage-status" aria-hidden="true">
           <span><b>{formatCompact(rawOre)}</b> ORE</span>
+          <span><b>{unlockedShafts}/30</b> DECKS</span>
           <span><b>{formatCompact(simulation?.surfaceBuffer ?? 0)}</b> SURFACE</span>
         </div>
 
+        {bottleneck && (
+          <div className="bottleneck-hud">
+            <span className={bottleneck.bottleneck === 'shafts' ? 'hot' : ''}>⛏ {formatCompact(bottleneck.shaftOrePerSecond)}/s</span>
+            <span className={bottleneck.bottleneck === 'lift' ? 'hot' : ''}>↕ {formatCompact(bottleneck.liftOrePerSecond)}/s</span>
+            <span className={bottleneck.bottleneck === 'hub' ? 'hot' : ''}>▰ {formatCompact(bottleneck.hubOrePerSecond)}/s</span>
+            <strong>УЗКОЕ МЕСТО: {bottleneck.label.toUpperCase()}</strong>
+          </div>
+        )}
+
+        {barrier && (
+          <div className={`barrier-strip ${barrier.active ? 'active' : ''}`}>
+            <div>
+              <strong>БАРЬЕР {barrier.boundaryDepth}00 м</strong>
+              <span>
+                {barrier.active
+                  ? `Расчистка: ${Math.ceil(barrier.remaining)} сек`
+                  : barrier.requirementsMet
+                    ? `Откроет глубину до ${barrier.targetDepth}00 м`
+                    : `Сначала откройте Deck ${barrier.boundaryDepth}`}
+              </span>
+            </div>
+            {!barrier.active && (
+              <button
+                type="button"
+                disabled={!barrier.canStart}
+                onClick={() => sendGameCommand({ type: 'START_BARRIER' })}
+              >
+                CLEAR · ${formatCompact(barrier.cost)}
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="stage-badge">
-          <strong>STAGE 3</strong>
+          <strong>STAGE 4</strong>
           <span>{quality}</span>
           <span className={apiOnline ? 'ok' : 'muted'}>{apiOnline ? 'API' : 'LOCAL'}</span>
         </div>
@@ -124,56 +167,112 @@ export function App() {
             <span>{selectedStats?.primaryLabel ?? 'За цикл'} <b>{selectedStats?.primaryValue ?? '—'}</b></span>
             <span>{selectedStats?.secondaryLabel ?? 'Цикл'} <b>{selectedStats?.secondaryValue ?? '—'}</b></span>
           </div>
+          {selectedStats?.isUnlocked && (
+            <div className="milestone-line">
+              <span>Текущий множитель <b>×{selectedStats.milestone.currentMultiplier}</b></span>
+              {selectedStats.milestone.nextLevel ? (
+                <span>Следующий milestone: <b>LVL {selectedStats.milestone.nextLevel} · ×{selectedStats.milestone.nextMultiplier}</b></span>
+              ) : (
+                <span>Все milestones открыты</span>
+              )}
+            </div>
+          )}
         </div>
 
-        {selectedManager && (
-          <div className={`manager-card ${selectedManager.hired ? 'hired' : ''}`}>
-            <div className="manager-avatar">{managerInitials(selectedManager.name)}</div>
-            <div className="manager-copy">
-              <strong>{selectedManager.name}</strong>
-              <span>{selectedManager.role}</span>
-              <small>
-                {selectedManager.hired
-                  ? `AUTO · +${selectedManager.passiveBonusPercent}% мощности`
-                  : 'Автоматизирует выбранный объект'}
-              </small>
+        {selectedStats && !selectedStats.isUnlocked ? (
+          <div className="locked-facility-card">
+            <strong>{selectedStats.isAccessible ? 'НОВЫЙ ДОБЫВАЮЩИЙ УРОВЕНЬ' : 'УРОВЕНЬ ЗА БАРЬЕРОМ'}</strong>
+            <span>
+              {selectedStats.isAccessible
+                ? 'Откройте уровень, чтобы запустить добычу и нанять менеджера.'
+                : 'Сначала расчистите текущий каменный барьер.'}
+            </span>
+            <button
+              type="button"
+              disabled={!selectedStats.canUnlock}
+              onClick={() => {
+                if (selectedFacility !== 'lift' && selectedFacility !== 'hub') {
+                  sendGameCommand({ type: 'UNLOCK_SHAFT', shaftId: selectedFacility });
+                }
+              }}
+            >
+              {selectedStats.isAccessible ? `UNLOCK · $${formatCompact(selectedStats.unlockCost)}` : 'SEALED'}
+            </button>
+          </div>
+        ) : (
+          <>
+            {selectedManager && (
+              <div className={`manager-card ${selectedManager.hired ? 'hired' : ''}`}>
+                <div className="manager-avatar">{managerInitials(selectedManager.name)}</div>
+                <div className="manager-copy">
+                  <strong>{selectedManager.name}</strong>
+                  <span>{selectedManager.role}</span>
+                  <small>
+                    {selectedManager.hired
+                      ? `AUTO · +${selectedManager.passiveBonusPercent}% мощности`
+                      : 'Автоматизирует выбранный объект'}
+                  </small>
+                </div>
+
+                {!selectedManager.hired ? (
+                  <button
+                    type="button"
+                    className="manager-hire"
+                    disabled={!selectedManager.canHire}
+                    onClick={() => sendGameCommand({ type: 'HIRE_MANAGER', facilityId: selectedFacility })}
+                  >
+                    НАНЯТЬ · ${formatCompact(selectedManager.hireCost)}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className={`manager-ability ${selectedManager.activeRemaining > 0 ? 'active' : ''}`}
+                    disabled={!selectedManager.abilityReady}
+                    onClick={() => sendGameCommand({ type: 'ACTIVATE_MANAGER', facilityId: selectedFacility })}
+                  >
+                    {abilityLabel(selectedManager)}
+                  </button>
+                )}
+              </div>
+            )}
+
+            <div className="bulk-selector" aria-label="Количество уровней улучшения">
+              {([1, 10, 25, 'MAX'] as BulkUpgradeMode[]).map((mode) => {
+                const quote = mode === 1
+                  ? selectedBulkQuotes?.x1 ?? null
+                  : mode === 10
+                    ? selectedBulkQuotes?.x10 ?? null
+                    : mode === 25
+                      ? selectedBulkQuotes?.x25 ?? null
+                      : selectedBulkQuotes?.max ?? null;
+                return (
+                  <button
+                    key={String(mode)}
+                    type="button"
+                    className={bulkMode === mode ? 'active' : ''}
+                    onClick={() => setBulkMode(mode)}
+                  >
+                    {quoteLabel(quote, mode)}
+                  </button>
+                );
+              })}
             </div>
 
-            {!selectedManager.hired ? (
+            <div className="facility-actions">
+              <button type="button" className="run-action" onClick={() => runFacility(selectedFacility)}>
+                {selectedIsAutomated ? '↻ РУЧНОЙ ЗАПУСК' : '▶ ЗАПУСТИТЬ'}
+              </button>
               <button
                 type="button"
-                className="manager-hire"
-                disabled={!selectedManager.canHire}
-                onClick={() => sendGameCommand({ type: 'HIRE_MANAGER', facilityId: selectedFacility })}
+                className="upgrade-action"
+                disabled={!selectedQuote?.affordable}
+                onClick={() => sendGameCommand({ type: 'UPGRADE_BULK', facilityId: selectedFacility, mode: bulkMode })}
               >
-                НАНЯТЬ · ${formatCompact(selectedManager.hireCost)}
+                ↑ {selectedQuote?.levels ? `+${selectedQuote.levels}` : ''} · ${formatCompact(selectedQuote?.totalCost ?? 0)}
               </button>
-            ) : (
-              <button
-                type="button"
-                className={`manager-ability ${selectedManager.activeRemaining > 0 ? 'active' : ''}`}
-                disabled={!selectedManager.abilityReady}
-                onClick={() => sendGameCommand({ type: 'ACTIVATE_MANAGER', facilityId: selectedFacility })}
-              >
-                {abilityLabel(selectedManager)}
-              </button>
-            )}
-          </div>
+            </div>
+          </>
         )}
-
-        <div className="facility-actions">
-          <button type="button" className="run-action" onClick={() => runFacility(selectedFacility)}>
-            {selectedIsAutomated ? '↻ РУЧНОЙ ЗАПУСК' : '▶ ЗАПУСТИТЬ'}
-          </button>
-          <button
-            type="button"
-            className="upgrade-action"
-            disabled={!canUpgradeSelected}
-            onClick={() => sendGameCommand({ type: 'UPGRADE', facilityId: selectedFacility })}
-          >
-            ↑ ${formatCompact(selectedStats?.upgradeCost ?? 0)}
-          </button>
-        </div>
       </section>
 
       <nav className="bottom-nav" aria-label="Главная навигация">
@@ -191,29 +290,20 @@ export function App() {
             <span className="offline-eyebrow">АВТОНОМНЫЙ РЕЖИМ</span>
             <h2>Пока вас не было</h2>
             <p className="offline-away">Объект работал <b>{formatAwayTime(offlineReport.rawSeconds)}</b></p>
-
             <div className="offline-reward">
               <small>ЗАРАБОТАНО</small>
               <strong>$ {formatCompact(offlineReport.rewardCash)}</strong>
               <span>{formatCompact(offlineReport.processedOre)} ore обработано</span>
             </div>
-
             <div className="offline-stats">
               <div><span>Idle доход</span><b>$ {formatCompact(offlineReport.incomePerSecond)}/с</b></div>
-              <div><span>Авто-шахты</span><b>{offlineReport.automatedShafts}/3</b></div>
+              <div><span>Авто-шахты</span><b>{offlineReport.automatedShafts}/{unlockedShafts}</b></div>
               <div><span>Засчитано</span><b>{formatAwayTime(offlineReport.creditedSeconds)}</b></div>
             </div>
-
             {!offlineReport.fullChainAutomated && (
-              <p className="offline-warning">
-                Полная денежная цепочка не автоматизирована. Для idle-дохода нужны менеджеры хотя бы на одной шахте, Cargo Lift и Logistics Hub.
-              </p>
+              <p className="offline-warning">Для idle-дохода нужны менеджеры хотя бы на одном открытом Deck, Cargo Lift и Logistics Hub.</p>
             )}
-
-            {offlineReport.capped && (
-              <p className="offline-cap">Лимит автономной работы сейчас — 8 часов. Остальное время не начислялось.</p>
-            )}
-
+            {offlineReport.capped && <p className="offline-cap">Лимит автономной работы сейчас — 8 часов.</p>}
             <button type="button" className="offline-collect" onClick={() => setOfflineReport(null)}>
               ЗАБРАТЬ · $ {formatCompact(offlineReport.rewardCash)}
             </button>
@@ -226,18 +316,13 @@ export function App() {
           <button className="team-backdrop" type="button" aria-label="Закрыть" onClick={() => setTeamOpen(false)} />
           <section className="team-panel">
             <header className="team-header">
-              <div>
-                <span>УПРАВЛЕНИЕ ОБЪЕКТОМ</span>
-                <strong>Команда менеджеров</strong>
-              </div>
+              <div><span>УПРАВЛЕНИЕ ОБЪЕКТОМ</span><strong>Команда менеджеров</strong></div>
               <button type="button" onClick={() => setTeamOpen(false)}>✕</button>
             </header>
-
             <div className="team-summary">
-              <strong>{hiredManagers}/5</strong>
-              <span>звеньев автоматизировано</span>
+              <strong>{hiredManagers}/{managerRoster.length}</strong>
+              <span>открытых звеньев автоматизировано</span>
             </div>
-
             <div className="manager-list">
               {managerRoster.map((manager) => (
                 <article
@@ -256,7 +341,6 @@ export function App() {
                       <em>{manager.hired ? `AUTO +${manager.passiveBonusPercent}%` : `Найм $${formatCompact(manager.hireCost)}`}</em>
                     </span>
                   </button>
-
                   {!manager.hired ? (
                     <button
                       className="manager-list-action"
@@ -279,8 +363,7 @@ export function App() {
                 </article>
               ))}
             </div>
-
-            <p className="team-note">Менеджер автоматически запускает своё звено цепочки. Активная способность временно ускоряет его работу.</p>
+            <p className="team-note">Новые менеджеры появляются в списке по мере открытия добывающих уровней.</p>
           </section>
         </div>
       )}

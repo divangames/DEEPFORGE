@@ -1,7 +1,7 @@
-export type ShaftId = 'shaft-1' | 'shaft-2' | 'shaft-3';
+export type ShaftId = `shaft-${number}`;
 export type FacilityId = ShaftId | 'lift' | 'hub';
-
 export type TaskKind = 'mining' | 'lift' | 'hub';
+export type BulkUpgradeMode = 1 | 10 | 25 | 'MAX';
 
 export interface TimedTask {
   kind: TaskKind;
@@ -20,6 +20,7 @@ export interface ShaftState {
   buffer: number;
   baseYield: number;
   baseDuration: number;
+  unlocked: boolean;
   task: TimedTask | null;
 }
 
@@ -42,6 +43,11 @@ export interface ManagerState {
   cooldownRemaining: number;
 }
 
+export interface BarrierState {
+  maxAccessibleDepth: number;
+  remaining: number;
+}
+
 export interface MineState {
   cash: number;
   surfaceBuffer: number;
@@ -49,7 +55,8 @@ export interface MineState {
   shafts: ShaftState[];
   lift: LiftState;
   hub: HubState;
-  managers: Record<FacilityId, ManagerState>;
+  managers: Record<string, ManagerState>;
+  barrier: BarrierState;
   totalOreMined: number;
   totalCashEarned: number;
 }
@@ -63,15 +70,17 @@ export interface PersistentManagerState {
 export interface PersistentMineState {
   cash: number;
   surfaceBuffer: number;
-  shaftLevels: Record<ShaftId, number>;
-  shaftBuffers: Record<ShaftId, number>;
+  shaftLevels: Partial<Record<ShaftId, number>>;
+  shaftBuffers: Partial<Record<ShaftId, number>>;
+  unlockedShafts?: ShaftId[];
+  maxAccessibleDepth?: number;
+  barrierRemaining?: number;
   liftLevel: number;
   hubLevel: number;
-  managers?: Partial<Record<FacilityId, PersistentManagerState>>;
+  managers?: Partial<Record<string, PersistentManagerState>>;
   totalOreMined: number;
   totalCashEarned: number;
 }
-
 
 export interface OfflineProgressReport {
   rawSeconds: number;
@@ -84,6 +93,12 @@ export interface OfflineProgressReport {
   automatedShafts: number;
 }
 
+export interface MilestoneView {
+  currentMultiplier: number;
+  nextLevel: number | null;
+  nextMultiplier: number | null;
+}
+
 export interface FacilityStats {
   id: FacilityId;
   name: string;
@@ -93,6 +108,25 @@ export interface FacilityStats {
   primaryValue: string;
   secondaryLabel: string;
   secondaryValue: string;
+  isUnlocked: boolean;
+  isAccessible: boolean;
+  unlockCost: number;
+  canUnlock: boolean;
+  milestone: MilestoneView;
+}
+
+export interface BulkUpgradeQuote {
+  mode: BulkUpgradeMode;
+  levels: number;
+  totalCost: number;
+  affordable: boolean;
+}
+
+export interface BulkUpgradeQuotes {
+  x1: BulkUpgradeQuote;
+  x10: BulkUpgradeQuote;
+  x25: BulkUpgradeQuote;
+  max: BulkUpgradeQuote;
 }
 
 export interface ManagerView {
@@ -109,4 +143,28 @@ export interface ManagerView {
   activeRemaining: number;
   cooldownRemaining: number;
   abilityReady: boolean;
+}
+
+export type BottleneckKind = 'shafts' | 'lift' | 'hub';
+
+export interface BottleneckView {
+  shaftOrePerSecond: number;
+  liftOrePerSecond: number;
+  hubOrePerSecond: number;
+  effectiveOrePerSecond: number;
+  incomePerSecond: number;
+  bottleneck: BottleneckKind;
+  label: string;
+}
+
+export interface BarrierView {
+  boundaryDepth: number;
+  targetDepth: number;
+  cost: number;
+  duration: number;
+  remaining: number;
+  active: boolean;
+  cleared: boolean;
+  requirementsMet: boolean;
+  canStart: boolean;
 }

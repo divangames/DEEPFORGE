@@ -81,3 +81,23 @@
 - Responsive shell.
 - LOW / MEDIUM / HIGH quality tier.
 - Windows `.bat` scripts.
+
+## Stage 4 — Full Mine
+
+### Added
+- 30 добывающих Deck вместо трёх.
+- Последовательное открытие Deck 04–30.
+- 5 timed barriers между группами по 5 уровней.
+- Вертикальный wheel/drag/swipe по глубокой шахте.
+- Bulk upgrades ×1 / ×10 / ×25 / MAX.
+- Milestones 10 / 25 / 50 / 100 / 200 / 500.
+- Dynamic regular managers для новых Deck.
+- Bottleneck HUD: добыча / Lift / Logistics.
+- Barrier status strip и interleaved barrier blocks на сцене.
+- Stage 1–3 save migration в новую 30-level структуру.
+
+### Changed
+- Экономика масштабируется по глубине Deck.
+- Панель объекта различает unlocked / accessible / sealed уровни.
+- Team roster показывает менеджеров только открытых звеньев.
+- Stage badge обновлён до Stage 4.

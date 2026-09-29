@@ -1,8 +1,8 @@
 {
   "name": "deepforge-idle-empire",
   "private": true,
-  "version": "0.1.0",
-  "description": "DEEPFORGE: Idle Empire — Stage 3 Offline Income & Save Recovery",
+  "version": "0.4.0",
+  "description": "DEEPFORGE: Idle Empire — Stage 4 Full Mine",
   "workspaces": [
     "client",
     "server"

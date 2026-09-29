@@ -12,32 +12,12 @@ if errorlevel 1 (
   exit /b 1
 )
 
-if not exist "node_modules" (
-  echo [1/8] Installing dependencies...
-  call npm install
-  if errorlevel 1 goto :fail
-) else (
-  echo [1/8] Dependencies already installed.
-)
-
-echo [2/8] TypeScript check...
-call npm run typecheck
-if errorlevel 1 goto :fail
-
-echo [3/8] Tests...
-call npm test
-if errorlevel 1 goto :fail
-
-echo [4/8] Production build...
-call npm run build
-if errorlevel 1 goto :fail
-
 if not exist ".git" (
-  echo [5/8] Initializing Git repository...
+  echo [1/8] Initializing Git repository...
   git init
   git branch -M main
 ) else (
-  echo [5/8] Git repository already initialized.
+  echo [1/8] Git repository already initialized.
 )
 
 git config user.name "divangames"
@@ -51,7 +31,7 @@ if errorlevel 1 (
   git remote set-url origin https://github.com/divangames/DEEPFORGE.git
 )
 
-echo [6/8] Syncing with GitHub...
+echo [2/8] Syncing with GitHub...
 git fetch origin main
 if errorlevel 1 goto :fail
 git rebase --autostash origin/main
@@ -60,6 +40,26 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
+
+if not exist "node_modules" (
+  echo [3/8] Installing dependencies...
+  call npm install
+  if errorlevel 1 goto :fail
+) else (
+  echo [3/8] Dependencies already installed.
+)
+
+echo [4/8] TypeScript check...
+call npm run typecheck
+if errorlevel 1 goto :fail
+
+echo [5/8] Tests...
+call npm test
+if errorlevel 1 goto :fail
+
+echo [6/8] Production build...
+call npm run build
+if errorlevel 1 goto :fail
 
 echo [7/8] Commit: %MSG%
 git add -A

@@ -1,7 +1,16 @@
 import { create } from 'zustand';
 import type { QualityTier } from '../core/device';
 import { detectQualityTier } from '../core/device';
-import type { FacilityId, FacilityStats, ManagerView, MineState, OfflineProgressReport } from '../game/core/types';
+import type {
+  BarrierView,
+  BottleneckView,
+  BulkUpgradeQuotes,
+  FacilityId,
+  FacilityStats,
+  ManagerView,
+  MineState,
+  OfflineProgressReport,
+} from '../game/core/types';
 
 interface GameState {
   quality: QualityTier;
@@ -11,6 +20,9 @@ interface GameState {
   selectedStats: FacilityStats | null;
   selectedManager: ManagerView | null;
   managerRoster: ManagerView[];
+  selectedBulkQuotes: BulkUpgradeQuotes | null;
+  bottleneck: BottleneckView | null;
+  barrier: BarrierView | null;
   canUpgradeSelected: boolean;
   offlineReport: OfflineProgressReport | null;
   setApiOnline: (online: boolean) => void;
@@ -21,8 +33,11 @@ interface GameState {
     selectedFacility: FacilityId,
     selectedStats: FacilityStats,
     canUpgradeSelected: boolean,
-    selectedManager: ManagerView,
+    selectedManager: ManagerView | null,
     managerRoster: ManagerView[],
+    selectedBulkQuotes: BulkUpgradeQuotes,
+    bottleneck: BottleneckView,
+    barrier: BarrierView | null,
   ) => void;
 }
 
@@ -34,6 +49,9 @@ export const useGameStore = create<GameState>((set) => ({
   selectedStats: null,
   selectedManager: null,
   managerRoster: [],
+  selectedBulkQuotes: null,
+  bottleneck: null,
+  barrier: null,
   canUpgradeSelected: false,
   offlineReport: null,
   setApiOnline: (apiOnline) => set({ apiOnline }),
@@ -46,6 +64,9 @@ export const useGameStore = create<GameState>((set) => ({
     canUpgradeSelected,
     selectedManager,
     managerRoster,
+    selectedBulkQuotes,
+    bottleneck,
+    barrier,
   ) => set({
     simulation,
     selectedFacility,
@@ -53,5 +74,8 @@ export const useGameStore = create<GameState>((set) => ({
     canUpgradeSelected,
     selectedManager,
     managerRoster,
+    selectedBulkQuotes,
+    bottleneck,
+    barrier,
   }),
 }));
