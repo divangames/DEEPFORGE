@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: deepforge
+      POSTGRES_PASSWORD: deepforge
+      POSTGRES_DB: deepforge
+    ports:
+      - "5432:5432"
+    volumes:
+      - deepforge_pgdata:/var/lib/postgresql/data
+      - ./server/sql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U deepforge -d deepforge"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  deepforge_pgdata:

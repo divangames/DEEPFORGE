@@ -1,0 +1,23 @@
+{
+  "name": "deepforge-idle-empire",
+  "private": true,
+  "version": "0.1.0",
+  "description": "DEEPFORGE: Idle Empire — Stage 1 Core Vertical Slice",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently -n CLIENT,SERVER -c auto \"npm run dev -w client\" \"npm run dev -w server\"",
+    "build": "npm run build -w client && npm run build -w server",
+    "typecheck": "npm run typecheck -w client && npm run typecheck -w server",
+    "test": "npm run test -w client && npm run test -w server",
+    "start": "npm run start -w server"
+  },
+  "devDependencies": {
+    "concurrently": "10.0.5"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}
