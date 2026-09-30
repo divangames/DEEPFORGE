@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BLITZ_FACILITY_LABELS, type BlitzActionId, type BlitzStatusView } from '../game/core/blitz';
 import { formatCompact } from '../game/core/format';
+import { Dialog } from './components/Dialog';
+import { Icon } from './components/Icon';
 import { finishBlitzSession, getBlitzStatus, sendBlitzAction, startBlitzSession } from '../services/blitzApi';
 
 function formatTime(seconds: number) {
@@ -12,9 +14,9 @@ function formatTime(seconds: number) {
 }
 
 function movementLabel(movement: BlitzStatusView['profile']['previousMovement']) {
-  if (movement === 'promoted') return '↑ PROMOTED';
-  if (movement === 'demoted') return '↓ DEMOTED';
-  if (movement === 'stable') return '— STABLE';
+  if (movement === 'promoted') return 'Повышение';
+  if (movement === 'demoted') return 'Понижение';
+  if (movement === 'stable') return 'Лига сохранена';
   return null;
 }
 
@@ -29,105 +31,109 @@ export function BlitzPanel({
   apiOnline: boolean | null;
   onClose: () => void;
 }) {
+  const alive = useRef(true);
+  const inFlight = useRef(false);
+  const statusRequest = useRef<Promise<BlitzStatusView> | null>(null);
+  const actionLock = useRef(false);
+  const [confirmFinish, setConfirmFinish] = useState(false);
   const identity = useMemo(() => ({ playerId, nickname }), [playerId, nickname]);
   const [status, setStatus] = useState<BlitzStatusView | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Один запрос за раз: скрытая вкладка не опрашивает сервер и не тратит батарею.
   const refresh = useCallback(async (silent = false) => {
-    if (!apiOnline) return;
+    if (!apiOnline || inFlight.current || actionLock.current || document.hidden) return;
+    inFlight.current = true;
     if (!silent) setLoading(true);
     try {
-      const next = await getBlitzStatus(identity);
-      setStatus(next);
-      setError(null);
+      const request = getBlitzStatus(identity);
+      statusRequest.current = request;
+      const next = await request;
+      if (alive.current) { setStatus(next); setError(null); }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'BLITZ_UNAVAILABLE');
+      if (alive.current) setError(err instanceof Error ? err.message : 'BLITZ_UNAVAILABLE');
     } finally {
-      if (!silent) setLoading(false);
+      inFlight.current = false; statusRequest.current = null;
+      if (alive.current && !silent) setLoading(false);
     }
   }, [apiOnline, identity]);
 
   useEffect(() => {
-    void refresh();
-    if (!apiOnline) return undefined;
-    const timer = window.setInterval(() => void refresh(true), status?.activeSession ? 2000 : 7000);
-    return () => window.clearInterval(timer);
-  }, [apiOnline, refresh, Boolean(status?.activeSession)]);
+    alive.current = true;
+    return () => { alive.current = false; };
+  }, []);
+  const activeSession = Boolean(status?.activeSession);
+  useEffect(() => {
+    let stopped = false;
+    let timer: number | undefined;
+    const tick = async () => {
+      await refresh(Boolean(status));
+      if (!stopped) timer = window.setTimeout(tick, activeSession ? 2000 : 7000);
+    };
+    const visible = () => { if (!document.hidden) void refresh(true); };
+    if (apiOnline) void tick();
+    document.addEventListener('visibilitychange', visible);
+    return () => { stopped = true; window.clearTimeout(timer); document.removeEventListener('visibilitychange', visible); };
+    // Содержимое статуса не перезапускает опрос после каждого ответа.
+  }, [apiOnline, refresh, activeSession]);
 
-  async function start() {
-    setBusy('start');
+  async function runAction(key: string, operation: () => Promise<BlitzStatusView>) {
+    if (actionLock.current) return;
+    actionLock.current = true; setBusy(key); setError(null);
     try {
-      setStatus(await startBlitzSession(identity));
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'START_FAILED');
-    } finally {
-      setBusy(null);
+      // Принятое нажатие не теряется из-за фонового опроса. Сначала завершаем чтение.
+      if (statusRequest.current) await statusRequest.current.catch(() => undefined);
+      if (!alive.current) return;
+      const next = await operation(); if (alive.current) setStatus(next);
     }
+    catch (err) { if (alive.current) setError(err instanceof Error ? err.message : 'ACTION_FAILED'); }
+    finally { actionLock.current = false; if (alive.current) setBusy(null); }
   }
-
+  const start = () => runAction('start', () => startBlitzSession(identity));
   async function upgrade(action: BlitzActionId) {
     const session = status?.activeSession;
     if (!session) return;
-    setBusy(action);
-    try {
-      await sendBlitzAction(identity, session.id, action);
-      await refresh(true);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'ACTION_FAILED');
-      await refresh(true);
-    } finally {
-      setBusy(null);
-    }
+    await runAction(action, async () => { await sendBlitzAction(identity, session.id, action); return getBlitzStatus(identity); });
   }
-
   async function finish() {
     const session = status?.activeSession;
     if (!session) return;
-    setBusy('finish');
-    try {
-      setStatus(await finishBlitzSession(identity, session.id));
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'FINISH_FAILED');
-    } finally {
-      setBusy(null);
-    }
+    setConfirmFinish(false);
+    await runAction('finish', () => finishBlitzSession(identity, session.id));
   }
 
   const movement = status ? movementLabel(status.profile.previousMovement) : null;
 
   return (
-    <div className="blitz-overlay" role="dialog" aria-modal="true" aria-label="Blitz Drill Leaderboard">
-      <button type="button" className="blitz-backdrop" aria-label="Закрыть" onClick={onClose} />
+    <Dialog label="Blitz Drill" onClose={onClose} className="blitz-dialog">
       <section className="blitz-panel">
         <header className="blitz-header">
           <div>
-            <span>SERVER-AUTHORITATIVE COMPETITION</span>
+            <span>СОРЕВНОВАНИЕ · 10 МИНУТ</span>
             <strong>Blitz Drill</strong>
             <small>{status?.event.title ?? 'Velocity Run'} · 10 минут</small>
           </div>
-          <button type="button" onClick={onClose}>✕</button>
+          <button type="button" className="icon-button" data-dialog-initial aria-label="Закрыть Blitz" onClick={onClose}><Icon name="close" /></button>
         </header>
 
+        <div className="panel-scroll">
         {!apiOnline ? (
           <div className="blitz-server-offline">
-            <b>SERVER REQUIRED</b>
+            <b>НУЖЕН СЕРВЕР</b>
             <strong>Рейтинговый режим недоступен без backend</strong>
             <span>GitHub Pages остаётся игровой демо-версией. После подключения VPS этот экран автоматически станет сетевым.</span>
           </div>
         ) : loading && !status ? (
           <div className="blitz-loading">Синхронизация рейтинга…</div>
         ) : status ? (
-          <div className="blitz-scroll">
+          <div className="blitz-content">
             <section className="blitz-profile-grid">
               <div><span>ДИВИЗИОН</span><strong>{status.profile.division}</strong><small>{status.profile.groupId}</small></div>
               <div><span>БИЛЕТЫ</span><strong>{status.profile.ticketsLeft}/{status.profile.ticketsMax}</strong><small>на цикл</small></div>
-              <div><span>МЕДАЛИ</span><strong>{status.profile.medals}</strong><small>server reward</small></div>
-              <div><span>ДО КОНЦА</span><strong>{formatTime(status.event.remainingSeconds)}</strong><small>server time</small></div>
+              <div><span>МЕДАЛИ</span><strong>{status.profile.medals}</strong><small>награды рейтинга</small></div>
+              <div><span>ДО КОНЦА</span><strong>{formatTime(status.event.remainingSeconds)}</strong><small>время сервера</small></div>
             </section>
 
             {movement && status.profile.previousRank && (
@@ -137,15 +143,15 @@ export function BlitzPanel({
               </div>
             )}
 
-            {error && <div className="blitz-error">{error === 'NOT_ENOUGH_CREDITS' ? 'Недостаточно Drill Credits.' : error}</div>}
+            {error && <div className="blitz-error" role="alert">{error === 'NOT_ENOUGH_CREDITS' ? 'Недостаточно Drill Credits.' : error}</div>}
 
             {status.activeSession ? (
               <section className="blitz-session-card">
                 <div className="blitz-session-head">
-                  <div><span>ACTIVE RUN</span><strong>{formatTime(status.activeSession.remainingSeconds)}</strong></div>
-                  <div><span>SCORE</span><strong>{formatCompact(status.activeSession.score)}</strong></div>
-                  <div><span>DRILL CR</span><strong>{formatCompact(status.activeSession.credits)}</strong></div>
-                  <div><span>FLOW</span><strong>{status.activeSession.throughput.toFixed(1)}/s</strong></div>
+                  <div><span>ДО КОНЦА ЗАБЕГА</span><strong>{formatTime(status.activeSession.remainingSeconds)}</strong></div>
+                  <div><span>ОЧКИ</span><strong>{formatCompact(status.activeSession.score)}</strong></div>
+                  <div><span>КРЕДИТЫ</span><strong>{formatCompact(status.activeSession.credits)}</strong></div>
+                  <div><span>ПОТОК</span><strong>{status.activeSession.throughput.toFixed(1)}/s</strong></div>
                 </div>
                 <div className="blitz-facilities">
                   {status.activeSession.facilities.map((facility) => {
@@ -166,48 +172,49 @@ export function BlitzPanel({
                 </div>
                 <div className="blitz-session-actions">
                   <span>Score считается только на сервере. Клиент отправляет лишь upgrade-action.</span>
-                  <button type="button" disabled={Boolean(busy)} onClick={() => void finish()}>{busy === 'finish' ? 'ЗАВЕРШЕНИЕ…' : 'ЗАВЕРШИТЬ RUN'}</button>
+                  {!confirmFinish ? <button type="button" disabled={Boolean(busy)} onClick={() => setConfirmFinish(true)}>Завершить забег</button> : <div className="confirmation-box" role="alert"><strong>Завершить сейчас?</strong><p>Сервер зафиксирует результат. Билет не возвращается.</p><div><button type="button" onClick={() => setConfirmFinish(false)}>Продолжить забег</button><button type="button" disabled={Boolean(busy)} onClick={() => void finish()}>{busy === 'finish' ? 'Завершение…' : 'Зафиксировать'}</button></div></div>}
                 </div>
               </section>
             ) : (
               <section className="blitz-start-card">
                 <div>
-                  <span>VELOCITY RUN</span>
+                  <span>BLITZ DRILL</span>
                   <strong>Постройте максимально эффективную цепочку за 10 минут</strong>
-                  <small>Extraction → Cargo Lift → Logistics. Каждое улучшение проверяет и считает сервер.</small>
+                  <small>Добыча → Лифт → Логистика. Улучшайте самое медленное звено.</small>
                 </div>
                 <button type="button" disabled={Boolean(busy) || status.profile.ticketsLeft <= 0} onClick={() => void start()}>
-                  {status.profile.ticketsLeft <= 0 ? 'БИЛЕТЫ ЗАКОНЧИЛИСЬ' : busy === 'start' ? 'СТАРТ…' : '▶ НАЧАТЬ RUN'}
+                  {status.profile.ticketsLeft <= 0 ? 'БИЛЕТЫ ЗАКОНЧИЛИСЬ' : busy === 'start' ? 'СТАРТ…' : 'Начать забег'}
                 </button>
               </section>
             )}
 
             <section className="blitz-board">
               <header>
-                <div><span>GROUP LEADERBOARD</span><strong>{status.profile.division} · {status.profile.groupId}</strong></div>
+                <div><span>РЕЙТИНГ ГРУППЫ</span><strong>{status.profile.division} · {status.profile.groupId}</strong></div>
                 <div><b>{status.participants}</b><small>игроков</small></div>
               </header>
               {status.participants < 5 && <div className="blitz-waiting">Для движения между дивизионами нужно минимум 5 завершивших игроков в группе.</div>}
-              <div className="blitz-zone-legend"><span className="promotion">↑ TOP 15%</span><span>SAFE</span><span className="demotion">↓ BOTTOM 15%</span></div>
+              <div className="blitz-zone-legend"><span className="promotion">↑ Лучшие 15%</span><span>Без изменения</span><span className="demotion">↓ Нижние 15%</span></div>
               <div className="blitz-board-list">
                 {status.leaderboard.length === 0 ? (
                   <div className="blitz-empty">Пока никто не завершил Run. Станьте первым.</div>
                 ) : status.leaderboard.map((entry) => (
                   <div key={entry.playerId} className={`blitz-board-row ${entry.self ? 'self' : ''} ${entry.zone}`}>
                     <b>#{entry.rank}</b>
-                    <div><strong>{entry.nickname}</strong><span>{entry.self ? 'YOU · ' : ''}{entry.playerId}</span></div>
+                    <div><strong>{entry.nickname}</strong><span>{entry.self ? 'Вы · ' : ''}{entry.playerId}</span></div>
                     <em>{formatCompact(entry.score)}</em>
                   </div>
                 ))}
               </div>
             </section>
 
-            <p className="blitz-security-note">Защита Stage 15: server time, server credits, server upgrade cost, server score, session ownership и rate limit. Клиент не имеет API для отправки произвольного score.</p>
+            <p className="blitz-security-note">Защита Stage 15: время сервера, server credits, server upgrade cost, server score, session ownership и rate limit. Клиент не имеет API для отправки произвольного score.</p>
           </div>
         ) : (
-          <div className="blitz-loading">{error ?? 'Не удалось загрузить рейтинг.'}</div>
+          <div className="blitz-loading" role="alert"><p>{error ?? 'Не удалось загрузить рейтинг.'}</p><button type="button" onClick={() => void refresh()}>Повторить подключение</button></div>
         )}
+        </div>
       </section>
-    </div>
+    </Dialog>
   );
 }

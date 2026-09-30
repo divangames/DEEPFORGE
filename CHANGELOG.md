@@ -1,3 +1,21 @@
+# UI/UX 16.1 — 2026-09-30
+
+- Единая mobile-first оболочка, типографика, токены, press/hover/focus states.
+- Dock с раскрытием дополнительных настроек вместо уменьшения всех элементов.
+- Пять разделов навигации; общий экран «События» без перекрытия шахты.
+- Native Dialog, один PanelState, Escape, цикл Tab и возврат фокуса.
+- Общие Tabs с Arrow/Home/End и aria-связями.
+- VisualViewport + safe-area один раз на край; zoom не запрещён, поля 16px.
+- Проверка ID друзей, обработка ошибок Clipboard, подтверждения сбросов.
+- Memo GameCanvas и ResizeObserver; общая оптимизация закрытой сцены.
+- Улучшены hit areas карты и сцены; защита свайпа от смены пальца.
+- Новые правила UI для следующих этапов в .agents и .cursor.
+- 10 UI-policy, 12 native browser helpers, 384 static layout cases; 19 Rift core tests.
+- Полный React/Phaser build и физические iPhone в среде не проверены: npm DNS EAI_AGAIN. См. QA-отчёт.
+- Игровые core-модули, save schema v12, backend, publish.bat и workflow не изменены.
+
+---
+
 # Changelog
 
 ## Stage 16 — Rift Expedition

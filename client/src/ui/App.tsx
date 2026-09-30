@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getApiHealth } from '../services/api';
 import { resetServerClockToLocal, syncServerClock } from '../services/serverClock';
 import { formatCompact } from '../game/core/format';
@@ -18,6 +18,14 @@ import { GameCanvas } from './GameCanvas';
 import { BlitzPanel } from './BlitzPanel';
 import { RiftPanel } from './RiftPanel';
 import { EventsMenu, type EventScreen } from './EventsMenu';
+import { Dialog } from './components/Dialog';
+import { Icon } from './components/Icon';
+import { Tabs } from './components/Tabs';
+import { togglePanel, validateFriendId, type PanelState } from './platform/uiState';
+
+
+const branchLabels: Record<ResearchBranchId, string> = { industry: 'Добыча', logistics: 'Логистика', automation: 'Автоматизация', exploration: 'Разведка', specialists: 'Специалисты', events: 'Резервы' };
+function branchName(id: ResearchBranchId) { return branchLabels[id]; }
 
 function runFacility(id: FacilityId) {
   if (id === 'lift') return sendGameCommand({ type: 'START_LIFT' });
@@ -26,10 +34,10 @@ function runFacility(id: FacilityId) {
 }
 
 function facilityName(id: FacilityId) {
-  if (id === 'lift') return 'Cargo Lift';
-  if (id === 'hub') return 'Logistics Hub';
+  if (id === 'lift') return 'Грузовой лифт';
+  if (id === 'hub') return 'Склад';
   const depth = Number(id.slice('shaft-'.length));
-  return `Deck ${String(depth).padStart(2, '0')}`;
+  return `Уровень ${String(depth).padStart(2, '0')}`;
 }
 
 function managerInitials(name: string) {
@@ -102,11 +110,11 @@ function WorldMap({
     : 100;
 
   return (
-    <div className="world-map-overlay" role="dialog" aria-modal="true" aria-label="Мировая карта DEEPFORGE">
+    <Dialog label="Карта мира" onClose={onClose} className="map-dialog"><section className="world-map-panel">
       <header className="world-map-header">
         <div>
-          <span>{mode === 'atlas' ? 'WORLD ATLAS · 8 SECTORS' : `${selectedSector?.code ?? '—'} · ${selectedSector?.name ?? 'Sector'}`}</span>
-          <strong>{mode === 'atlas' ? 'Глобальная карта промышленной сети' : 'Карта добывающих объектов'}</strong>
+          <span>{mode === 'atlas' ? 'ПРОМЫШЛЕННАЯ СЕТЬ · 8 СЕКТОРОВ' : `${selectedSector?.code ?? '—'} · ${selectedSector?.name ?? 'Sector'}`}</span>
+          <strong>{mode === 'atlas' ? 'Карта мира' : 'Объекты сектора'}</strong>
           <small>
             {mode === 'atlas'
               ? `${sectors.filter((sector) => sector.unlocked).length}/${sectors.length} секторов открыто`
@@ -114,8 +122,8 @@ function WorldMap({
           </small>
         </div>
         <div className="world-map-header-actions">
-          {mode === 'sector' && <button type="button" onClick={() => setMode('atlas')}>←</button>}
-          <button type="button" onClick={onClose}>✕</button>
+          {mode === 'sector' && <button type="button" onClick={() => setMode('atlas')} aria-label="К секторам"><Icon name="back" /></button>}
+          <button type="button" onClick={onClose} aria-label="Закрыть окно" data-dialog-initial><Icon name="close" /></button>
         </div>
       </header>
 
@@ -125,16 +133,18 @@ function WorldMap({
             <section className="world-map-canvas atlas-canvas" aria-label="Сектора мира">
               <div className="map-haze map-haze-a" />
               <div className="map-haze map-haze-b" />
+              <div className="map-sector-label"><b>DEEPFORGE WORLD</b><span>8 СЕКТОРОВ · 40 ОБЪЕКТОВ</span></div>
+              <div className="map-points">
               <svg className="world-route sector-route" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                 <polyline points={sectorPoints} />
               </svg>
-              <div className="map-sector-label"><b>DEEPFORGE WORLD</b><span>8 INDUSTRIAL SECTORS · 40 MINING SITES</span></div>
               {sectors.map((sector, index) => (
                 <button
                   key={sector.id}
                   type="button"
                   className={`world-node sector-node ${sector.unlocked ? 'unlocked' : 'locked'} ${sector.active ? 'current' : ''} ${selectedSectorId === sector.id ? 'selected' : ''}`}
                   style={{ left: `${sector.mapX}%`, top: `${sector.mapY}%`, '--mine-accent': sector.accent, '--mine-soft': sector.accentSoft } as React.CSSProperties}
+                  aria-label={`${sector.name}, ${sector.unlocked ? "открыт" : "закрыт"}`} aria-pressed={selectedSectorId === sector.id}
                   onClick={() => setSelectedSectorId(sector.id)}
                 >
                   <span className="node-index">S{String(index + 1).padStart(2, '0')}</span>
@@ -142,6 +152,7 @@ function WorldMap({
                   <span className="node-label"><b>{sector.code}</b><small>{sector.name}</small></span>
                 </button>
               ))}
+              </div>
               <div className="map-legend"><span>◆ текущий</span><span>◇ открыт</span><span>× закрыт</span></div>
             </section>
 
@@ -162,13 +173,13 @@ function WorldMap({
                   <div className="map-unlock-progress">
                     <div><span>Условие открытия</span><b>{selectedSector.previousSectorName ?? '—'}</b></div>
                     <div className="map-progress-track"><i style={{ width: `${sectorProgress}%` }} /></div>
-                    <small>{formatCompact(selectedSector.previousSectorEarned)} / {formatCompact(selectedSector.unlockEarnedRequired)} lifetime earnings</small>
+                    <small>{formatCompact(selectedSector.previousSectorEarned)} / {formatCompact(selectedSector.unlockEarnedRequired)} заработано</small>
                   </div>
                 )}
 
                 {selectedSector.unlocked ? (
                   <button type="button" className="map-primary-action" onClick={() => setMode('sector')}>
-                    СМОТРЕТЬ 5 ОБЪЕКТОВ
+                    Смотреть объекты
                   </button>
                 ) : (
                   <button
@@ -188,16 +199,18 @@ function WorldMap({
             <section className="world-map-canvas" aria-label={`Маршрут ${selectedSector?.name ?? ''}`}>
               <div className="map-haze map-haze-a" />
               <div className="map-haze map-haze-b" />
+              <div className="map-sector-label"><b>{selectedSector?.name?.toUpperCase()}</b><span>{selectedSector?.currencyCode} · 5 ОБЪЕКТОВ</span></div>
+              <div className="map-points">
               <svg className="world-route" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                 <polyline points={minePoints} />
               </svg>
-              <div className="map-sector-label"><b>{selectedSector?.name?.toUpperCase()}</b><span>{selectedSector?.currencyCode} · 5 MINING SITES</span></div>
               {sectorMines.map((mine, index) => (
                 <button
                   key={mine.id}
                   type="button"
                   className={`world-node ${mine.unlocked ? 'unlocked' : 'locked'} ${mine.active ? 'current' : ''} ${selectedMineId === mine.id ? 'selected' : ''}`}
                   style={{ left: `${mine.mapX}%`, top: `${mine.mapY}%`, '--mine-accent': mine.accent, '--mine-soft': mine.accentSoft } as React.CSSProperties}
+                  aria-label={`${mine.name}, ${mine.unlocked ? "открыта" : "закрыта"}`} aria-pressed={selectedMineId === mine.id}
                   onClick={() => setSelectedMineId(mine.id)}
                 >
                   <span className="node-index">{String(index + 1).padStart(2, '0')}</span>
@@ -205,6 +218,7 @@ function WorldMap({
                   <span className="node-label"><b>{mine.code}</b><small>{mine.name}</small></span>
                 </button>
               ))}
+              </div>
               <div className="map-legend"><span>◆ текущий</span><span>◇ открыт</span><span>× закрыт</span></div>
             </section>
 
@@ -217,8 +231,8 @@ function WorldMap({
                 <div className="map-stats-grid">
                   <div><span>Кошелёк сектора</span><b>{selectedMine.currencyCode} {formatCompact(selectedMine.cash)}</b></div>
                   <div><span>Доход объекта</span><b>{selectedMine.currencyCode} {formatCompact(selectedMine.incomePerSecond)}/с</b></div>
-                  <div><span>Deck</span><b>{selectedMine.unlockedDecks}/30</b></div>
-                  <div><span>Lifetime</span><b>{selectedMine.currencyCode} {formatCompact(selectedMine.totalCashEarned)}</b></div>
+                  <div><span>Уровни</span><b>{selectedMine.unlockedDecks}/30</b></div>
+                  <div><span>Всего заработано</span><b>{selectedMine.currencyCode} {formatCompact(selectedMine.totalCashEarned)}</b></div>
                   <div><span>Rebuild</span><b>R{selectedMine.rebuildLevel} · ×{selectedMine.rebuildMultiplier}</b></div>
                 </div>
 
@@ -257,53 +271,42 @@ function WorldMap({
           </>
         )}
       </div>
-    </div>
+    </section></Dialog>
   );
 }
 
 
 function ResearchPanel({ research, onClose }: { research: ResearchView; onClose: () => void }) {
   const [branch, setBranch] = useState<ResearchBranchId>('industry');
+  const [confirmReset, setConfirmReset] = useState(false);
   const branchDef = RESEARCH_BRANCHES.find((item) => item.id === branch) ?? RESEARCH_BRANCHES[0];
   const nodes = research.nodes.filter((node) => node.branch === branch);
 
   return (
-    <div className="research-overlay" role="dialog" aria-modal="true" aria-label="Research Grid">
-      <button type="button" className="research-backdrop" aria-label="Закрыть исследования" onClick={onClose} />
+    <Dialog label="Исследования" onClose={onClose} className="research-dialog">
       <section className="research-panel">
         <header className="research-header">
           <div>
-            <span>GLOBAL PROGRESSION · STAGE 8</span>
-            <strong>Research Grid</strong>
+            <span>ГЛОБАЛЬНОЕ РАЗВИТИЕ</span>
+            <strong>Исследования</strong>
             <small>Постоянные улучшения действуют на все сектора и шахты.</small>
           </div>
-          <button type="button" onClick={onClose}>✕</button>
+          <button type="button" onClick={onClose} aria-label="Закрыть окно" data-dialog-initial><Icon name="close" /></button>
         </header>
+        <div className="panel-scroll">
 
         <div className="research-summary">
-          <div><span>RESEARCH CORES</span><strong>◈ {research.cores}</strong></div>
-          <div><span>Открыто</span><strong>{research.purchasedCount}/{research.totalNodes}</strong></div>
+          <div><span>ЯДРА ИССЛЕДОВАНИЙ</span><strong>◈ {research.cores}</strong></div>
+          <div><span>Изучено</span><strong>{research.purchasedCount}/{research.totalNodes}</strong></div>
           <div><span>Вложено</span><strong>{research.spentCores}</strong></div>
         </div>
 
-        <div className="research-tabs" role="tablist" aria-label="Ветки исследований">
-          {RESEARCH_BRANCHES.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              aria-selected={branch === item.id}
-              className={branch === item.id ? 'active' : ''}
-              style={{ '--research-accent': item.accent } as React.CSSProperties}
-              onClick={() => setBranch(item.id)}
-            >
-              <b>{item.shortName}</b><span>{item.name}</span>
-            </button>
-          ))}
-        </div>
+        <Tabs id="research" label="Ветки исследований" value={branch} onChange={setBranch}
+          options={RESEARCH_BRANCHES.map((item) => ({ value: item.id, label: branchName(item.id) }))} />
+        <div id="research-panel" role="tabpanel" aria-labelledby={`research-${branch}`}>
 
         <div className="research-branch-head" style={{ '--research-accent': branchDef.accent } as React.CSSProperties}>
-          <div><span>{branchDef.shortName} BRANCH</span><strong>{branchDef.name}</strong></div>
+          <div><span>ВЕТКА РАЗВИТИЯ</span><strong>{branchName(branchDef.id)}</strong></div>
           <p>{branchDef.description}</p>
         </div>
 
@@ -325,36 +328,39 @@ function ResearchPanel({ research, onClose }: { research: ResearchView; onClose:
                 disabled={node.purchased || !node.available}
                 onClick={() => sendGameCommand({ type: 'RESEARCH_BUY', nodeId: node.id })}
               >
-                {node.purchased ? '✓ ИЗУЧЕНО' : `◈ ${node.cost}`}
+                {node.purchased ? 'Изучено' : `Изучить · ◈ ${node.cost}`}
               </button>
             </article>
           ))}
         </div>
 
+        </div>
         <footer className="research-footer">
           <div>
-            <strong>Получение Research Cores</strong>
-            <span>Каждый успешный Rebuild выдаёт новые ◈ Cores. Первые 3 доступны сразу.</span>
+            <strong>Как получить ядра</strong>
+            <span>Перезапускайте развитые шахты, чтобы получить ядра исследований. Первые 3 доступны сразу.</span>
           </div>
           <button
             type="button"
             className="research-respec"
             disabled={research.purchasedCount === 0}
-            onClick={() => sendGameCommand({ type: 'RESEARCH_RESET' })}
+            onClick={() => { if (confirmReset) { sendGameCommand({ type: 'RESEARCH_RESET' }); setConfirmReset(false); } else setConfirmReset(true); }}
           >
-            RESET · вернуть {research.respecRefund} ◈ · комиссия {research.respecFee}
+            {confirmReset ? 'Подтвердить сброс' : 'Сбросить исследования'} · {research.respecRefund} ◈
           </button>
+          {confirmReset && <div className="confirmation-box" role="status"><p>Все изученные узлы будут сброшены. Возврат: {research.respecRefund} ◈. Комиссия: {research.respecFee} ◈.</p><button type="button" onClick={() => setConfirmReset(false)}>Отмена</button></div>}
         </footer>
+        </div>
       </section>
-    </div>
+    </Dialog>
   );
 }
 
 function specialistRoleLabel(role: SpecialistView['role']) {
-  if (role === 'extraction') return 'EXTRACTION';
-  if (role === 'lift') return 'CARGO LIFT';
-  if (role === 'logistics') return 'LOGISTICS';
-  return 'UNIVERSAL';
+  if (role === 'extraction') return 'ДОБЫЧА';
+  if (role === 'lift') return 'ЛИФТ';
+  if (role === 'logistics') return 'ЛОГИСТИКА';
+  return 'УНИВЕРСАЛЬНЫЙ';
 }
 
 function specialistAbilityLabel(item: SpecialistView) {
@@ -387,12 +393,12 @@ function SpecialistRoster({
         {data.slots.map((slot) => (
           <article className={`specialist-slot ${slot.specialistId ? 'filled' : ''}`} key={slot.slot}>
             <div>
-              <span>{slot.label.toUpperCase()}</span>
+              <span>{specialistRoleLabel(slot.slot)}</span>
               <strong>{slot.specialistName ?? 'Пустой слот'}</strong>
             </div>
             {slot.specialistId ? (
               <button type="button" onClick={() => sendGameCommand({ type: 'SPECIALIST_UNASSIGN', slot: slot.slot })}>Снять</button>
-            ) : <b>+</b>}
+            ) : <span className="inline-note">Не назначен</span>}
           </article>
         ))}
       </div>
@@ -400,7 +406,7 @@ function SpecialistRoster({
       <div className="specialist-meta-line">
         <span>Назначено <b>{data.assignedCount}/3</b></span>
         <span>Всего Rebuild <b>{data.totalRebuilds}</b></span>
-        <span>Fragments / Rank / Promotion — <b>глобальные</b></span>
+        <span>Развитие специалиста сохраняется во всех шахтах</span>
       </div>
 
       <div className="specialist-list">
@@ -419,15 +425,15 @@ function SpecialistRoster({
                   <strong>{item.name}</strong>
                   <em>{item.rarity}</em>
                 </div>
-                <small>{specialistRoleLabel(item.role)} · RANK {item.rank}/{item.maxRank} · PROMO {item.promotion}/{item.maxPromotion}</small>
+                <small>{specialistRoleLabel(item.role)} · РАНГ {item.rank}/{item.maxRank} · ПОВЫШЕНИЕ {item.promotion}/{item.maxPromotion}</small>
                 {item.equipmentName && <div className="specialist-equipment-note">⚙ {item.equipmentName}</div>}
-                <p><b>PASSIVE +{item.passiveBonusPercent}%</b> · {item.passiveLabel}</p>
-                <p><b>ACTIVE ×{item.abilityMultiplier.toFixed(2)}</b> · {item.abilityDuration}с · {item.abilityName}</p>
+                <p><b>Пассивно +{item.passiveBonusPercent}%</b> · {item.passiveLabel}</p>
+                <p><b>Навык ×{item.abilityMultiplier.toFixed(2)}</b> · {item.abilityDuration}с · {item.abilityName}</p>
                 <div className="fragment-line">
-                  <span>FRAGMENTS</span>
+                  <span>Фрагменты</span>
                   <b>{item.fragments}</b>
-                  {!item.recruited && <em>/ {item.recruitFragments} recruit</em>}
-                  {item.recruited && item.rankCost !== null && <em>/ {item.rankCost} next rank</em>}
+                  {!item.recruited && <em>/ {item.recruitFragments} для найма</em>}
+                  {item.recruited && item.rankCost !== null && <em>/ {item.rankCost} на ранг</em>}
                 </div>
                 {lockedByProgress && <div className="specialist-lock">Доступ после {item.unlockRebuilds} суммарных Rebuild</div>}
                 {item.recruited && item.assignedMineId && !item.assignedHere && (
@@ -442,7 +448,7 @@ function SpecialistRoster({
                     disabled={!item.canRecruit}
                     onClick={() => sendGameCommand({ type: 'SPECIALIST_RECRUIT', specialistId: item.id })}
                   >
-                    {lockedByProgress ? `REBUILD ${item.unlockRebuilds}` : `RECRUIT · ◆ ${item.recruitFragments}`}
+                    {lockedByProgress ? `REBUILD ${item.unlockRebuilds}` : `Нанять · ◆ ${item.recruitFragments}`}
                   </button>
                 ) : (
                   <>
@@ -454,7 +460,7 @@ function SpecialistRoster({
                           disabled={item.assignedHere && item.assignedSlot === slot}
                           onClick={() => sendGameCommand({ type: 'SPECIALIST_ASSIGN', specialistId: item.id, slot })}
                         >
-                          {item.assignedHere && item.assignedSlot === slot ? '✓ В слоте' : `→ ${slot === 'extraction' ? 'Deck' : slot === 'lift' ? 'Lift' : 'Hub'}`}
+                          {item.assignedHere && item.assignedSlot === slot ? '✓ В слоте' : `Назначить: ${slot === 'extraction' ? 'добыча' : slot === 'lift' ? 'лифт' : 'склад'}`}
                         </button>
                       ))}
                     </div>
@@ -464,7 +470,7 @@ function SpecialistRoster({
                       disabled={!item.canTrain}
                       onClick={() => sendGameCommand({ type: 'SPECIALIST_TRAIN', specialistId: item.id })}
                     >
-                      {item.level >= item.levelCap ? `CAP LV ${item.levelCap}` : `TRAIN · ▲ ${item.trainingCost}`}
+                      {item.level >= item.levelCap ? `Лимит ур. ${item.levelCap}` : `Обучить · ▲ ${item.trainingCost}`}
                     </button>
                     <button
                       type="button"
@@ -472,7 +478,7 @@ function SpecialistRoster({
                       disabled={!item.canRankUp}
                       onClick={() => sendGameCommand({ type: 'SPECIALIST_RANK_UP', specialistId: item.id })}
                     >
-                      {item.rank >= item.maxRank ? 'MAX RANK' : `RANK UP · ◆ ${item.rankCost ?? 0}`}
+                      {item.rank >= item.maxRank ? 'Макс. ранг' : `Ранг · ◆ ${item.rankCost ?? 0}`}
                     </button>
                     <button
                       type="button"
@@ -480,7 +486,7 @@ function SpecialistRoster({
                       disabled={!item.canPromote}
                       onClick={() => sendGameCommand({ type: 'SPECIALIST_PROMOTE', specialistId: item.id })}
                     >
-                      {item.promotion >= item.maxPromotion ? 'MAX PROMO' : `PROMOTE · ● ${item.promotionCost ?? 0}`}
+                      {item.promotion >= item.maxPromotion ? 'Макс. повышение' : `Повысить · ● ${item.promotionCost ?? 0}`}
                     </button>
                     <button
                       type="button"
@@ -497,7 +503,7 @@ function SpecialistRoster({
           );
         })}
       </div>
-      <p className="team-note">Academy даёт Recruit Data, Training Modules, Promotion Badges и fragments. Rank усиливает навыки, Promotion повышает лимит уровня до 25.</p>
+      <p className="team-note">Академия даёт ресурсы для найма, обучения и повышения. Ранг усиливает навыки, повышение увеличивает лимит уровня до 25.</p>
     </div>
   );
 }
@@ -508,15 +514,15 @@ function AcademyPanel({ data }: { data: AcademyView }) {
   return (
     <div className="academy-view">
       <div className="academy-resource-grid">
-        <div><span>RECRUIT DATA</span><strong>⬢ {data.resources.recruitData}</strong></div>
-        <div><span>TRAINING MODULES</span><strong>▲ {data.resources.trainingModules}</strong></div>
-        <div><span>PROMOTION BADGES</span><strong>● {data.resources.promotionBadges}</strong></div>
+        <div><span>ДАННЫЕ НАЙМА</span><strong>⬢ {data.resources.recruitData}</strong></div>
+        <div><span>МОДУЛИ ОБУЧЕНИЯ</span><strong>▲ {data.resources.trainingModules}</strong></div>
+        <div><span>ЗНАКИ ПОВЫШЕНИЯ</span><strong>● {data.resources.promotionBadges}</strong></div>
       </div>
 
       <section className="academy-hero">
         <div className="academy-progress-ring"><b>{data.completedOperations}</b><span>/ {data.totalOperations}</span></div>
         <div className="academy-hero-copy">
-          <span>ACADEMY OPERATIONS</span>
+          <span>АКАДЕМИЯ</span>
           <strong>{active?.title ?? next?.title ?? 'Все операции завершены'}</strong>
           <small>
             {active
@@ -537,20 +543,20 @@ function AcademyPanel({ data }: { data: AcademyView }) {
           </button>
         ) : next ? (
           <button type="button" className="academy-start" disabled={!data.canStartNext} onClick={() => sendGameCommand({ type: 'ACADEMY_START' })}>
-            {data.canStartNext ? 'НАЧАТЬ DRILL' : `НУЖНО ${next.requiredRebuilds} REBUILD`}
+            {data.canStartNext ? 'Начать операцию' : `НУЖНО ${next.requiredRebuilds} REBUILD`}
           </button>
         ) : <b className="academy-complete">COMPLETE</b>}
       </section>
 
       <section className="academy-recruit-scan">
         <div>
-          <span>RECRUITMENT SIGNAL</span>
+          <span>ПОИСК СПЕЦИАЛИСТОВ</span>
           <strong>Скан фрагментов Specialists</strong>
-          <small>Каждый scan гарантирует fragment-пак. Стоимость фиксирована и не зависит от сектора.</small>
+          <small>Каждое сканирование даёт пакет фрагментов. Стоимость не зависит от сектора.</small>
           {data.lastRecruit && <em>Последний сигнал: {data.lastRecruit.specialistName} +{data.lastRecruit.fragments} ◆</em>}
         </div>
         <button type="button" disabled={!data.canScan} onClick={() => sendGameCommand({ type: 'ACADEMY_RECRUIT_SCAN' })}>
-          SCAN · ⬢ {data.scanCost}
+          Сканировать · ⬢ {data.scanCost}
         </button>
       </section>
 
@@ -583,9 +589,9 @@ function AcademyPanel({ data }: { data: AcademyView }) {
 function equipmentRoleLabel(role: string) {
   if (role === 'any') return 'ANY SPECIALIST';
   if (role === 'universal') return 'UNIVERSAL ONLY';
-  if (role === 'extraction') return 'EXTRACTION';
-  if (role === 'lift') return 'CARGO LIFT';
-  return 'LOGISTICS';
+  if (role === 'extraction') return 'ДОБЫЧА';
+  if (role === 'lift') return 'ЛИФТ';
+  return 'ЛОГИСТИКА';
 }
 
 function ProgressionPanel({
@@ -612,11 +618,10 @@ function ProgressionPanel({
 
   return (
     <div className="progression-view">
-      <div className="progression-tabs" role="tablist">
-        <button type="button" className={tab === 'equipment' ? 'active' : ''} onClick={() => setTab('equipment')}>⚙ Equipment</button>
-        <button type="button" className={tab === 'collection' ? 'active' : ''} onClick={() => setTab('collection')}>▣ Collection</button>
-        <button type="button" className={tab === 'relics' ? 'active' : ''} onClick={() => setTab('relics')}>✦ Relics</button>
-      </div>
+      <Tabs id="meta" label="Развитие" value={tab} onChange={setTab} options={[
+        { value: 'equipment', label: 'Экипировка' }, { value: 'collection', label: 'Коллекция' }, { value: 'relics', label: 'Реликвии' },
+      ]} />
+      <div id="meta-panel" role="tabpanel" aria-labelledby={`meta-${tab}`}>
 
       {tab === 'equipment' && (
         <div className="equipment-view">
@@ -670,7 +675,7 @@ function ProgressionPanel({
                       disabled={!item.canCraft}
                       onClick={() => sendGameCommand({ type: 'EQUIPMENT_CRAFT', equipmentId: item.id as EquipmentId })}
                     >
-                      CRAFT · {item.cost.alloy}/{item.cost.circuits}/{item.cost.fiber}
+                      Создать · {item.cost.alloy}/{item.cost.circuits}/{item.cost.fiber}
                     </button>
                     <button
                       type="button"
@@ -678,7 +683,7 @@ function ProgressionPanel({
                       disabled={!selectedSpecialist || !selectedSpecialist.recruited || !canUse || item.availableCopies <= 0 || isEquipped}
                       onClick={() => selectedSpecialist && sendGameCommand({ type: 'EQUIPMENT_EQUIP', specialistId: selectedSpecialist.id, equipmentId: item.id as EquipmentId })}
                     >
-                      {isEquipped ? '✓ EQUIPPED' : 'EQUIP'}
+                      {isEquipped ? 'Надето' : 'Надеть'}
                     </button>
                   </div>
                 </article>
@@ -692,7 +697,7 @@ function ProgressionPanel({
         <div className="collection-view">
           <section className="collection-hero">
             <div><span>SUPPLY KEYS</span><strong>▣ {collection.supplyKeys}</strong><small>{collection.cratesOpened} crates opened · {collection.totalLevels} collection levels</small></div>
-            <button type="button" disabled={!collection.canOpenCrate} onClick={() => sendGameCommand({ type: 'COLLECTION_OPEN_CRATE' })}>OPEN SUPPLY CRATE</button>
+            <button type="button" disabled={!collection.canOpenCrate} onClick={() => sendGameCommand({ type: 'COLLECTION_OPEN_CRATE' })}>Открыть контейнер</button>
           </section>
           {collection.lastCrate.length > 0 && (
             <div className="collection-last-crate"><span>ПОСЛЕДНИЙ CRATE</span>{collection.lastCrate.map((id, index) => <b key={`${id}-${index}`}>{id}</b>)}</div>
@@ -738,6 +743,7 @@ function ProgressionPanel({
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -750,8 +756,7 @@ function ContractPanel({ contract, onClose }: { contract: WeeklyContractView; on
   const bottleneckName = contract.bottleneck === 'extraction' ? 'EXTRACTION' : contract.bottleneck === 'lift' ? 'CARGO LIFT' : 'LOGISTICS';
 
   return (
-    <div className="contract-overlay" role="dialog" aria-modal="true" aria-label="Weekly Contract">
-      <button type="button" className="contract-backdrop" aria-label="Закрыть событие" onClick={onClose} />
+    <Dialog label="Недельный контракт" onClose={onClose} className="contract-dialog">
       <section className="contract-panel" style={{ '--contract-accent': contract.accent } as React.CSSProperties}>
         <header className="contract-header">
           <div>
@@ -759,8 +764,9 @@ function ContractPanel({ contract, onClose }: { contract: WeeklyContractView; on
             <strong>{contract.title}</strong>
             <small>{contract.subtitle}</small>
           </div>
-          <button type="button" onClick={onClose}>✕</button>
+          <button type="button" onClick={onClose} aria-label="Закрыть окно" data-dialog-initial><Icon name="close" /></button>
         </header>
+        <div className="panel-scroll">
 
         <div className="contract-timer-strip">
           <div><span>ДО КОНЦА</span><strong>{formatAwayTime(remaining)}</strong></div>
@@ -845,8 +851,9 @@ function ContractPanel({ contract, onClose }: { contract: WeeklyContractView; on
           <span>Отдельная event-экономика сбрасывается с началом нового недельного контракта.</span>
           <span>Автодоход работает только после найма всех 3 event-менеджеров.</span>
         </footer>
+        </div>
       </section>
-    </div>
+    </Dialog>
   );
 }
 
@@ -854,8 +861,7 @@ function ContractPanel({ contract, onClose }: { contract: WeeklyContractView; on
 function SeasonPanel({ season, onClose }: { season: SeasonalCampaignView; onClose: () => void }) {
   const nextTarget = season.nextLevelXp ?? season.xp;
   return (
-    <div className="season-overlay" role="dialog" aria-modal="true" aria-label="Seasonal Campaign">
-      <button type="button" className="season-backdrop" aria-label="Закрыть сезон" onClick={onClose} />
+    <Dialog label="Сезон" onClose={onClose} className="season-dialog">
       <section className="season-panel" style={{ '--season-accent': season.accent } as React.CSSProperties}>
         <header className="season-header">
           <div>
@@ -863,11 +869,12 @@ function SeasonPanel({ season, onClose }: { season: SeasonalCampaignView; onClos
             <strong>{season.title}</strong>
             <small>{season.subtitle}</small>
           </div>
-          <button type="button" onClick={onClose}>✕</button>
+          <button type="button" onClick={onClose} aria-label="Закрыть окно" data-dialog-initial><Icon name="close" /></button>
         </header>
+        <div className="panel-scroll">
 
         <div className="season-summary">
-          <div><span>SEASON LEVEL</span><strong>LV {season.currentLevel}/{season.maxLevel}</strong></div>
+          <div><span>УРОВЕНЬ СЕЗОНА</span><strong>LV {season.currentLevel}/{season.maxLevel}</strong></div>
           <div><span>SEASON XP</span><strong>✦ {season.xp}</strong></div>
           <div><span>ОСТАЛОСЬ</span><strong>{formatLongTime(season.remainingSeconds)}</strong></div>
           <div><span>TIME</span><strong>{season.timeSource === 'server' ? 'SERVER' : 'LOCAL'}</strong></div>
@@ -879,13 +886,13 @@ function SeasonPanel({ season, onClose }: { season: SeasonalCampaignView; onClos
         </div>
 
         <div className={`season-premium-banner ${season.premiumUnlocked ? 'unlocked' : 'locked'}`}>
-          <div><span>PREMIUM TRACK</span><strong>{season.premiumUnlocked ? 'Активирован' : 'Готов к подключению магазина'}</strong></div>
-          <small>{season.premiumUnlocked ? 'Все достигнутые Premium-награды доступны ретроактивно.' : 'Механика entitlement готова; покупка Premium появится на Stage 22.'}</small>
+          <div><span>ПРЕМИУМ</span><strong>{season.premiumUnlocked ? 'Активирован' : 'Пока недоступен'}</strong></div>
+          <small>{season.premiumUnlocked ? 'Все достигнутые Premium-награды доступны ретроактивно.' : 'Платная дорожка появится после подключения магазина. Бесплатные награды доступны без покупки.'}</small>
           <b>{season.premiumUnlocked ? '✓ PREMIUM' : '🔒 PREMIUM'}</b>
         </div>
 
         <div className="season-track-head">
-          <span>LV</span><strong>FREE TRACK</strong><strong>PREMIUM TRACK</strong>
+          <span>LV</span><strong>БЕСПЛАТНО</strong><strong>ПРЕМИУМ</strong>
         </div>
 
         <div className="season-level-list">
@@ -899,7 +906,7 @@ function SeasonPanel({ season, onClose }: { season: SeasonalCampaignView; onClos
                   disabled={!level.canClaimFree}
                   onClick={() => sendGameCommand({ type: 'SEASON_CLAIM_REWARD', level: level.level, track: 'free' })}
                 >
-                  {level.freeClaimed ? '✓ CLAIMED' : level.canClaimFree ? 'CLAIM' : level.reached ? 'READY' : 'LOCKED'}
+                  {level.freeClaimed ? 'Получено' : level.canClaimFree ? 'Забрать' : level.reached ? 'Готово' : 'Закрыто'}
                 </button>
               </div>
               <div className={`season-reward-card premium ${level.premiumClaimed ? 'claimed' : ''} ${season.premiumUnlocked ? 'enabled' : 'locked'}`}>
@@ -909,7 +916,7 @@ function SeasonPanel({ season, onClose }: { season: SeasonalCampaignView; onClos
                   disabled={!level.canClaimPremium}
                   onClick={() => sendGameCommand({ type: 'SEASON_CLAIM_REWARD', level: level.level, track: 'premium' })}
                 >
-                  {level.premiumClaimed ? '✓ CLAIMED' : !season.premiumUnlocked ? '🔒' : level.canClaimPremium ? 'CLAIM' : 'LOCKED'}
+                  {level.premiumClaimed ? 'Получено' : !season.premiumUnlocked ? 'Нет доступа' : level.canClaimPremium ? 'Забрать' : 'Закрыто'}
                 </button>
               </div>
             </article>
@@ -920,8 +927,9 @@ function SeasonPanel({ season, onClose }: { season: SeasonalCampaignView; onClos
           <span>Season XP выдаётся за получение milestones в Weekly Contract.</span>
           <span>Прогресс сезона длится 4 недели и сбрасывается с началом новой кампании.</span>
         </footer>
+        </div>
       </section>
-    </div>
+    </Dialog>
   );
 }
 
@@ -929,21 +937,30 @@ function SeasonPanel({ season, onClose }: { season: SeasonalCampaignView; onClos
 function SocialPanel({ data }: { data: SocialView }) {
   const [friendId, setFriendId] = useState('');
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const copyTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(copyTimer.current), []);
   const active = data.activeMission;
 
   const copyPlayerId = async () => {
     try {
-      await navigator.clipboard?.writeText(data.playerId);
+      if (!navigator.clipboard?.writeText) throw new Error('CLIPBOARD_UNAVAILABLE');
+      await navigator.clipboard.writeText(data.playerId);
+      setError(null);
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 1200);
+      window.clearTimeout(copyTimer.current);
+      copyTimer.current = window.setTimeout(() => setCopied(false), 1800);
     } catch {
       setCopied(false);
+      setError('Не удалось скопировать. Ваш ID можно выделить в тексте ниже.');
     }
   };
 
   const addFriend = () => {
     const value = friendId.trim();
-    if (!value) return;
+    const message = validateFriendId(value, data.playerId, data.friends.map((friend) => friend.playerId), data.maxFriends);
+    setError(message);
+    if (message) return;
     sendGameCommand({ type: 'SOCIAL_ADD_FRIEND', playerId: value });
     setFriendId('');
   };
@@ -967,13 +984,14 @@ function SocialPanel({ data }: { data: SocialView }) {
       <section className="friend-add-card">
         <div>
           <span>ДОБАВИТЬ ОПЕРАТОРА</span>
-          <strong>Player ID друга</strong>
+          <label htmlFor="friend-id"><strong>Player ID друга</strong></label>
           <small>Формат: DF-XXXX-XXXX · максимум {data.maxFriends} друзей.</small>
         </div>
         <div className="friend-add-controls">
           <input
+            id="friend-id" aria-invalid={Boolean(error)} aria-describedby="friend-feedback" autoComplete="off" enterKeyHint="done"
             value={friendId}
-            onChange={(event: React.ChangeEvent<HTMLInputElement>) => setFriendId(event.target.value.toUpperCase())}
+            onChange={(event: React.ChangeEvent<HTMLInputElement>) => { setFriendId(event.target.value.toUpperCase()); setError(null); }}
             onKeyDown={(event: React.KeyboardEvent<HTMLInputElement>) => { if (event.key === 'Enter') addFriend(); }}
             placeholder="DF-ABCD-2345"
             maxLength={12}
@@ -985,6 +1003,7 @@ function SocialPanel({ data }: { data: SocialView }) {
         </div>
       </section>
 
+      <p id="friend-feedback" className={error ? "inline-error" : "inline-note"} role="status">{error ?? `Ваш ID: ${data.playerId}. Список друзей пока хранится на этом устройстве.`}</p>
       <section className="crew-mission-zone">
         <header className="crew-section-head">
           <div><span>CREW MISSIONS</span><strong>Совместные операции</strong></div>
@@ -1052,7 +1071,7 @@ function SocialPanel({ data }: { data: SocialView }) {
                     {friend.inActiveMission ? '✓ CREW' : '+ JOIN'}
                   </button>
                 )}
-                <button type="button" className="friend-remove" onClick={() => sendGameCommand({ type: 'SOCIAL_REMOVE_FRIEND', playerId: friend.playerId })}>×</button>
+                <button type="button" className="friend-remove" aria-label={`Удалить ${friend.nickname} из друзей`} onClick={() => sendGameCommand({ type: 'SOCIAL_REMOVE_FRIEND', playerId: friend.playerId })}>×</button>
               </article>
             ))}
           </div>
@@ -1068,22 +1087,23 @@ function SocialPanel({ data }: { data: SocialView }) {
 }
 
 export function App() {
-  const [teamOpen, setTeamOpen] = useState(false);
+  const [panel, setPanel] = useState<PanelState>(null);
+  const [dockExpanded, setDockExpanded] = useState(false);
+  const [confirmRebuild, setConfirmRebuild] = useState(false);
   const [teamTab, setTeamTab] = useState<'managers' | 'specialists' | 'academy' | 'progression' | 'crew'>('managers');
-  const [mapOpen, setMapOpen] = useState(false);
-  const [rebuildOpen, setRebuildOpen] = useState(false);
-  const [researchOpen, setResearchOpen] = useState(false);
-  const [contractOpen, setContractOpen] = useState(false);
-  const [seasonOpen, setSeasonOpen] = useState(false);
-  const [blitzOpen, setBlitzOpen] = useState(false);
-  const [riftOpen, setRiftOpen] = useState(false);
-  const [eventsOpen, setEventsOpen] = useState(false);
-  const closeRift = useCallback(() => setRiftOpen(false), []);
-  const openEvent = (screen: EventScreen) => {
-    setEventsOpen(false); setTeamOpen(false); setMapOpen(false); setRebuildOpen(false); setResearchOpen(false);
-    setContractOpen(screen === 'weekly'); setSeasonOpen(screen === 'season');
-    setBlitzOpen(screen === 'blitz'); setRiftOpen(screen === 'rift');
-  };
+  const teamOpen = panel === 'team', mapOpen = panel === 'map', rebuildOpen = panel === 'rebuild';
+  const researchOpen = panel === 'research', contractOpen = panel === 'weekly', seasonOpen = panel === 'season';
+  const blitzOpen = panel === 'blitz', riftOpen = panel === 'rift', eventsOpen = panel === 'events';
+  const setTeamOpen = (open: boolean) => setPanel((current) => togglePanel(current, 'team', open));
+  const setMapOpen = (open: boolean) => setPanel((current) => togglePanel(current, 'map', open));
+  const setRebuildOpen = (open: boolean) => { setConfirmRebuild(false); setPanel((current) => togglePanel(current, 'rebuild', open)); };
+  const setResearchOpen = (open: boolean) => setPanel((current) => togglePanel(current, 'research', open));
+  const setContractOpen = (open: boolean) => setPanel((current) => togglePanel(current, 'weekly', open));
+  const setSeasonOpen = (open: boolean) => setPanel((current) => togglePanel(current, 'season', open));
+  const setBlitzOpen = (open: boolean) => setPanel((current) => togglePanel(current, 'blitz', open));
+  const setEventsOpen = (open: boolean) => setPanel((current) => togglePanel(current, 'events', open));
+  const closeRift = useCallback(() => setPanel(null), []);
+  const openEvent = (screen: EventScreen) => setPanel(screen);
   const [bulkMode, setBulkMode] = useState<BulkUpgradeMode>(1);
   const quality = useGameStore((state) => state.quality);
   const apiOnline = useGameStore((state) => state.apiOnline);
@@ -1151,205 +1171,114 @@ export function App() {
 
   return (
     <main className="app-shell">
-      <div className="portrait-required" aria-hidden="true"><b>DEEPFORGE</b><span>Поверните телефон вертикально</span></div>
       <header className="topbar">
-        <div className="brand">
-          <span className="brand-mark">DF</span>
-          <div className="brand-copy">
-            <strong>DEEPFORGE</strong>
-            <span>{activeSector?.name?.toUpperCase() ?? 'RUST VALLEY'} · {activeMine?.code ?? 'RV-01'} · {activeMine?.name ?? 'Scrapline Quarry'}</span>
-          </div>
+        <div className="brand"><span className="brand-mark" aria-hidden="true"><Icon name="mine" size={22} /></span>
+          <div className="brand-copy"><strong>DEEPFORGE</strong><span>{activeMine?.code ?? 'RV-01'} · {activeSector?.name ?? 'Rust Valley'}</span></div>
         </div>
         <div className="topbar-meta">
-          <div className="manager-count" aria-label="Нанятые менеджеры">
-            <span>♟</span>{hiredManagers}/{managerRoster.length || 5}
+          <div className="resource-pill" aria-label={`Кошелёк сектора: ${formatCompact(simulation?.cash ?? 0)} ${currencyCode}`}>
+            <small>{currencyCode}</small><strong>{formatCompact(simulation?.cash ?? 0)}</strong>
           </div>
-          <div className="resource-pill" aria-label="Валюта сектора" title={activeSector?.currencyName}>
-            <span>{currencyCode}</span>{formatCompact(simulation?.cash ?? 0)}
-          </div>
+          <button type="button" className="icon-button" aria-label="Информация об объекте" onClick={() => setPanel('system')}><Icon name="info" /></button>
         </div>
       </header>
 
-      <section className="game-stage">
-        <GameCanvas />
-
-        <div className="stage-status" aria-hidden="true">
-          <span><b>{formatCompact(rawOre)}</b> ORE</span>
-          <span><b>{unlockedShafts}/30</b> DECKS</span>
-          <span><b>{formatCompact(simulation?.surfaceBuffer ?? 0)}</b> SURFACE</span>
-          <span className="rebuild-status"><b>R{rebuild?.level ?? 0}</b> ×{rebuild?.currentMultiplier ?? 1}</span>
-        </div>
-
-        {bottleneck && (
-          <div className="bottleneck-hud">
-            <span className={bottleneck.bottleneck === 'shafts' ? 'hot' : ''}>⛏ {formatCompact(bottleneck.shaftOrePerSecond)}/s</span>
-            <span className={bottleneck.bottleneck === 'lift' ? 'hot' : ''}>↕ {formatCompact(bottleneck.liftOrePerSecond)}/s</span>
-            <span className={bottleneck.bottleneck === 'hub' ? 'hot' : ''}>▰ {formatCompact(bottleneck.hubOrePerSecond)}/s</span>
-            <strong>УЗКОЕ МЕСТО: {bottleneck.label.toUpperCase()}</strong>
-          </div>
-        )}
-
-        {barrier && (
-          <div className={`barrier-strip ${barrier.active ? 'active' : ''}`}>
-            <div>
-              <strong>БАРЬЕР {barrier.boundaryDepth}00 м</strong>
-              <span>
-                {barrier.active
-                  ? `Расчистка: ${Math.ceil(barrier.remaining)} сек`
-                  : barrier.requirementsMet
-                    ? `Откроет глубину до ${barrier.targetDepth}00 м`
-                    : `Сначала откройте Deck ${barrier.boundaryDepth}`}
-              </span>
-            </div>
-            {!barrier.active && (
-              <button
-                type="button"
-                disabled={!barrier.canStart}
-                onClick={() => sendGameCommand({ type: 'START_BARRIER' })}
-              >
-                CLEAR · {currencyCode} {formatCompact(barrier.cost)}
-              </button>
-            )}
-          </div>
-        )}
-
-        <button type="button" className="events-launcher" aria-haspopup="dialog" onClick={() => setEventsOpen(true)}>
-          <span>События</span><b>4</b>
-        </button>
-
-        <div className="stage-badge">
-          <strong>STAGE 16</strong>
-          <span>{quality}</span>
-          <span className={apiOnline ? 'ok' : 'muted'}>{apiOnline ? 'API' : 'LOCAL'}</span>
+      <section className="production-bar" aria-label="Производственная цепочка">
+        <div className="flow-heading"><span>Производственная линия</span><small>Мощность · ед/с</small></div>
+        <div className="flow-stages">
+          {([{ id: 'shaft-1', kind: 'shafts', icon: 'mine', title: 'Добыча', rate: bottleneck?.shaftOrePerSecond },
+             { id: 'lift', kind: 'lift', icon: 'lift', title: 'Лифт', rate: bottleneck?.liftOrePerSecond },
+             { id: 'hub', kind: 'hub', icon: 'hub', title: 'Склад', rate: bottleneck?.hubOrePerSecond }] as const).map((item) => (
+            <button key={item.id} type="button" className={`flow-step ${bottleneck?.bottleneck === item.kind ? 'bottleneck' : ''}`}
+              aria-label={`${item.title}: ${formatCompact(item.rate ?? 0)} в секунду${bottleneck?.bottleneck === item.kind ? ', узкое место' : ''}. Выбрать объект.`}
+              onClick={() => sendGameCommand({ type: 'SELECT', facilityId: item.id })}>
+              <Icon name={item.icon} size={18} /><span>{item.title}<strong>{formatCompact(item.rate ?? 0)}</strong></span>
+              {bottleneck?.bottleneck === item.kind && <i aria-hidden="true" />}
+            </button>
+          ))}
         </div>
       </section>
 
-      <section className="upgrade-dock" aria-label="Панель объекта">
-        <div className="facility-copy">
-          <div className="facility-title-row">
-            <strong>{selectedStats?.name ?? 'Deck 01'}</strong>
-            <span>LVL {selectedStats?.level ?? 1}</span>
-            {selectedIsAutomated && <em>AUTO</em>}
-          </div>
+      <section className="game-stage" aria-label="Шахта">
+        <GameCanvas />
+        {!simulation && <div className="game-loading" role="status">Восстанавливаем шахту…</div>}
+        <div className="mine-hint" aria-hidden="true">{unlockedShafts}/30 уровней · потяните шахту вверх</div>
+      </section>
+
+      <section className={`upgrade-dock ${dockExpanded ? 'expanded' : ''}`} aria-label="Улучшения выбранного объекта">
+        <div className="dock-titlebar">
+          <label className="facility-picker">
+            <span>Объект · ур. {selectedStats?.level ?? 1}{selectedIsAutomated ? ' · АВТО' : ''}</span>
+            <select aria-label="Выбрать уровень, лифт или склад" value={selectedFacility}
+              onChange={(event) => sendGameCommand({ type: 'SELECT', facilityId: event.target.value as FacilityId })}>
+              {simulation?.shafts.map((shaft) => <option key={shaft.id} value={shaft.id}>{facilityName(shaft.id)}{shaft.unlocked ? '' : ' · закрыт'}</option>)}
+              {!simulation && <option value="shaft-1">Уровень 01</option>}
+              <option value="lift">Грузовой лифт</option><option value="hub">Склад</option>
+            </select>
+          </label>
+          <button type="button" className="dock-toggle" aria-expanded={dockExpanded} aria-controls="dock-details" onClick={() => setDockExpanded((value) => !value)}>
+            {dockExpanded ? 'Свернуть' : 'Менеджер'}<Icon name="down" size={16} style={{ transform: dockExpanded ? 'rotate(180deg)' : undefined }} />
+          </button>
+        </div>
+        <div className="dock-scroll">
           <div className="facility-stats">
             <span>{selectedStats?.primaryLabel ?? 'За цикл'} <b>{selectedStats?.primaryValue ?? '—'}</b></span>
             <span>{selectedStats?.secondaryLabel ?? 'Цикл'} <b>{selectedStats?.secondaryValue ?? '—'}</b></span>
           </div>
-          {selectedStats?.isUnlocked && (
-            <div className="milestone-line">
-              <span>Текущий множитель <b>×{selectedStats.milestone.currentMultiplier}</b></span>
-              {selectedStats.milestone.nextLevel ? (
-                <span>Следующий milestone: <b>LVL {selectedStats.milestone.nextLevel} · ×{selectedStats.milestone.nextMultiplier}</b></span>
-              ) : (
-                <span>Все milestones открыты</span>
-              )}
-            </div>
-          )}
-        </div>
-
-        {selectedStats && !selectedStats.isUnlocked ? (
-          <div className="locked-facility-card">
-            <strong>{selectedStats.isAccessible ? 'НОВЫЙ ДОБЫВАЮЩИЙ УРОВЕНЬ' : 'УРОВЕНЬ ЗА БАРЬЕРОМ'}</strong>
-            <span>
-              {selectedStats.isAccessible
-                ? 'Откройте уровень, чтобы запустить добычу и нанять менеджера.'
-                : 'Сначала расчистите текущий каменный барьер.'}
-            </span>
-            <button
-              type="button"
-              disabled={!selectedStats.canUnlock}
-              onClick={() => {
-                if (selectedFacility !== 'lift' && selectedFacility !== 'hub') {
-                  sendGameCommand({ type: 'UNLOCK_SHAFT', shaftId: selectedFacility });
-                }
-              }}
-            >
-              {selectedStats.isAccessible ? `UNLOCK · ${currencyCode} ${formatCompact(selectedStats.unlockCost)}` : 'SEALED'}
-            </button>
+          <div id="dock-details" className="dock-details" hidden={!dockExpanded}>
+            {selectedManager && selectedStats?.isUnlocked && <div className={`manager-card ${selectedManager.hired ? 'hired' : ''}`}>
+              <div className="manager-avatar" aria-hidden="true">{managerInitials(selectedManager.name)}</div>
+              <div className="manager-copy"><strong>{selectedManager.name}</strong><small>{selectedManager.hired ? `Автоматизация · +${selectedManager.passiveBonusPercent}%` : 'Запускает производство автоматически'}</small></div>
+              {!selectedManager.hired ? <button type="button" className="manager-hire" disabled={!selectedManager.canHire}
+                onClick={() => sendGameCommand({ type: 'HIRE_MANAGER', facilityId: selectedFacility })}>Нанять · {formatCompact(selectedManager.hireCost)} {currencyCode}</button>
+                : <button type="button" className="manager-ability" disabled={!selectedManager.abilityReady}
+                  onClick={() => sendGameCommand({ type: 'ACTIVATE_MANAGER', facilityId: selectedFacility })}>{abilityLabel(selectedManager)}</button>}
+            </div>}
+            {selectedStats?.isUnlocked && <p className="milestone-line">Множитель ×{selectedStats.milestone.currentMultiplier}. {selectedStats.milestone.nextLevel ? `Следующий рубеж: ур. ${selectedStats.milestone.nextLevel}, ×${selectedStats.milestone.nextMultiplier}.` : 'Все рубежи открыты.'}</p>}
+            {barrier && <div className="barrier-strip"><div><strong>Барьер · {barrier.boundaryDepth}00 м</strong><span>{barrier.active ? `Осталось ${formatAwayTime(barrier.remaining)}` : barrier.requirementsMet ? `Откроет уровни до ${barrier.targetDepth}` : `Откройте уровень ${barrier.boundaryDepth}`}</span></div>
+              {!barrier.active && <button type="button" disabled={!barrier.canStart} onClick={() => sendGameCommand({ type: 'START_BARRIER' })}>Расчистить · {formatCompact(barrier.cost)} {currencyCode}</button>}
+            </div>}
+            <button type="button" className="rebuild-entry" onClick={() => setRebuildOpen(true)}><Icon name="reset" /><span>Перезапуск шахты<small>R{rebuild?.level ?? 0} · постоянный множитель ×{rebuild?.currentMultiplier ?? 1}</small></span><Icon name="chevron" size={16} /></button>
           </div>
-        ) : (
-          <>
-            {selectedManager && (
-              <div className={`manager-card ${selectedManager.hired ? 'hired' : ''}`}>
-                <div className="manager-avatar">{managerInitials(selectedManager.name)}</div>
-                <div className="manager-copy">
-                  <strong>{selectedManager.name}</strong>
-                  <span>{selectedManager.role}</span>
-                  <small>
-                    {selectedManager.hired
-                      ? `AUTO · +${selectedManager.passiveBonusPercent}% мощности`
-                      : 'Автоматизирует выбранный объект'}
-                  </small>
-                </div>
-
-                {!selectedManager.hired ? (
-                  <button
-                    type="button"
-                    className="manager-hire"
-                    disabled={!selectedManager.canHire}
-                    onClick={() => sendGameCommand({ type: 'HIRE_MANAGER', facilityId: selectedFacility })}
-                  >
-                    НАНЯТЬ · {currencyCode} {formatCompact(selectedManager.hireCost)}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className={`manager-ability ${selectedManager.activeRemaining > 0 ? 'active' : ''}`}
-                    disabled={!selectedManager.abilityReady}
-                    onClick={() => sendGameCommand({ type: 'ACTIVATE_MANAGER', facilityId: selectedFacility })}
-                  >
-                    {abilityLabel(selectedManager)}
-                  </button>
-                )}
-              </div>
-            )}
-
-            <div className="bulk-selector" aria-label="Количество уровней улучшения">
-              {([1, 10, 25, 'MAX'] as BulkUpgradeMode[]).map((mode) => {
-                const quote = mode === 1
-                  ? selectedBulkQuotes?.x1 ?? null
-                  : mode === 10
-                    ? selectedBulkQuotes?.x10 ?? null
-                    : mode === 25
-                      ? selectedBulkQuotes?.x25 ?? null
-                      : selectedBulkQuotes?.max ?? null;
-                return (
-                  <button
-                    key={String(mode)}
-                    type="button"
-                    className={bulkMode === mode ? 'active' : ''}
-                    onClick={() => setBulkMode(mode)}
-                  >
-                    {quoteLabel(quote, mode)}
-                  </button>
-                );
-              })}
+        </div>
+        <div className="dock-purchase">
+          {selectedStats && !selectedStats.isUnlocked ? <div className="locked-facility-card">
+            <p>{selectedStats.isAccessible ? 'Новый добывающий уровень. Откройте его, чтобы начать работу.' : 'Этот уровень находится за барьером. Расчистка — в разделе «Менеджер» выше.'}</p>
+            <button type="button" className="primary-button" disabled={!selectedStats.canUnlock} onClick={() => {
+              if (selectedFacility !== 'lift' && selectedFacility !== 'hub') sendGameCommand({ type: 'UNLOCK_SHAFT', shaftId: selectedFacility });
+            }}>{selectedStats.isAccessible ? `Открыть · ${formatCompact(selectedStats.unlockCost)} ${currencyCode}` : 'Сначала расчистите барьер'}</button>
+          </div> : <>
+            <div className="bulk-selector" role="group" aria-label="Количество улучшений">
+              {([1, 10, 25, 'MAX'] as BulkUpgradeMode[]).map((mode) => <button key={String(mode)} type="button" aria-pressed={bulkMode === mode} className={bulkMode === mode ? 'active' : ''} onClick={() => setBulkMode(mode)}>{mode === 'MAX' ? 'Макс.' : `+${mode}`}</button>)}
             </div>
-
             <div className="facility-actions">
-              <button type="button" className="run-action" onClick={() => runFacility(selectedFacility)}>
-                {selectedIsAutomated ? '↻ РУЧНОЙ ЗАПУСК' : '▶ ЗАПУСТИТЬ'}
-              </button>
-              <button
-                type="button"
-                className="upgrade-action"
-                disabled={!selectedQuote?.affordable}
-                onClick={() => sendGameCommand({ type: 'UPGRADE_BULK', facilityId: selectedFacility, mode: bulkMode })}
-              >
-                ↑ {selectedQuote?.levels ? `+${selectedQuote.levels}` : ''} · {currencyCode} {formatCompact(selectedQuote?.totalCost ?? 0)}
+              <button type="button" className="run-action" onClick={() => runFacility(selectedFacility)}><Icon name="play" size={17} />{selectedIsAutomated ? 'Ручной пуск' : 'Запустить'}</button>
+              <button type="button" className="upgrade-action" disabled={!selectedQuote?.affordable} onClick={() => sendGameCommand({ type: 'UPGRADE_BULK', facilityId: selectedFacility, mode: bulkMode })}>
+                <span>Улучшить {selectedQuote?.levels ? `+${selectedQuote.levels}` : ''}</span><small>{formatCompact(selectedQuote?.totalCost || selectedBulkQuotes?.x1.totalCost || 0)} {currencyCode}</small>
               </button>
             </div>
-          </>
-        )}
+          </>}
+        </div>
       </section>
 
       <nav className="bottom-nav" aria-label="Главная навигация">
-        <button type="button" className={!teamOpen && !mapOpen && !rebuildOpen && !researchOpen && !contractOpen && !seasonOpen && !blitzOpen && !riftOpen && !eventsOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setMapOpen(false); setRebuildOpen(false); setResearchOpen(false); setContractOpen(false); setSeasonOpen(false); setBlitzOpen(false); setRiftOpen(false); setEventsOpen(false); }}><span>◆</span>Объект</button>
-        <button type="button" className={mapOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setRebuildOpen(false); setResearchOpen(false); setContractOpen(false); setSeasonOpen(false); setBlitzOpen(false); setRiftOpen(false); setEventsOpen(false); setMapOpen(true); }}><span>⌖</span>Карта</button>
-        <button type="button" className={teamOpen ? 'active' : ''} onClick={() => { setMapOpen(false); setRebuildOpen(false); setResearchOpen(false); setContractOpen(false); setSeasonOpen(false); setBlitzOpen(false); setRiftOpen(false); setEventsOpen(false); setTeamOpen(true); }}><span>♟</span>Команда</button>
-        <button type="button" className={rebuildOpen ? 'active rebuild-nav' : 'rebuild-nav'} onClick={() => { setMapOpen(false); setTeamOpen(false); setResearchOpen(false); setContractOpen(false); setSeasonOpen(false); setBlitzOpen(false); setRiftOpen(false); setEventsOpen(false); setRebuildOpen(true); }}><span>↻</span>Rebuild</button>
-        <button type="button" className={researchOpen ? 'active research-nav' : 'research-nav'} onClick={() => { setMapOpen(false); setTeamOpen(false); setRebuildOpen(false); setContractOpen(false); setSeasonOpen(false); setBlitzOpen(false); setRiftOpen(false); setEventsOpen(false); setResearchOpen(true); }}><span>◈</span>Research</button>
+        <button type="button" className={!panel ? 'active' : ''} aria-current={!panel ? 'page' : undefined} onClick={() => setPanel(null)}><Icon name="mine" /><span>Шахта</span></button>
+        <button type="button" className={mapOpen ? 'active' : ''} onClick={() => setPanel('map')}><Icon name="map" /><span>Карта</span></button>
+        <button type="button" className={teamOpen ? 'active' : ''} onClick={() => setPanel('team')}><Icon name="team" /><span>Команда</span></button>
+        <button type="button" className={researchOpen ? 'active' : ''} onClick={() => setPanel('research')}><Icon name="research" /><span>Наука</span></button>
+        <button type="button" className={eventsOpen || riftOpen || blitzOpen || contractOpen || seasonOpen ? 'active' : ''} onClick={() => setPanel('events')}><Icon name="events" /><span>События</span></button>
       </nav>
+
+      {panel === 'system' && <Dialog label="Объект и подключение" onClose={() => setPanel(null)} className="system-dialog"><section className="system-panel">
+        <header className="panel-header"><div><span>Обзор</span><strong>Объект и подключение</strong></div><button type="button" className="icon-button" aria-label="Закрыть обзор" data-dialog-initial onClick={() => setPanel(null)}><Icon name="close" /></button></header>
+        <div className="panel-scroll">
+          <h2>{activeMine?.name ?? 'Scrapline Quarry'}</h2><p className="inline-note">{activeSector?.name ?? 'Rust Valley'} · {currencyCode}</p>
+          <div className="system-stats"><div><span>Менеджеры</span><b>{hiredManagers}/{managerRoster.length}</b></div><div><span>Уровни</span><b>{unlockedShafts}/30</b></div><div><span>В шахте</span><b>{formatCompact(rawOre)} руды</b></div><div><span>На поверхности</span><b>{formatCompact(simulation?.surfaceBuffer ?? 0)} руды</b></div></div>
+          <div className="status-message"><b>{apiOnline ? 'Сервер подключён' : 'Локальная игра'}</b><p>{apiOnline ? 'Сетевые режимы используют подключённый API.' : 'Шахты и сохранения работают на этом устройстве. Для рейтингов Blitz и Rift нужен отдельный сервер.'}</p></div>
+          <button type="button" className="rebuild-entry" onClick={() => setRebuildOpen(true)}><Icon name="reset" /><span>Перезапуск шахты<small>R{rebuild?.level ?? 0} · множитель ×{rebuild?.currentMultiplier ?? 1}</small></span><Icon name="chevron" /></button>
+          <p className="inline-note">UI 16.1 · автоматическое качество: {quality}. Сохранения основной игры остаются в браузере; не очищайте данные сайта.</p>
+        </div>
+      </section></Dialog>}
 
       {eventsOpen && <EventsMenu onSelect={openEvent} onClose={() => setEventsOpen(false)} />}
       {riftOpen && <RiftPanel nickname={social?.nickname ?? 'Operator'} onClose={closeRift} />}
@@ -1382,17 +1311,17 @@ export function App() {
       )}
 
       {rebuildOpen && rebuild && (
-        <div className="rebuild-overlay" role="dialog" aria-modal="true" aria-label="Rebuild объекта">
-          <button type="button" className="rebuild-backdrop" aria-label="Закрыть" onClick={() => setRebuildOpen(false)} />
+        <Dialog label="Перезапуск шахты" onClose={() => setRebuildOpen(false)} className="rebuild-dialog">
           <section className="rebuild-panel">
             <header className="rebuild-header">
               <div>
-                <span>PERMANENT PROGRESSION</span>
-                <strong>Rebuild объекта</strong>
+                <span>ПОСТОЯННОЕ РАЗВИТИЕ</span>
+                <strong>Перезапуск шахты</strong>
                 <small>{activeMine?.code ?? '—'} · {activeMine?.name ?? 'Mining Site'}</small>
               </div>
-              <button type="button" onClick={() => setRebuildOpen(false)}>✕</button>
+              <button type="button" onClick={() => setRebuildOpen(false)} aria-label="Закрыть перезапуск" data-dialog-initial><Icon name="close" /></button>
             </header>
+            <div className="panel-scroll">
 
             <div className="rebuild-hero">
               <div className="rebuild-rank">R{rebuild.level}</div>
@@ -1435,19 +1364,22 @@ export function App() {
 
             <p className="rebuild-note">Rebuild применяется только к текущему объекту. Остальные шахты сектора продолжают работать и не сбрасываются.</p>
 
+            {confirmRebuild && <div className="confirmation-box" role="status"><p>Вы сбросите уровни, местных менеджеров и руду только этой шахты. Отменить выполненный перезапуск нельзя.</p><button type="button" onClick={() => setConfirmRebuild(false)}>Отмена</button></div>}
             <button
               type="button"
               className="rebuild-confirm"
               disabled={!rebuild.canRebuild || rebuild.maxed}
               onClick={() => {
+                if (!confirmRebuild) { setConfirmRebuild(true); return; }
                 sendGameCommand({ type: 'REBUILD_MINE' });
                 setRebuildOpen(false);
               }}
             >
-              {rebuild.maxed ? 'MAX REBUILD' : rebuild.canRebuild ? `REBUILD → R${rebuild.level + 1} · ×${rebuild.nextMultiplier}` : 'ТРЕБОВАНИЯ НЕ ВЫПОЛНЕНЫ'}
+              {rebuild.maxed ? 'MAX REBUILD' : rebuild.canRebuild ? `${confirmRebuild ? 'Подтвердить сброс' : 'Перезапустить'} → R${rebuild.level + 1} · ×${rebuild.nextMultiplier}` : 'ТРЕБОВАНИЯ НЕ ВЫПОЛНЕНЫ'}
             </button>
+            </div>
           </section>
-        </div>
+        </Dialog>
       )}
 
 
@@ -1455,13 +1387,13 @@ export function App() {
         <ResearchPanel research={research} onClose={() => setResearchOpen(false)} />
       )}
 
-      {offlineReport && (
-        <div className="offline-overlay" role="dialog" aria-modal="true" aria-label="Доход за время отсутствия">
-          <div className="offline-backdrop" />
-          <section className="offline-panel">
+      {offlineReport && !panel && (
+        <Dialog label="Пока вас не было" onClose={() => setOfflineReport(null)} className="offline-dialog">
+          <section className="offline-panel panel-scroll">
             <div className="offline-icon" aria-hidden="true">DF</div>
             <span className="offline-eyebrow">АВТОНОМНЫЙ РЕЖИМ</span>
             <h2>Пока вас не было</h2>
+            <p className="inline-note">Доход уже сохранён. Повторное открытие окна не начисляет его заново.</p>
             <p className="offline-away">Объект работал <b>{formatAwayTime(offlineReport.rawSeconds)}</b></p>
             <div className="offline-reward">
               <small>ЗАРАБОТАНО ПО СЕКТОРАМ</small>
@@ -1477,7 +1409,7 @@ export function App() {
               ) : (
                 <strong>{currencyCode} 0</strong>
               )}
-              <span>{formatCompact(offlineReport.processedOre)} ore обработано</span>
+              <span>{formatCompact(offlineReport.processedOre)} ед. сырья обработано</span>
             </div>
             <div className="offline-stats">
               <div><span>Работало объектов</span><b>{offlineReport.operatingMines ?? (offlineReport.fullChainAutomated ? 1 : 0)}/{offlineReport.unlockedMines ?? 1}</b></div>
@@ -1489,27 +1421,25 @@ export function App() {
             )}
             {offlineReport.capped && <p className="offline-cap">Лимит автономной работы: {formatAwayTime(offlineReport.creditedSeconds)}. Исследования могут его увеличить.</p>}
             <button type="button" className="offline-collect" onClick={() => setOfflineReport(null)}>
-              ЗАБРАТЬ ДОХОД
+              Продолжить
             </button>
           </section>
-        </div>
+        </Dialog>
       )}
 
       {teamOpen && (
-        <div className="team-overlay" role="dialog" aria-modal="true" aria-label="Команда объекта">
-          <button className="team-backdrop" type="button" aria-label="Закрыть" onClick={() => setTeamOpen(false)} />
+        <Dialog label="Команда" onClose={() => setTeamOpen(false)} className="team-dialog">
           <section className="team-panel stage9-team-panel stage10-team-panel stage11-team-panel stage14-team-panel">
             <header className="team-header">
-              <div><span>УПРАВЛЕНИЕ КОМАНДОЙ</span><strong>{teamTab === 'managers' ? 'Менеджеры объекта' : teamTab === 'specialists' ? 'Specialists' : teamTab === 'academy' ? 'Academy Operations' : teamTab === 'crew' ? 'Friends · Crew Missions' : 'Equipment · Collection · Relics'}</strong></div>
-              <button type="button" onClick={() => setTeamOpen(false)}>✕</button>
+              <div><span>УПРАВЛЕНИЕ КОМАНДОЙ</span><strong>{teamTab === 'managers' ? 'Менеджеры объекта' : teamTab === 'specialists' ? 'Специалисты' : teamTab === 'academy' ? 'Академия' : teamTab === 'crew' ? 'Друзья и операции' : 'Коллекция и экипировка'}</strong></div>
+              <button type="button" onClick={() => setTeamOpen(false)} aria-label="Закрыть команду" data-dialog-initial><Icon name="close" /></button>
             </header>
-            <div className="team-tabs" role="tablist">
-              <button type="button" className={teamTab === 'managers' ? 'active' : ''} onClick={() => setTeamTab('managers')}>♟ Менеджеры</button>
-              <button type="button" className={teamTab === 'specialists' ? 'active' : ''} onClick={() => setTeamTab('specialists')}>★ Specialists</button>
-              <button type="button" className={teamTab === 'academy' ? 'active' : ''} onClick={() => setTeamTab('academy')}>▣ Academy</button>
-              <button type="button" className={teamTab === 'crew' ? 'active' : ''} onClick={() => setTeamTab('crew')}>◎ Crew</button>
-              <button type="button" className={teamTab === 'progression' ? 'active' : ''} onClick={() => setTeamTab('progression')}>⚙ Meta</button>
-            </div>
+            <Tabs id="team" label="Раздел команды" value={teamTab} onChange={setTeamTab} options={[
+              { value: 'managers', label: 'Менеджеры' }, { value: 'specialists', label: 'Специалисты' },
+              { value: 'academy', label: 'Академия' }, { value: 'crew', label: 'Друзья' }, { value: 'progression', label: 'Развитие' },
+            ]} />
+            <div className="panel-scroll" id="team-panel" role="tabpanel" aria-labelledby={`team-${teamTab}`}>
+
 
             {teamTab === 'managers' ? (
               <>
@@ -1570,8 +1500,9 @@ export function App() {
                 ? <ProgressionPanel equipment={equipment} collection={collection} relics={relics} specialists={specialists} />
                 : <div className="team-summary"><span>Meta-прогрессия загружается…</span></div>
             )}
+            </div>
           </section>
-        </div>
+        </Dialog>
       )}
     </main>
   );

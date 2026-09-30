@@ -191,6 +191,7 @@ export class FoundationScene extends Phaser.Scene {
   private dragStartY = 0;
   private dragStartScrollY = 0;
   private dragging = false;
+  private dragPointerId: number | null = null;
   private worldViewsCache: WorldMineView[] = [];
   private sectorViewsCache: WorldSectorView[] = [];
   private worldViewsCacheAt = 0;
@@ -254,16 +255,16 @@ export class FoundationScene extends Phaser.Scene {
     this.mine = this.add.rectangle(0, 0, 100, 100, 0x171b20).setOrigin(0.5).setDepth(-3);
     this.surface = this.add.rectangle(0, 0, 100, 100, 0x29333a).setOrigin(0.5).setDepth(-2);
 
-    this.hint = this.add.text(0, 0, 'ПРОКРУЧИВАЙ ШАХТУ ВНИЗ · КАЖДЫЕ 5 УРОВНЕЙ — БАРЬЕР', {
+    this.hint = this.add.text(0, 0, 'ДОБЫЧА → ЛИФТ → СКЛАД', {
       fontFamily: 'Arial, sans-serif',
-      fontSize: '10px',
+      fontSize: '11px',
       color: '#b9c5cc',
       fontStyle: 'bold',
       align: 'center',
     }).setOrigin(0.5);
 
     this.depthText = this.add.text(0, 0, 'DEPTH 0 m', {
-      fontFamily: 'Arial, sans-serif', fontSize: '9px', color: '#697680', fontStyle: 'bold',
+      fontFamily: 'Arial, sans-serif', fontSize: '11px', color: '#697680', fontStyle: 'bold',
     }).setOrigin(0.5);
   }
 
@@ -271,13 +272,13 @@ export class FoundationScene extends Phaser.Scene {
     for (let depth = 1; depth <= SHAFT_COUNT; depth += 1) {
       const id = makeShaftId(depth);
       const bg = this.add.rectangle(0, 0, 100, 84, 0x20262c)
-        .setStrokeStyle(2, 0x39424b, 1);
+        .setStrokeStyle(2, 0x39424b, 1).setInteractive({ useHandCursor: true });
       const floor = this.add.rectangle(0, 0, 100, 4, 0x59636c);
       const title = this.add.text(0, 0, `DECK ${String(depth).padStart(2, '0')}`, {
         fontFamily: 'Arial, sans-serif', fontSize: '11px', color: '#f2f5f7', fontStyle: 'bold',
-      }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
+      }).setOrigin(0, 0.5);
       const buffer = this.add.text(0, 0, '0 ore', {
-        fontFamily: 'Arial, sans-serif', fontSize: '10px', color: '#f0b429', fontStyle: 'bold',
+        fontFamily: 'Arial, sans-serif', fontSize: '11px', color: '#f0b429', fontStyle: 'bold',
       }).setOrigin(1, 0.5);
       const workerBody = this.add.rectangle(0, 0, 10, 18, 0xd17c35).setOrigin(0.5, 0.5);
       const workerHead = this.add.circle(0, 0, 5, 0xe2b58b);
@@ -288,14 +289,14 @@ export class FoundationScene extends Phaser.Scene {
         .setStrokeStyle(1, 0x66727c, 1)
         .setInteractive({ useHandCursor: true });
       const runText = this.add.text(0, 0, '▶', {
-        fontFamily: 'Arial, sans-serif', fontSize: '10px', color: '#ffffff', fontStyle: 'bold',
+        fontFamily: 'Arial, sans-serif', fontSize: '11px', color: '#ffffff', fontStyle: 'bold',
       }).setOrigin(0.5);
       const autoBadge = this.add.text(0, 0, 'AUTO', {
-        fontFamily: 'Arial, sans-serif', fontSize: '8px', color: '#9ff0bd', fontStyle: 'bold',
+        fontFamily: 'Arial, sans-serif', fontSize: '11px', color: '#9ff0bd', fontStyle: 'bold',
         backgroundColor: '#173326', padding: { x: 5, y: 3 },
       }).setOrigin(0, 0.5).setVisible(false);
 
-      title.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      bg.on('pointerup', (pointer: Phaser.Input.Pointer) => {
         if (Math.abs(pointer.y - pointer.downY) > 12) return;
         this.selectFacility(id);
       });
@@ -319,17 +320,17 @@ export class FoundationScene extends Phaser.Scene {
     for (let boundary = SHAFTS_PER_BARRIER; boundary < SHAFT_COUNT; boundary += SHAFTS_PER_BARRIER) {
       const bg = this.add.rectangle(0, 0, 100, 46, 0x241f15)
         .setStrokeStyle(1, 0x6f5925, 1);
-      const title = this.add.text(0, 0, `ROCK BARRIER · ${boundary}00 m`, {
-        fontFamily: 'Arial, sans-serif', fontSize: '9px', color: '#e7c56e', fontStyle: 'bold',
+      const title = this.add.text(0, 0, `ЗАВАЛ · ${boundary}00 м`, {
+        fontFamily: 'Arial, sans-serif', fontSize: '11px', color: '#e7c56e', fontStyle: 'bold',
       }).setOrigin(0, 0.5);
-      const subtitle = this.add.text(0, 0, 'LOCKED', {
-        fontFamily: 'Arial, sans-serif', fontSize: '8px', color: '#887b5a', fontStyle: 'bold',
+      const subtitle = this.add.text(0, 0, 'ЗАКРЫТ', {
+        fontFamily: 'Arial, sans-serif', fontSize: '11px', color: '#887b5a', fontStyle: 'bold',
       }).setOrigin(0, 0.5);
       const button = this.add.rectangle(0, 0, 86, 30, 0x6c531e)
         .setStrokeStyle(1, 0xa98531, 1)
         .setInteractive({ useHandCursor: true });
       const buttonText = this.add.text(0, 0, 'CLEAR', {
-        fontFamily: 'Arial, sans-serif', fontSize: '8px', color: '#fff1c2', fontStyle: 'bold',
+        fontFamily: 'Arial, sans-serif', fontSize: '11px', color: '#fff1c2', fontStyle: 'bold',
       }).setOrigin(0.5);
 
       button.on('pointerup', (pointer: Phaser.Input.Pointer) => {
@@ -353,14 +354,14 @@ export class FoundationScene extends Phaser.Scene {
     this.liftCage = this.add.rectangle(0, 0, 28, 36, 0xf0b429)
       .setStrokeStyle(2, 0xffdd73, 1)
       .setInteractive({ useHandCursor: true });
-    this.liftLabel = this.add.text(0, 0, 'LIFT', {
-      fontFamily: 'Arial, sans-serif', fontSize: '9px', color: '#101318', fontStyle: 'bold',
+    this.liftLabel = this.add.text(0, 0, 'ЛИФТ', {
+      fontFamily: 'Arial, sans-serif', fontSize: '11px', color: '#101318', fontStyle: 'bold',
     }).setOrigin(0.5);
     this.liftCargo = this.add.text(0, 0, '0', {
-      fontFamily: 'Arial, sans-serif', fontSize: '8px', color: '#101318', fontStyle: 'bold',
+      fontFamily: 'Arial, sans-serif', fontSize: '11px', color: '#101318', fontStyle: 'bold',
     }).setOrigin(0.5);
     this.liftAutoText = this.add.text(0, 0, 'AUTO', {
-      fontFamily: 'Arial, sans-serif', fontSize: '8px', color: '#9ff0bd', fontStyle: 'bold',
+      fontFamily: 'Arial, sans-serif', fontSize: '11px', color: '#9ff0bd', fontStyle: 'bold',
       backgroundColor: '#173326', padding: { x: 5, y: 3 },
     }).setOrigin(0.5).setVisible(false);
 
@@ -380,15 +381,15 @@ export class FoundationScene extends Phaser.Scene {
     this.hubTruck = this.add.rectangle(0, 0, 58, 24, 0xcc5d46)
       .setStrokeStyle(2, 0xff8f76, 1)
       .setInteractive({ useHandCursor: true });
-    this.hubLabel = this.add.text(0, 0, 'LOGISTICS', {
-      fontFamily: 'Arial, sans-serif', fontSize: '9px', color: '#f5f7fa', fontStyle: 'bold',
+    this.hubLabel = this.add.text(0, 0, 'СКЛАД', {
+      fontFamily: 'Arial, sans-serif', fontSize: '11px', color: '#f5f7fa', fontStyle: 'bold',
     }).setOrigin(0.5);
     this.hubAutoText = this.add.text(0, 0, 'AUTO', {
-      fontFamily: 'Arial, sans-serif', fontSize: '8px', color: '#9ff0bd', fontStyle: 'bold',
+      fontFamily: 'Arial, sans-serif', fontSize: '11px', color: '#9ff0bd', fontStyle: 'bold',
       backgroundColor: '#173326', padding: { x: 5, y: 3 },
     }).setOrigin(0.5).setVisible(false);
     this.surfaceBufferText = this.add.text(0, 0, 'Surface: 0 ore', {
-      fontFamily: 'Arial, sans-serif', fontSize: '10px', color: '#f0b429', fontStyle: 'bold',
+      fontFamily: 'Arial, sans-serif', fontSize: '11px', color: '#f0b429', fontStyle: 'bold',
     }).setOrigin(0.5);
 
     const activate = (pointer: Phaser.Input.Pointer) => {
@@ -406,18 +407,20 @@ export class FoundationScene extends Phaser.Scene {
     });
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (this.dragging) return;
+      this.dragPointerId = pointer.id;
       this.dragging = true;
       this.dragStartY = pointer.y;
       this.dragStartScrollY = this.cameras.main.scrollY;
     });
 
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      if (!this.dragging || !pointer.isDown) return;
+      if (!this.dragging || !pointer.isDown || pointer.id !== this.dragPointerId) return;
       this.setCameraScroll(this.dragStartScrollY + (this.dragStartY - pointer.y));
     });
 
-    this.input.on('pointerup', () => { this.dragging = false; });
-    this.input.on('pointerupoutside', () => { this.dragging = false; });
+    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => { if (pointer.id === this.dragPointerId) { this.dragging = false; this.dragPointerId = null; } });
+    this.input.on('pointerupoutside', (pointer: Phaser.Input.Pointer) => { if (pointer.id === this.dragPointerId) { this.dragging = false; this.dragPointerId = null; } });
   }
 
   private handleCommand(command: GameCommand) {
@@ -1095,7 +1098,7 @@ export class FoundationScene extends Phaser.Scene {
     const sector = getSectorDefinition(definition.sectorId);
     this.mine?.setFillStyle(definition.theme.mine, 1);
     this.surface?.setFillStyle(definition.theme.surface, 1);
-    this.hint?.setText(`${sector.code} · ${definition.code} · ${definition.name.toUpperCase()} · ${definition.resourceName.toUpperCase()}`);
+    this.hint?.setText(`${sector.code} · ${definition.code}`);
   }
 
   private getWorldViewCacheMs(): number {
@@ -1283,18 +1286,9 @@ export class FoundationScene extends Phaser.Scene {
   }
 
   private scrollToFacility(id: FacilityId) {
-    if (id === 'lift' || id === 'hub') {
-      this.tweens.add({ targets: this.cameras.main, scrollY: 0, duration: 260, ease: 'Sine.Out' });
-      return;
-    }
-    const depth = Number(id.slice('shaft-'.length));
-    const target = this.shaftY(depth) - this.scale.height * 0.48;
-    this.tweens.add({
-      targets: this.cameras.main,
-      scrollY: Phaser.Math.Clamp(target, 0, this.maxScroll()),
-      duration: 260,
-      ease: 'Sine.Out',
-    });
+    // Частый выбор объекта мгновенный, без конфликтующих camera tween и без motion при клавиатуре.
+    const target = id === 'lift' || id === 'hub' ? 0 : this.shaftY(Number(id.slice('shaft-'.length))) - this.scale.height * 0.48;
+    this.setCameraScroll(target);
   }
 
   private refreshSelectionVisuals() {
@@ -1351,21 +1345,21 @@ export class FoundationScene extends Phaser.Scene {
       visual.autoBadge.setVisible(Boolean(shaft.unlocked && manager?.hired));
 
       if (shaft.unlocked) {
-        visual.title.setText(`${shaft.name.toUpperCase()} · LVL ${shaft.level}`).setColor('#f2f5f7');
-        visual.buffer.setText(`${formatCompact(shaft.buffer)} ore`).setColor('#f0b429');
-        visual.runText.setText(manager?.hired ? 'AUTO' : shaft.task ? '…' : '▶ RUN').setColor('#ffffff');
+        visual.title.setText(`УРОВЕНЬ ${shaft.depth} · ${shaft.level}`).setColor('#f2f5f7');
+        visual.buffer.setText(`${formatCompact(shaft.buffer)} ед`).setColor('#f0b429');
+        visual.runText.setText(manager?.hired ? 'AUTO' : shaft.task ? '…' : '▶ ПУСК').setColor('#ffffff');
         visual.runButton.setFillStyle(manager?.hired ? 0x1d4a34 : shaft.task ? 0x252b31 : 0x313a42, 1);
         visual.autoBadge.setText((manager?.activeRemaining ?? 0) > 0 ? '⚡ BOOST' : 'AUTO');
       } else if (accessible) {
         const stats = this.simulation.getFacilityStats(shaft.id);
-        visual.title.setText(`${shaft.name.toUpperCase()} · LOCKED`).setColor('#aab4bb');
+        visual.title.setText(`УРОВЕНЬ ${shaft.depth} · ЗАКРЫТ`).setColor('#aab4bb');
         visual.buffer.setText(`${currencyCode} ${formatCompact(stats.unlockCost)}`).setColor('#f0b429');
-        visual.runText.setText(stats.canUnlock ? 'UNLOCK' : 'LOCKED').setColor(stats.canUnlock ? '#16120a' : '#8d7c55');
+        visual.runText.setText(stats.canUnlock ? 'ОТКРЫТЬ' : 'ЗАКРЫТ').setColor(stats.canUnlock ? '#16120a' : '#8d7c55');
         visual.runButton.setFillStyle(stats.canUnlock ? 0xd49b22 : 0x3b3425, 1);
       } else {
-        visual.title.setText(`${shaft.name.toUpperCase()} · SEALED`).setColor('#59636b');
-        visual.buffer.setText('BARRIER').setColor('#6b7278');
-        visual.runText.setText('SEALED').setColor('#70777d');
+        visual.title.setText(`УРОВЕНЬ ${shaft.depth} · ЗАВАЛ`).setColor('#59636b');
+        visual.buffer.setText('ЗАВАЛ').setColor('#6b7278');
+        visual.runText.setText('ЗАВАЛ').setColor('#70777d');
         visual.runButton.setFillStyle(0x20252a, 1);
       }
 
@@ -1388,26 +1382,26 @@ export class FoundationScene extends Phaser.Scene {
 
       if (barrier.cleared) {
         visual.bg.setFillStyle(0x17261e, 0.78).setStrokeStyle(1, 0x315943, 1);
-        visual.subtitle.setText('CLEARED').setColor('#7dd59d');
+        visual.subtitle.setText('РАСЧИЩЕН').setColor('#7dd59d');
         visual.button.setFillStyle(0x1e3a2a, 1).setStrokeStyle(1, 0x35694d, 1);
-        visual.buttonText.setText('OPEN').setColor('#9ff0bd');
+        visual.buttonText.setText('ОТКРЫТО').setColor('#9ff0bd');
       } else if (barrier.active) {
         visual.bg.setFillStyle(0x292113, 1).setStrokeStyle(1, 0xa27726, 1);
-        visual.subtitle.setText(`CLEARING · ${Math.ceil(barrier.remaining)}s`).setColor('#f0c969');
+        visual.subtitle.setText(`Расчистка: ${Math.ceil(barrier.remaining)}с`).setColor('#f0c969');
         visual.button.setFillStyle(0x4a3a19, 1);
         visual.buttonText.setText(`${Math.ceil(barrier.remaining)}s`).setColor('#f4d988');
       } else if (state.barrier.maxAccessibleDepth === barrier.boundaryDepth) {
         visual.bg.setFillStyle(0x241f15, 1).setStrokeStyle(1, 0x8d7028, 1);
         visual.subtitle
-          .setText(barrier.requirementsMet ? `CLEAR TO ${barrier.targetDepth}00 m` : `UNLOCK DECK ${barrier.boundaryDepth} FIRST`)
+          .setText(barrier.requirementsMet ? `До ${barrier.targetDepth}00 м` : `Нужен уровень ${barrier.boundaryDepth}`)
           .setColor(barrier.requirementsMet ? '#d5b45e' : '#8d7c55');
         visual.button.setFillStyle(barrier.canStart ? 0xb17d1b : 0x4b3d20, 1);
         visual.buttonText.setText(`${currencyCode} ${formatCompact(barrier.cost)}`).setColor(barrier.canStart ? '#15100a' : '#9b8754');
       } else {
         visual.bg.setFillStyle(0x151719, 0.8).setStrokeStyle(1, 0x33383d, 1);
-        visual.subtitle.setText('SEALED').setColor('#565f66');
+        visual.subtitle.setText('ЗАВАЛ').setColor('#565f66');
         visual.button.setFillStyle(0x202428, 1);
-        visual.buttonText.setText('LOCKED').setColor('#5d656b');
+        visual.buttonText.setText('ЗАКРЫТ').setColor('#5d656b');
       }
     }
 
@@ -1436,7 +1430,7 @@ export class FoundationScene extends Phaser.Scene {
     const truckEnd = this.scale.width * 0.82;
     const truckWave = hubProgress < 0.5 ? hubProgress / 0.5 : (1 - hubProgress) / 0.5;
     this.hubTruck?.setX(Phaser.Math.Linear(truckStart, truckEnd, Phaser.Math.Clamp(truckWave, 0, 1)));
-    this.surfaceBufferText?.setText(`Surface: ${formatCompact(state.surfaceBuffer)} ore`);
+    this.surfaceBufferText?.setText(`На поверхности: ${formatCompact(state.surfaceBuffer)}`);
     this.hubAutoText
       ?.setVisible(state.managers.hub.hired)
       .setText(state.managers.hub.activeRemaining > 0 ? '⚡ BOOST' : 'AUTO');
@@ -1468,8 +1462,8 @@ export class FoundationScene extends Phaser.Scene {
     this.hubTruck?.setPosition(width * 0.56, this.surfaceHeight * 0.73).setSize(Math.max(50, width * 0.12), 22);
     this.surfaceBufferText?.setPosition(width * 0.40, this.surfaceHeight * 0.54);
 
-    this.liftRail?.setPosition(liftX, (this.surfaceHeight + this.worldHeight) / 2).setSize(Math.max(32, width * 0.055), this.worldHeight - this.surfaceHeight - 8);
-    this.liftCage?.setX(liftX).setSize(Math.max(28, width * 0.048), 34);
+    this.liftRail?.setPosition(liftX, (this.surfaceHeight + this.worldHeight) / 2).setSize(Math.max(44, width * 0.055), this.worldHeight - this.surfaceHeight - 8);
+    this.liftCage?.setX(liftX).setSize(Math.max(44, width * 0.048), 44);
     this.liftLabel?.setX(liftX);
     this.liftCargo?.setX(liftX);
     this.liftAutoText?.setPosition(liftX, this.surfaceHeight - 28);
@@ -1492,7 +1486,7 @@ export class FoundationScene extends Phaser.Scene {
       visual.buffer.setPosition(rowRight - 9, y - this.rowHeight * 0.29);
       visual.progressBg.setPosition(rowLeft + 8, y + this.rowHeight * 0.31).setSize(barWidth, 5);
       visual.progressFill.setPosition(rowLeft + 8, y + this.rowHeight * 0.31);
-      visual.runButton.setPosition(rowRight - Math.max(48, rowWidth * 0.09), y + this.rowHeight * 0.14).setSize(Math.max(70, rowWidth * 0.16), 34);
+      visual.runButton.setPosition(rowRight - Math.max(48, rowWidth * 0.09), y + this.rowHeight * 0.14).setSize(Math.max(80, rowWidth * 0.16), 44);
       visual.runText.setPosition(rowRight - Math.max(48, rowWidth * 0.09), y + this.rowHeight * 0.14);
     }
 
@@ -1506,7 +1500,7 @@ export class FoundationScene extends Phaser.Scene {
       visual.bg.setPosition(rowLeft + rowWidth / 2, y).setSize(rowWidth, 46);
       visual.title.setPosition(rowLeft + 10, y - 9);
       visual.subtitle.setPosition(rowLeft + 10, y + 9);
-      visual.button.setPosition(rowRight - 50, y).setSize(92, 30);
+      visual.button.setPosition(rowRight - 50, y).setSize(92, 44);
       visual.buttonText.setPosition(rowRight - 50, y);
     }
 

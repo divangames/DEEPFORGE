@@ -15,3 +15,7 @@ steps/*.zip
 
 # Изолированные тестовые сборки
 .rift-tests/
+
+# UI QA snapshots are local artifacts, not game assets.
+.ui-fixtures/
+qa/uiux/results/

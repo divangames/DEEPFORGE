@@ -1,0 +1,8 @@
+---
+description: DEEPFORGE portrait UI/UX, accessible dialogs and mobile performance
+globs: client/src/ui/**/*,client/src/main.tsx,client/src/game/scenes/**/*,client/src/game/createGame.ts
+alwaysApply: false
+---
+
+Перед изменением интерфейса прочитай `.agents/skills/deepforge-ui/SKILL.md` и `docs/UI_UX_16_1.md`.
+Не возвращай накопление отдельных адаптивов, мелкий текст, заблокированный zoom и перекрывающиеся модальные окна. Используй существующие Dialog/Tabs/Icon и CSS-токены. Телефон portrait 360–440px — приоритет. Проверки и их ограничения фиксируй в QA-отчёте.

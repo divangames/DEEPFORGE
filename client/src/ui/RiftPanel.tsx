@@ -2,7 +2,9 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import type { RiftAction, RiftResource, RiftStatus, RiftWallet } from '../game/core/rift';
 import { forgetRiftIdentity, hasRiftBackend, loadRiftIdentity, registerRiftGuest, riftAction, riftStart, riftStatus } from '../services/riftApi';
 import './rift.css';
-import { coverGameScene } from '../game/runtime/viewPerformance';
+import { Dialog } from './components/Dialog';
+import { Icon } from './components/Icon';
+import { Tabs } from './components/Tabs';
 
 const ERROR_LABELS: Record<string, string> = {
   SERVER_REQUIRED: 'Для Rift нужен подключённый сервер. Укажите VITE_API_URL и опубликуйте backend.',
@@ -40,7 +42,6 @@ function RewardText({ reward }: { reward: Partial<RiftWallet> }) {
 }
 
 export const RiftPanel = memo(function RiftPanel({ nickname, onClose }: { nickname: string; onClose: () => void }) {
-  const dialog = useRef<HTMLDialogElement>(null);
   const mounted = useRef(false);
   const locked = useRef(false);
   const pending = useRef<RiftAction | null>(null);
@@ -49,6 +50,7 @@ export const RiftPanel = memo(function RiftPanel({ nickname, onClose }: { nickna
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryAction, setRetryAction] = useState(false);
+  const [confirmation, setConfirmation] = useState<'complete' | 'identity' | null>(null);
   const [hasIdentity, setHasIdentity] = useState(() => Boolean(loadRiftIdentity()));
   const [receivedAt, setReceivedAt] = useState(0);
   const [displayNow, setDisplayNow] = useState(0);
@@ -68,8 +70,6 @@ export const RiftPanel = memo(function RiftPanel({ nickname, onClose }: { nickna
 
   useEffect(() => {
     mounted.current = true;
-    const uncover = coverGameScene();
-    if (!dialog.current?.open) dialog.current?.showModal();
     const controller = new AbortController();
     let timer: number | undefined;
     let stopped = false;
@@ -82,9 +82,8 @@ export const RiftPanel = memo(function RiftPanel({ nickname, onClose }: { nickna
     document.addEventListener('visibilitychange', visible);
     window.addEventListener('online', visible);
     return () => {
-      uncover(); mounted.current = false; stopped = true; controller.abort(); window.clearTimeout(timer);
+      mounted.current = false; stopped = true; controller.abort(); window.clearTimeout(timer);
       document.removeEventListener('visibilitychange', visible); window.removeEventListener('online', visible);
-      dialog.current?.close();
     };
   }, [refresh]);
   useEffect(() => {
@@ -94,7 +93,7 @@ export const RiftPanel = memo(function RiftPanel({ nickname, onClose }: { nickna
     }, 1000);
     return () => window.clearInterval(timer);
   }, [status, receivedAt]);
-  useEffect(() => { scroll.current?.scrollTo({ top: 0 }); }, [tab]);
+  useEffect(() => { scroll.current?.scrollTo({ top: 0 }); setConfirmation(null); }, [tab]);
 
   async function operation(job: () => Promise<RiftStatus>, action?: RiftAction) {
     if (locked.current) return;
@@ -126,29 +125,31 @@ export const RiftPanel = memo(function RiftPanel({ nickname, onClose }: { nickna
     return riftStatus();
   });
 
-  return <dialog ref={dialog} className="rift-dialog" aria-labelledby="rift-title" onCancel={(event) => { event.preventDefault(); onClose(); }}>
+  return <Dialog label="Rift Expedition" className="rift-dialog" onClose={onClose}>
     <section className="rift-panel">
       <header className="rift-header"><div><span>СОБЫТИЕ · 5 ОБЪЕКТОВ</span><h2 id="rift-title">Rift Expedition</h2></div>
-        <button type="button" className="rift-close" aria-label="Закрыть Rift Expedition" onClick={onClose}>✕</button></header>
+        <button type="button" className="icon-button" data-dialog-initial aria-label="Закрыть Rift Expedition" onClick={onClose}><Icon name="close" /></button></header>
       {status && <div className="rift-summary">
         <div><small>До конца цикла</small><strong>{timeLeft(status.event.endsAt, displayNow)}</strong></div>
         <div><small>Rift Credits</small><strong>{n(run?.credits ?? 0)} RC</strong></div>
         <div><small>Очки</small><strong>{n(run?.score ?? 0)}</strong></div>
         <div><small>Чипы улучшений</small><strong>{run?.chips ?? 0} RP</strong></div>
       </div>}
-      {status && <nav className="rift-tabs" aria-label="Разделы Rift">
-        {([['run', 'Объекты'], ['tree', 'Технологии'], ['rewards', 'Награды'], ['board', 'Рейтинг']] as const).map(([id, label]) =>
-          <button type="button" key={id} aria-pressed={tab === id} onClick={() => setTab(id)}>{label}</button>)}
-      </nav>}
-      <div className="rift-scroll" ref={scroll}>
+      {status && <Tabs id="rift" label="Разделы Rift" value={tab} onChange={setTab} options={[
+        { value: 'run', label: 'Объекты' }, { value: 'tree', label: 'Технологии' },
+        { value: 'rewards', label: 'Награды' }, { value: 'board', label: 'Рейтинг' },
+      ]} />}
+      <div className="rift-scroll panel-scroll" ref={scroll} id="rift-panel" role={status ? 'tabpanel' : undefined} aria-labelledby={status ? `rift-${tab}` : undefined}>
         {error && <div className="rift-notice error" role="alert"><p>{ERROR_LABELS[error] ?? `Сервер: ${error}`}</p>
           {retryAction && <button type="button" disabled={busy} onClick={() => { const action = pending.current; if (action) void operation(() => riftAction(action), action); }}>Уточнить последнее действие</button>}
           {!retryAction && <button type="button" disabled={busy || !hasRiftBackend()} onClick={connect}>Повторить подключение</button>}
-          {error === 'UNAUTHORIZED' && <button type="button" disabled={busy} onClick={() => {
-            if (window.confirm('Создать новый гостевой профиль Rift? Старый профиль нельзя восстановить этим действием. Обычные шахты и их сохранения останутся.')) {
-              forgetRiftIdentity(); setHasIdentity(false); setStatus(null); setError(null);
-            }
-          }}>Создать другой профиль</button>}
+          {error === 'UNAUTHORIZED' && <button type="button" disabled={busy} onClick={() => setConfirmation('identity')}>Создать другой профиль</button>}
+          {confirmation === 'identity' && <div className="confirmation-box" role="alert">
+            <strong>Создать новый профиль Rift?</strong><p>Старый гостевой ключ будет удалён из этого браузера. Это действие не восстанавливает старый профиль. Обычные шахты и их сохранения останутся.</p>
+            <div><button type="button" onClick={() => setConfirmation(null)}>Отмена</button><button type="button" className="danger-button" disabled={busy} onClick={() => {
+              forgetRiftIdentity(); setHasIdentity(false); setStatus(null); setError(null); setConfirmation(null);
+            }}>Создать новый</button></div>
+          </div>}
         </div>}
         {!status ? <section className="rift-welcome">
           <div className="rift-emblem" aria-hidden="true">R / 16</div>
@@ -177,9 +178,12 @@ export const RiftPanel = memo(function RiftPanel({ nickname, onClose }: { nickna
                   <button type="button" disabled={disabled || run.completed || facility.cost10 === null || run.credits < facility.cost10} onClick={() => send('upgrade', facility.id, 10)}>+10 · {facility.cost10 === null ? 'MAX' : `${n(facility.cost10)} RC`}</button></div>
               </article>)}</div>
               {!run.completed && <section className="rift-card"><p>Переход сбрасывает кредиты и уровни этого объекта. Технологии, RP, очки и полученные награды сохраняются.</p>
-                <button type="button" className="rift-primary" disabled={disabled || !run.canComplete} onClick={() => {
-                  if (window.confirm(run.stageIndex < 4 ? 'Завершить объект и перейти дальше? Местные кредиты и уровни будут сброшены.' : 'Завершить экспедицию и зафиксировать бонус скорости?')) send('complete');
-                }}>{run.stageIndex < 4 ? 'Завершить объект →' : 'Завершить экспедицию'}</button>
+                {confirmation !== 'complete' ? <button type="button" className="rift-primary" disabled={disabled || !run.canComplete} onClick={() => setConfirmation('complete')}>
+                  {run.stageIndex < 4 ? 'Завершить объект' : 'Завершить экспедицию'}</button> : <div className="confirmation-box" role="alert">
+                  <strong>{run.stageIndex < 4 ? 'Перейти к следующему объекту?' : 'Зафиксировать результат экспедиции?'}</strong>
+                  <p>{run.stageIndex < 4 ? 'Местные кредиты и уровни сбросятся. Технологии и награды останутся.' : 'Сервер начислит итоговый бонус скорости. Вернуться в эту попытку после завершения нельзя.'}</p>
+                  <div><button type="button" onClick={() => setConfirmation(null)}>Отмена</button><button type="button" className="rift-primary" disabled={disabled || !run.canComplete} onClick={() => { setConfirmation(null); send('complete'); }}>Подтвердить</button></div>
+                </div>}
               </section>}
               <p className="rift-muted">До {run.offlineCapHours} ч дохода между серверными синхронизациями. Начисление ограничено концом события. Время телефона не передаётся в экономику.</p>
             </>}
@@ -213,5 +217,5 @@ export const RiftPanel = memo(function RiftPanel({ nickname, onClose }: { nickna
       </div>
       <footer className="rift-footer"><span>{busy ? 'Сервер проверяет действие…' : status ? `${status.persistence === 'postgres' ? 'POSTGRESQL' : 'DEV MEMORY'} · SERVER TIME` : 'Rift: отдельная серверная экономика'}</span></footer>
     </section>
-  </dialog>;
+  </Dialog>;
 });
