@@ -101,6 +101,19 @@ import {
   type PersistentSeasonalCampaignState,
   type SeasonReward,
 } from '../core/seasonalCampaign';
+import {
+  addFriend,
+  buildSocialView,
+  claimCrewMission,
+  createSocialState,
+  getFriendIncomeMultiplier,
+  joinCrewMission,
+  removeFriend,
+  sanitizeSocialState,
+  startCrewMission,
+  type CrewMissionReward,
+  type PersistentSocialState,
+} from '../core/social';
 import { getServerClock } from '../../services/serverClock';
 import { onGameCommand, type GameCommand } from '../runtime/gameRuntime';
 
@@ -142,6 +155,7 @@ export class FoundationScene extends Phaser.Scene {
   private relics: PersistentRelicState = sanitizeRelicState(DEFAULT_RELIC_STATE);
   private weeklyContract: PersistentWeeklyContractState = createWeeklyContractState(Date.now());
   private seasonalCampaign: PersistentSeasonalCampaignState = createSeasonalCampaignState(Date.now());
+  private social: PersistentSocialState = createSocialState(Date.now());
   private lastCollectionCrate: CollectionCardId[] = [];
   private relicContextKey = '';
   private totalRebuildCache: number | null = null;
@@ -732,6 +746,59 @@ export class FoundationScene extends Phaser.Scene {
         void this.persist();
         break;
       }
+      case 'SOCIAL_ADD_FRIEND': {
+        const clock = getServerClock();
+        const next = addFriend(this.social, command.playerId, clock.now);
+        if (!next) break;
+        this.social = next;
+        this.applySpecialistsToActiveSimulation();
+        this.worldViewsCacheAt = 0;
+        this.sectorViewsCacheAt = 0;
+        this.syncUi();
+        this.renderSimulation();
+        void this.persist();
+        break;
+      }
+      case 'SOCIAL_REMOVE_FRIEND': {
+        const clock = getServerClock();
+        this.social = removeFriend(this.social, command.playerId, clock.now);
+        this.applySpecialistsToActiveSimulation();
+        this.worldViewsCacheAt = 0;
+        this.sectorViewsCacheAt = 0;
+        this.syncUi();
+        this.renderSimulation();
+        void this.persist();
+        break;
+      }
+      case 'CREW_MISSION_START': {
+        const clock = getServerClock();
+        const next = startCrewMission(this.social, command.missionId, clock.now);
+        if (!next) break;
+        this.social = next;
+        this.syncUi();
+        void this.persist();
+        break;
+      }
+      case 'CREW_MISSION_JOIN': {
+        const clock = getServerClock();
+        const next = joinCrewMission(this.social, command.friendId, clock.now);
+        if (!next) break;
+        this.social = next;
+        this.syncUi();
+        void this.persist();
+        break;
+      }
+      case 'CREW_MISSION_CLAIM': {
+        const clock = getServerClock();
+        const result = claimCrewMission(this.social, clock.now);
+        if (!result) break;
+        this.social = result.state;
+        this.applyCrewMissionReward(result.reward);
+        this.refreshRelics(true);
+        this.syncUi();
+        void this.persist();
+        break;
+      }
       case 'COLLECTION_SELECT': {
         const next = selectCollectionCard(this.collection, command.cardId);
         if (!next) break;
@@ -755,6 +822,30 @@ export class FoundationScene extends Phaser.Scene {
     if (reward.kind === 'promotion') this.academy = { ...this.academy, resources: { ...this.academy.resources, promotionBadges: this.academy.resources.promotionBadges + (reward.amount ?? 0) } };
     if (reward.kind === 'supply') this.collection = grantSupplyKeys(this.collection, reward.amount ?? 0);
     if (reward.kind === 'materials') this.equipment = grantCraftMaterials(this.equipment, { alloy: reward.alloy ?? 0, circuits: reward.circuits ?? 0, fiber: reward.fiber ?? 0 });
+  }
+
+
+  private applyCrewMissionReward(reward: CrewMissionReward) {
+    if (reward.research > 0) this.research.cores += reward.research;
+    if (reward.recruitData > 0 || reward.trainingModules > 0 || reward.promotionBadges > 0) {
+      this.academy = {
+        ...this.academy,
+        resources: {
+          ...this.academy.resources,
+          recruitData: this.academy.resources.recruitData + reward.recruitData,
+          trainingModules: this.academy.resources.trainingModules + reward.trainingModules,
+          promotionBadges: this.academy.resources.promotionBadges + reward.promotionBadges,
+        },
+      };
+    }
+    if (reward.supplyKeys > 0) this.collection = grantSupplyKeys(this.collection, reward.supplyKeys);
+    if (reward.alloy > 0 || reward.circuits > 0 || reward.fiber > 0) {
+      this.equipment = grantCraftMaterials(this.equipment, {
+        alloy: reward.alloy,
+        circuits: reward.circuits,
+        fiber: reward.fiber,
+      });
+    }
   }
 
   private createSimulation(id: MineId, state?: PersistentMineState | null, includeSpecialistActive = false): MineSimulation {
@@ -818,7 +909,7 @@ export class FoundationScene extends Phaser.Scene {
       shaftYieldMultiplier: specialists.shaftYieldMultiplier * collection.shaftYieldMultiplier * relics.shaftYieldMultiplier,
       liftCapacityMultiplier: specialists.liftCapacityMultiplier * collection.liftCapacityMultiplier * relics.liftCapacityMultiplier,
       hubCapacityMultiplier: specialists.hubCapacityMultiplier * collection.hubCapacityMultiplier * relics.hubCapacityMultiplier,
-      incomeMultiplier: specialists.incomeMultiplier * relics.incomeMultiplier,
+      incomeMultiplier: specialists.incomeMultiplier * relics.incomeMultiplier * getFriendIncomeMultiplier(this.social),
     };
   }
 
@@ -1450,6 +1541,7 @@ export class FoundationScene extends Phaser.Scene {
       buildRelicView(this.relics),
       buildWeeklyContractView(this.weeklyContract, contractClock.now, contractClock.source),
       buildSeasonalCampaignView(this.seasonalCampaign, contractClock.now, contractClock.source),
+      buildSocialView(this.social, contractClock.now, contractClock.source),
       this.activeMineId,
       activeSectorId,
       this.getWorldMineViews(),
@@ -1470,6 +1562,7 @@ export class FoundationScene extends Phaser.Scene {
     this.relics = sanitizeRelicState(DEFAULT_RELIC_STATE);
     this.weeklyContract = createWeeklyContractState(now);
     this.seasonalCampaign = createSeasonalCampaignState(now);
+    this.social = createSocialState(now);
     this.lastCollectionCrate = [];
     this.relicContextKey = '';
     this.totalRebuildCache = null;
@@ -1520,6 +1613,7 @@ export class FoundationScene extends Phaser.Scene {
             contractClock.now,
           );
           this.seasonalCampaign = sanitizeSeasonalCampaignState(save.world.seasonalCampaign, contractClock.now);
+          this.social = sanitizeSocialState(save.world.social, contractClock.now);
         }
         this.lastCollectionCrate = [];
         this.relicContextKey = '';
@@ -1608,6 +1702,7 @@ export class FoundationScene extends Phaser.Scene {
           relics: sanitizeRelicState(this.relics),
           weeklyContract: sanitizeWeeklyContractState(this.weeklyContract, contractClock.now),
           seasonalCampaign: sanitizeSeasonalCampaignState(this.seasonalCampaign, contractClock.now),
+          social: sanitizeSocialState(this.social, contractClock.now),
           unlockedSectors: [...this.unlockedSectors],
           sectorWallets: { ...this.sectorWallets },
           unlockedMines: [...this.unlockedMines],

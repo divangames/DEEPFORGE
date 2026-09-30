@@ -1,8 +1,8 @@
 {
   "name": "deepforge-idle-empire",
   "private": true,
-  "version": "0.12.0",
-  "description": "DEEPFORGE: Idle Empire — Stage 12 Weekly Contract and server-time foundation",
+  "version": "0.14.0",
+  "description": "DEEPFORGE: Idle Empire — Stage 14 Friends and Crew Missions",
   "workspaces": [
     "client",
     "server"

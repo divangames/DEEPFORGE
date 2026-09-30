@@ -10,6 +10,7 @@ import type { CollectionCardId, CollectionView } from '../game/core/collection';
 import type { RelicView } from '../game/core/relics';
 import type { WeeklyContractView } from '../game/core/weeklyContract';
 import type { SeasonalCampaignView } from '../game/core/seasonalCampaign';
+import type { SocialView } from '../game/core/social';
 import type { BulkUpgradeMode, BulkUpgradeQuote, FacilityId, ManagerView, MineId, ResearchView, SectorId, WorldMineView, WorldSectorView } from '../game/core/types';
 import { sendGameCommand } from '../game/runtime/gameRuntime';
 import { useGameStore } from '../state/gameStore';
@@ -921,9 +922,151 @@ function SeasonPanel({ season, onClose }: { season: SeasonalCampaignView; onClos
   );
 }
 
+
+function SocialPanel({ data }: { data: SocialView }) {
+  const [friendId, setFriendId] = useState('');
+  const [copied, setCopied] = useState(false);
+  const active = data.activeMission;
+
+  const copyPlayerId = async () => {
+    try {
+      await navigator.clipboard?.writeText(data.playerId);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1200);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  const addFriend = () => {
+    const value = friendId.trim();
+    if (!value) return;
+    sendGameCommand({ type: 'SOCIAL_ADD_FRIEND', playerId: value });
+    setFriendId('');
+  };
+
+  return (
+    <div className="social-view">
+      <section className="social-profile-card">
+        <div className="social-avatar">DF</div>
+        <div className="social-profile-copy">
+          <span>PLAYER ID · {data.timeSource === 'server' ? 'SERVER TIME' : 'LOCAL FALLBACK'}</span>
+          <strong>{data.nickname}</strong>
+          <button type="button" className="social-id-copy" onClick={copyPlayerId}>{copied ? '✓ СКОПИРОВАНО' : data.playerId}</button>
+        </div>
+        <div className="social-bonus-card">
+          <span>FRIEND BONUS</span>
+          <b>+{data.friendBonusPercent}%</b>
+          <small>до +{data.friendBonusCapPercent}% глобального дохода</small>
+        </div>
+      </section>
+
+      <section className="friend-add-card">
+        <div>
+          <span>ДОБАВИТЬ ОПЕРАТОРА</span>
+          <strong>Player ID друга</strong>
+          <small>Формат: DF-XXXX-XXXX · максимум {data.maxFriends} друзей.</small>
+        </div>
+        <div className="friend-add-controls">
+          <input
+            value={friendId}
+            onChange={(event: React.ChangeEvent<HTMLInputElement>) => setFriendId(event.target.value.toUpperCase())}
+            onKeyDown={(event: React.KeyboardEvent<HTMLInputElement>) => { if (event.key === 'Enter') addFriend(); }}
+            placeholder="DF-ABCD-2345"
+            maxLength={12}
+            autoCapitalize="characters"
+            autoCorrect="off"
+            spellCheck={false}
+          />
+          <button type="button" disabled={!friendId.trim()} onClick={addFriend}>ДОБАВИТЬ</button>
+        </div>
+      </section>
+
+      <section className="crew-mission-zone">
+        <header className="crew-section-head">
+          <div><span>CREW MISSIONS</span><strong>Совместные операции</strong></div>
+          <div><b>{data.completedMissions}</b><small>завершено</small></div>
+        </header>
+
+        {active ? (
+          <article className={`crew-active-mission rarity-${active.rarity} ${active.ready ? 'ready' : ''}`}>
+            <div className="crew-mission-topline">
+              <span>{active.rarity.toUpperCase()}</span>
+              <b>{active.ready ? 'READY' : `⏱ ${formatLongTime(active.remainingSeconds)}`}</b>
+            </div>
+            <h3>{active.title}</h3>
+            <p>{active.description}</p>
+            <div className="crew-progress"><i style={{ width: `${Math.round(active.progress * 100)}%` }} /></div>
+            <div className="crew-mission-meta">
+              <span>Команда <b>{active.participantCount + 1}/{4}</b></span>
+              <span>Награда <b>{active.reward.label}</b></span>
+            </div>
+            <small className="crew-help">Каждый присоединившийся друг сокращает оставшееся время операции на 15%. До 3 помощников.</small>
+            <button
+              type="button"
+              className="crew-claim"
+              disabled={!active.ready}
+              onClick={() => sendGameCommand({ type: 'CREW_MISSION_CLAIM' })}
+            >
+              {active.ready ? 'ЗАБРАТЬ НАГРАДУ' : 'ОПЕРАЦИЯ ВЫПОЛНЯЕТСЯ'}
+            </button>
+          </article>
+        ) : (
+          <div className="crew-offer-grid">
+            {data.offers.map((offer) => (
+              <article className={`crew-offer rarity-${offer.rarity}`} key={offer.id}>
+                <div className="crew-mission-topline"><span>{offer.rarity.toUpperCase()}</span><b>{offer.durationLabel}</b></div>
+                <strong>{offer.title}</strong>
+                <p>{offer.description}</p>
+                <small>{offer.reward.label}</small>
+                <button type="button" onClick={() => sendGameCommand({ type: 'CREW_MISSION_START', missionId: offer.id })}>НАЧАТЬ ОПЕРАЦИЮ</button>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="friend-list-zone">
+        <header className="crew-section-head">
+          <div><span>CREW NETWORK</span><strong>Друзья · {data.friendCount}/{data.maxFriends}</strong></div>
+          <div><b>+{data.friendBonusPercent}%</b><small>income</small></div>
+        </header>
+        {data.friends.length === 0 ? (
+          <div className="friends-empty">Добавь первый Player ID — каждый друг даёт +2% к глобальному доходу, максимум +10%.</div>
+        ) : (
+          <div className="friend-list">
+            {data.friends.map((friend) => (
+              <article className={`friend-row ${friend.inActiveMission ? 'joined' : ''}`} key={friend.playerId}>
+                <div className="friend-avatar">{friend.nickname.slice(-2)}</div>
+                <div className="friend-copy"><strong>{friend.nickname}</strong><span>{friend.playerId}</span></div>
+                {active && (
+                  <button
+                    type="button"
+                    className="friend-join"
+                    disabled={!friend.canJoinMission}
+                    onClick={() => sendGameCommand({ type: 'CREW_MISSION_JOIN', friendId: friend.playerId })}
+                  >
+                    {friend.inActiveMission ? '✓ CREW' : '+ JOIN'}
+                  </button>
+                )}
+                <button type="button" className="friend-remove" onClick={() => sendGameCommand({ type: 'SOCIAL_REMOVE_FRIEND', playerId: friend.playerId })}>×</button>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {data.lastCompleted && (
+        <div className="crew-last-completed"><span>ПОСЛЕДНЯЯ ОПЕРАЦИЯ</span><b>{data.lastCompleted.title}</b><small>{data.lastCompleted.rewardLabel}</small></div>
+      )}
+      <p className="social-network-note">Stage 14 хранит Player ID, друзей и Crew Missions локально и использует server-time, когда backend доступен. Сетевую синхронизацию аккаунтов подключим вместе с server-authoritative рейтингами.</p>
+    </div>
+  );
+}
+
 export function App() {
   const [teamOpen, setTeamOpen] = useState(false);
-  const [teamTab, setTeamTab] = useState<'managers' | 'specialists' | 'academy' | 'progression'>('managers');
+  const [teamTab, setTeamTab] = useState<'managers' | 'specialists' | 'academy' | 'progression' | 'crew'>('managers');
   const [mapOpen, setMapOpen] = useState(false);
   const [rebuildOpen, setRebuildOpen] = useState(false);
   const [researchOpen, setResearchOpen] = useState(false);
@@ -953,6 +1096,7 @@ export function App() {
   const relics = useGameStore((state) => state.relics);
   const weeklyContract = useGameStore((state) => state.weeklyContract);
   const seasonalCampaign = useGameStore((state) => state.seasonalCampaign);
+  const social = useGameStore((state) => state.social);
   const offlineReport = useGameStore((state) => state.offlineReport);
   const setApiOnline = useGameStore((state) => state.setApiOnline);
   const setOfflineReport = useGameStore((state) => state.setOfflineReport);
@@ -1073,7 +1217,7 @@ export function App() {
         )}
 
         <div className="stage-badge">
-          <strong>STAGE 13</strong>
+          <strong>STAGE 14</strong>
           <span>{quality}</span>
           <span className={apiOnline ? 'ok' : 'muted'}>{apiOnline ? 'API' : 'LOCAL'}</span>
         </div>
@@ -1341,15 +1485,16 @@ export function App() {
       {teamOpen && (
         <div className="team-overlay" role="dialog" aria-modal="true" aria-label="Команда объекта">
           <button className="team-backdrop" type="button" aria-label="Закрыть" onClick={() => setTeamOpen(false)} />
-          <section className="team-panel stage9-team-panel stage10-team-panel stage11-team-panel">
+          <section className="team-panel stage9-team-panel stage10-team-panel stage11-team-panel stage14-team-panel">
             <header className="team-header">
-              <div><span>УПРАВЛЕНИЕ КОМАНДОЙ</span><strong>{teamTab === 'managers' ? 'Менеджеры объекта' : teamTab === 'specialists' ? 'Specialists' : teamTab === 'academy' ? 'Academy Operations' : 'Equipment · Collection · Relics'}</strong></div>
+              <div><span>УПРАВЛЕНИЕ КОМАНДОЙ</span><strong>{teamTab === 'managers' ? 'Менеджеры объекта' : teamTab === 'specialists' ? 'Specialists' : teamTab === 'academy' ? 'Academy Operations' : teamTab === 'crew' ? 'Friends · Crew Missions' : 'Equipment · Collection · Relics'}</strong></div>
               <button type="button" onClick={() => setTeamOpen(false)}>✕</button>
             </header>
             <div className="team-tabs" role="tablist">
               <button type="button" className={teamTab === 'managers' ? 'active' : ''} onClick={() => setTeamTab('managers')}>♟ Менеджеры</button>
               <button type="button" className={teamTab === 'specialists' ? 'active' : ''} onClick={() => setTeamTab('specialists')}>★ Specialists</button>
               <button type="button" className={teamTab === 'academy' ? 'active' : ''} onClick={() => setTeamTab('academy')}>▣ Academy</button>
+              <button type="button" className={teamTab === 'crew' ? 'active' : ''} onClick={() => setTeamTab('crew')}>◎ Crew</button>
               <button type="button" className={teamTab === 'progression' ? 'active' : ''} onClick={() => setTeamTab('progression')}>⚙ Meta</button>
             </div>
 
@@ -1405,6 +1550,8 @@ export function App() {
               specialists ? <SpecialistRoster data={specialists} activeMineId={activeMineId} /> : <div className="team-summary"><span>Specialists загружаются…</span></div>
             ) : teamTab === 'academy' ? (
               academy ? <AcademyPanel data={academy} /> : <div className="team-summary"><span>Academy загружается…</span></div>
+            ) : teamTab === 'crew' ? (
+              social ? <SocialPanel data={social} /> : <div className="team-summary"><span>Crew Network загружается…</span></div>
             ) : (
               equipment && collection && relics && specialists
                 ? <ProgressionPanel equipment={equipment} collection={collection} relics={relics} specialists={specialists} />

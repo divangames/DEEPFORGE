@@ -1,23 +1,25 @@
-# DEEPFORGE: Idle Empire — Stage 13
+# DEEPFORGE: Idle Empire — Stage 14
 
 Browser-first / mobile-first idle tycoon. Основная ориентация телефона — **portrait**.
 
-## Stage 13
+## Stage 14
 
-Добавлена **Seasonal Campaign** поверх Weekly Contract.
+Добавлены **Friends + Crew Missions**.
 
-- сезон на 4 недели;
-- 20 уровней Season Progress;
-- Season XP за Weekly Contract milestones;
-- Free Track + готовый Premium entitlement-layer;
-- claimable meta rewards;
-- Premium rewards ретроактивны после будущей активации Store;
-- server/local clock integration;
-- save schema v11;
-- автоматическая компенсация Season XP за уже полученные Stage 12 milestones;
-- компактный Live Ops HUD и portrait UI 360–440 px, включая iPhone Pro Max.
+- постоянный Player ID `DF-XXXX-XXXX`;
+- список до 20 друзей;
+- +2% global income за друга, cap +10%;
+- bonus работает в live/background/offline экономике;
+- 3 Crew Mission offers за цикл;
+- Common 6h / Rare 12h / Epic 24h / Legendary 48h;
+- до 3 друзей могут подключиться к активной операции;
+- каждый JOIN сокращает оставшееся время на 15%;
+- meta rewards за Crew Missions;
+- server-time при доступном backend, local fallback на GitHub Pages;
+- save schema v12;
+- отдельный portrait-pass 360–440 px и iPhone Pro Max.
 
-Полное описание: `docs/STAGE_13.md`.
+Полное описание: `docs/STAGE_14.md`.
 
 ## Запуск
 
@@ -30,7 +32,7 @@ dev.bat
 Публикация:
 
 ```bat
-publish.bat "feat: stage 13 seasonal campaign"
+publish.bat "feat: stage 14 friends crew missions"
 ```
 
 `publish.bat` выполняет sync → typecheck → tests → build → commit → push. GitHub Actions публикует клиент на Pages.

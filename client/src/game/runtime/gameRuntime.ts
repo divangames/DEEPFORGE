@@ -41,7 +41,12 @@ export type GameCommand =
   | { type: 'CONTRACT_UPGRADE'; facilityId: ContractFacilityId }
   | { type: 'CONTRACT_HIRE_MANAGER'; facilityId: ContractFacilityId }
   | { type: 'CONTRACT_CLAIM_MILESTONE'; milestoneId: string }
-  | { type: 'SEASON_CLAIM_REWARD'; level: number; track: SeasonRewardTrack };
+  | { type: 'SEASON_CLAIM_REWARD'; level: number; track: SeasonRewardTrack }
+  | { type: 'SOCIAL_ADD_FRIEND'; playerId: string }
+  | { type: 'SOCIAL_REMOVE_FRIEND'; playerId: string }
+  | { type: 'CREW_MISSION_START'; missionId: string }
+  | { type: 'CREW_MISSION_JOIN'; friendId: string }
+  | { type: 'CREW_MISSION_CLAIM' };
 
 type CommandListener = (command: GameCommand) => void;
 

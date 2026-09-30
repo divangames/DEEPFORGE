@@ -2382,3 +2382,208 @@ button { min-height: 44px; -webkit-tap-highlight-color: transparent; }
   .season-track-head { grid-template-columns: 34px minmax(0,1fr) minmax(0,1fr); }
   .season-level { grid-template-columns: 34px minmax(0,1fr) minmax(0,1fr); }
 }
+
+/* =========================================================
+   STAGE 14 · FRIENDS + CREW MISSIONS
+   ========================================================= */
+.stage14-team-panel .team-tabs {
+  grid-template-columns: repeat(5, minmax(90px, 1fr));
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.stage14-team-panel .team-tabs::-webkit-scrollbar { display: none; }
+.social-view {
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 9px 10px max(14px, var(--safe-bottom));
+  display: grid;
+  align-content: start;
+  gap: 9px;
+  background: linear-gradient(180deg, #10161a, #0b1013);
+}
+.social-profile-card {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) minmax(120px, .55fr);
+  gap: 9px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid #334149;
+  border-radius: 12px;
+  background: linear-gradient(130deg, #182126, #11171b);
+}
+.social-avatar {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #4d7380;
+  border-radius: 50%;
+  background: #13262d;
+  color: #76cde3;
+  font-size: 12px;
+  font-weight: 1000;
+}
+.social-profile-copy { min-width: 0; display: grid; gap: 2px; }
+.social-profile-copy > span { color: #73838c; font-size: 5.8px; font-weight: 950; letter-spacing: .09em; }
+.social-profile-copy > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.social-id-copy {
+  justify-self: start;
+  min-height: 31px;
+  padding: 0 9px;
+  border: 1px solid #38515b;
+  border-radius: 7px;
+  background: #111c21;
+  color: #8ed6e8;
+  font: inherit;
+  font-size: 6.5px;
+  font-weight: 950;
+  letter-spacing: .06em;
+}
+.social-bonus-card { display: grid; gap: 1px; padding: 8px 9px; border: 1px solid #3b523f; border-radius: 9px; background: #132018; text-align: right; }
+.social-bonus-card span { color: #6f927a; font-size: 5.5px; font-weight: 950; }
+.social-bonus-card b { color: #8be6a8; font-size: 17px; }
+.social-bonus-card small { color: #788780; font-size: 5.3px; }
+.friend-add-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, .7fr);
+  gap: 10px;
+  align-items: center;
+  padding: 9px 10px;
+  border: 1px solid #303a40;
+  border-radius: 11px;
+  background: #12181c;
+}
+.friend-add-card > div:first-child { min-width: 0; display: grid; gap: 2px; }
+.friend-add-card span { color: #657985; font-size: 5.5px; font-weight: 950; letter-spacing: .09em; }
+.friend-add-card strong { font-size: 9px; }
+.friend-add-card small { color: #6f7d85; font-size: 5.8px; }
+.friend-add-controls { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 5px; }
+.friend-add-controls input {
+  min-width: 0;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid #3b4951;
+  border-radius: 8px;
+  outline: 0;
+  background: #0c1215;
+  color: #e9f1f4;
+  font: inherit;
+  font-size: 8px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.friend-add-controls input:focus { border-color: #62bdd2; box-shadow: 0 0 0 2px rgba(98,189,210,.12); }
+.friend-add-controls button { min-height: 38px; padding: 0 11px; border: 1px solid #376172; border-radius: 8px; background: #142b34; color: #8bd8eb; font-size: 6px; font-weight: 950; }
+.friend-add-controls button:disabled { opacity: .35; }
+.crew-mission-zone,
+.friend-list-zone { display: grid; gap: 6px; }
+.crew-section-head { display: flex; justify-content: space-between; align-items: end; gap: 12px; padding: 0 2px; }
+.crew-section-head > div:first-child { min-width: 0; display: grid; gap: 1px; }
+.crew-section-head span { color: #6e818b; font-size: 5.5px; font-weight: 950; letter-spacing: .1em; }
+.crew-section-head strong { font-size: 10px; }
+.crew-section-head > div:last-child { flex: 0 0 auto; display: grid; text-align: right; }
+.crew-section-head > div:last-child b { color: #7fd7e7; font-size: 10px; }
+.crew-section-head > div:last-child small { color: #65737b; font-size: 5px; }
+.crew-offer-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.crew-offer,
+.crew-active-mission {
+  --crew-rarity: #aeb7bc;
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid color-mix(in srgb, var(--crew-rarity) 36%, #344049);
+  border-radius: 11px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--crew-rarity) 8%, #141a1e), #0f1417);
+}
+.crew-offer.rarity-rare, .crew-active-mission.rarity-rare { --crew-rarity: #61b6f7; }
+.crew-offer.rarity-epic, .crew-active-mission.rarity-epic { --crew-rarity: #b986ff; }
+.crew-offer.rarity-legendary, .crew-active-mission.rarity-legendary { --crew-rarity: #f0bd5c; }
+.crew-offer > strong { color: #edf2f4; font-size: 9px; }
+.crew-offer p,
+.crew-active-mission p { margin: 0; color: #7d8b93; font-size: 6px; line-height: 1.4; }
+.crew-offer > small { color: var(--crew-rarity); font-size: 5.6px; font-weight: 850; line-height: 1.35; }
+.crew-offer > button,
+.crew-claim { min-height: 36px; border: 1px solid color-mix(in srgb, var(--crew-rarity) 50%, #3b454b); border-radius: 7px; background: color-mix(in srgb, var(--crew-rarity) 12%, #151b1f); color: var(--crew-rarity); font-size: 5.8px; font-weight: 950; }
+.crew-mission-topline { display: flex; justify-content: space-between; gap: 8px; color: #6f7d84; font-size: 5.4px; font-weight: 950; letter-spacing: .06em; }
+.crew-mission-topline span { color: var(--crew-rarity); }
+.crew-active-mission h3 { margin: 0; font-size: 13px; }
+.crew-progress { height: 5px; overflow: hidden; border-radius: 8px; background: #293238; }
+.crew-progress i { display: block; height: 100%; border-radius: inherit; background: var(--crew-rarity); }
+.crew-mission-meta { display: flex; justify-content: space-between; gap: 12px; color: #75828a; font-size: 5.8px; }
+.crew-mission-meta b { color: #cbd5d9; }
+.crew-help { color: #718088; font-size: 5.4px; line-height: 1.35; }
+.crew-active-mission.ready { box-shadow: inset 0 0 0 1px var(--crew-rarity), 0 0 24px color-mix(in srgb, var(--crew-rarity) 12%, transparent); }
+.crew-claim:disabled { opacity: .4; }
+.friend-list { display: grid; gap: 4px; }
+.friend-row { display: grid; grid-template-columns: 34px minmax(0,1fr) auto auto; gap: 6px; align-items: center; padding: 6px 7px; border: 1px solid #303b41; border-radius: 9px; background: #13191d; }
+.friend-row.joined { border-color: #3d6955; background: #14211b; }
+.friend-avatar { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid #3e5059; border-radius: 50%; color: #8fb8c6; font-size: 7px; font-weight: 950; }
+.friend-copy { min-width: 0; display: grid; gap: 1px; }
+.friend-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 8px; }
+.friend-copy span { color: #71808a; font-size: 5.5px; font-weight: 850; }
+.friend-join { min-width: 58px; min-height: 31px; border: 1px solid #396350; border-radius: 7px; background: #15271f; color: #83d7aa; font-size: 5.5px; font-weight: 950; }
+.friend-join:disabled { opacity: .52; }
+.friend-remove { width: 31px; height: 31px; min-height: 31px; border: 1px solid #513b3b; border-radius: 7px; background: #241718; color: #d59393; font-size: 11px; }
+.friends-empty { padding: 14px; border: 1px dashed #334149; border-radius: 9px; color: #708089; font-size: 6.5px; line-height: 1.45; text-align: center; }
+.crew-last-completed { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid #3a473c; border-radius: 9px; background: #141d17; }
+.crew-last-completed span { color: #708275; font-size: 5.3px; font-weight: 950; }
+.crew-last-completed b { color: #9ed1aa; font-size: 8px; }
+.crew-last-completed small { color: #77837a; font-size: 5.7px; }
+.social-network-note { margin: 0; padding: 7px 9px; border: 1px solid #2f3a40; border-radius: 8px; color: #68767e; font-size: 5.6px; line-height: 1.45; background: #101519; }
+
+@media (max-width: 760px) and (orientation: portrait) {
+  .stage14-team-panel .team-tabs { grid-template-columns: repeat(5, minmax(76px, 1fr)); }
+  .stage14-team-panel .team-tabs button { min-width: 76px; font-size: 5.7px; }
+  .social-view { padding: 6px 7px max(9px, var(--safe-bottom)); gap: 6px; }
+  .social-profile-card { grid-template-columns: 38px minmax(0,1fr) 86px; gap: 6px; padding: 7px; }
+  .social-avatar { width: 36px; height: 36px; font-size: 9px; }
+  .social-profile-copy > strong { font-size: 9px; }
+  .social-id-copy { min-height: 28px; padding: 0 6px; font-size: 5.8px; }
+  .social-bonus-card { padding: 6px; }
+  .social-bonus-card b { font-size: 13px; }
+  .social-bonus-card small { font-size: 4.7px; }
+  .friend-add-card { grid-template-columns: 1fr; gap: 6px; padding: 7px; }
+  .friend-add-controls input, .friend-add-controls button { min-height: 40px; height: 40px; }
+  .crew-offer-grid { grid-template-columns: 1fr; gap: 5px; }
+  .crew-offer { grid-template-columns: minmax(0,1fr) auto; grid-template-rows: auto auto auto; gap: 3px 7px; padding: 7px; }
+  .crew-offer .crew-mission-topline { grid-column: 1 / -1; }
+  .crew-offer > strong, .crew-offer > p, .crew-offer > small { grid-column: 1; }
+  .crew-offer > button { grid-column: 2; grid-row: 2 / 5; align-self: stretch; min-width: 92px; min-height: 44px; }
+  .crew-active-mission { padding: 8px; }
+  .crew-mission-meta { display: grid; gap: 3px; }
+  .friend-row { grid-template-columns: 32px minmax(0,1fr) auto auto; padding: 5px 6px; }
+  .friend-avatar { width: 30px; height: 30px; }
+}
+
+@media (max-width: 390px) and (orientation: portrait) {
+  .social-profile-card { grid-template-columns: 34px minmax(0,1fr); }
+  .social-bonus-card { grid-column: 1 / -1; grid-template-columns: 1fr auto; align-items: center; text-align: left; }
+  .social-bonus-card small { grid-column: 1 / -1; }
+  .friend-add-controls { grid-template-columns: 1fr; }
+  .friend-add-controls button { width: 100%; }
+  .crew-offer { grid-template-columns: 1fr; }
+  .crew-offer > strong, .crew-offer > p, .crew-offer > small, .crew-offer > button { grid-column: 1; grid-row: auto; }
+  .friend-row { grid-template-columns: 30px minmax(0,1fr) auto; }
+  .friend-join { grid-column: 2 / -1; width: 100%; }
+  .friend-remove { grid-column: 3; grid-row: 1; }
+}
+
+/* iPhone 11 -> 17 Pro Max portrait tuning for Stage 14 social screens. */
+@supports (-webkit-touch-callout: none) {
+  @media (orientation: portrait) and (min-width: 360px) and (max-width: 440px) {
+    .stage14-team-panel { height: calc(100dvh - var(--safe-top)); max-height: calc(100dvh - var(--safe-top)); }
+    .social-view { padding-bottom: max(12px, calc(var(--safe-bottom) + 4px)); }
+    .friend-add-controls input { font-size: 16px; letter-spacing: .02em; }
+  }
+
+  @media (orientation: portrait) and (min-width: 428px) and (max-width: 440px) and (min-height: 900px) {
+    .social-profile-card { grid-template-columns: 44px minmax(0,1fr) 108px; }
+    .social-avatar { width: 42px; height: 42px; }
+    .crew-offer-grid { grid-template-columns: 1fr; }
+  }
+}

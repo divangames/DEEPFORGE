@@ -1,5 +1,20 @@
 # Changelog
 
+## Stage 14 — Friends + Crew Missions
+
+- Stable Player ID `DF-XXXX-XXXX` хранится в save.
+- Friends list до 20 операторов с добавлением по Player ID.
+- +2% global income за друга, cap +10%; влияет на live/background/offline income.
+- Crew Missions: Common 6h / Rare 12h / Epic 24h / Legendary 48h.
+- Три mission offers за цикл и ротация после claim.
+- До 3 друзей могут присоединиться; каждый JOIN уменьшает оставшееся время на 15%.
+- Crew rewards: Research, Recruit Data, Training, Promotion, Supply Keys и Craft Materials.
+- Таймеры Crew используют общий server/local clock Live Ops.
+- Save schema v12 + автоматическая Stage 13 migration.
+- `Команда → Crew` вместо расширения нижней навигации.
+- Portrait 360–440 px, iPhone Pro Max safe-area и iOS input anti-zoom.
+- Social layer data-only: без новых Phaser scenes и без отдельного animation loop.
+
 ## Stage 13 — Seasonal Campaign
 
 - Четырёхнедельная seasonal campaign поверх Weekly Contract.
