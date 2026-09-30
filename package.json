@@ -1,8 +1,8 @@
 {
   "name": "deepforge-idle-empire",
   "private": true,
-  "version": "0.14.0",
-  "description": "DEEPFORGE: Idle Empire — Stage 14 Friends and Crew Missions",
+  "version": "0.15.0",
+  "description": "DEEPFORGE: Idle Empire — Stage 15 Server-authoritative Leaderboards and Blitz Drill",
   "workspaces": [
     "client",
     "server"

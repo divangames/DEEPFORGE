@@ -15,6 +15,7 @@ import type { BulkUpgradeMode, BulkUpgradeQuote, FacilityId, ManagerView, MineId
 import { sendGameCommand } from '../game/runtime/gameRuntime';
 import { useGameStore } from '../state/gameStore';
 import { GameCanvas } from './GameCanvas';
+import { BlitzPanel } from './BlitzPanel';
 
 function runFacility(id: FacilityId) {
   if (id === 'lift') return sendGameCommand({ type: 'START_LIFT' });
@@ -1059,7 +1060,7 @@ function SocialPanel({ data }: { data: SocialView }) {
       {data.lastCompleted && (
         <div className="crew-last-completed"><span>ПОСЛЕДНЯЯ ОПЕРАЦИЯ</span><b>{data.lastCompleted.title}</b><small>{data.lastCompleted.rewardLabel}</small></div>
       )}
-      <p className="social-network-note">Stage 14 хранит Player ID, друзей и Crew Missions локально и использует server-time, когда backend доступен. Сетевую синхронизацию аккаунтов подключим вместе с server-authoritative рейтингами.</p>
+      <p className="social-network-note">Stage 15 уже использует этот Player ID для server-authoritative Blitz Drill. Друзья пока остаются локальными до этапа серверной авторизации аккаунтов.</p>
     </div>
   );
 }
@@ -1072,6 +1073,7 @@ export function App() {
   const [researchOpen, setResearchOpen] = useState(false);
   const [contractOpen, setContractOpen] = useState(false);
   const [seasonOpen, setSeasonOpen] = useState(false);
+  const [blitzOpen, setBlitzOpen] = useState(false);
   const [bulkMode, setBulkMode] = useState<BulkUpgradeMode>(1);
   const quality = useGameStore((state) => state.quality);
   const apiOnline = useGameStore((state) => state.apiOnline);
@@ -1201,23 +1203,28 @@ export function App() {
           </div>
         )}
 
-        {(weeklyContract || seasonalCampaign) && (
+        {(weeklyContract || seasonalCampaign || social) && (
           <div className="liveops-stack">
             {weeklyContract && (
-              <button type="button" className="contract-entry" onClick={() => { setSeasonOpen(false); setContractOpen(true); }}>
+              <button type="button" className="contract-entry" onClick={() => { setSeasonOpen(false); setBlitzOpen(false); setContractOpen(true); }}>
                 <span>⚡ WEEKLY</span><strong>{weeklyContract.title}</strong><small>{weeklyContract.currencyCode} {formatCompact(weeklyContract.cash)} · {formatAwayTime(weeklyContract.remainingSeconds)}</small>
               </button>
             )}
             {seasonalCampaign && (
-              <button type="button" className="season-entry" onClick={() => { setContractOpen(false); setSeasonOpen(true); }}>
+              <button type="button" className="season-entry" onClick={() => { setContractOpen(false); setBlitzOpen(false); setSeasonOpen(true); }}>
                 <span>✦ SEASON</span><strong>{seasonalCampaign.title}</strong><small>LV {seasonalCampaign.currentLevel}/{seasonalCampaign.maxLevel} · {seasonalCampaign.xp} XP</small>
+              </button>
+            )}
+            {social && (
+              <button type="button" className="blitz-entry" onClick={() => { setContractOpen(false); setSeasonOpen(false); setBlitzOpen(true); }}>
+                <span>◆ BLITZ</span><strong>Velocity Run</strong><small>{apiOnline ? 'SERVER RANKING · 10 MIN' : 'SERVER REQUIRED'}</small>
               </button>
             )}
           </div>
         )}
 
         <div className="stage-badge">
-          <strong>STAGE 14</strong>
+          <strong>STAGE 15</strong>
           <span>{quality}</span>
           <span className={apiOnline ? 'ok' : 'muted'}>{apiOnline ? 'API' : 'LOCAL'}</span>
         </div>
@@ -1343,11 +1350,11 @@ export function App() {
       </section>
 
       <nav className="bottom-nav" aria-label="Главная навигация">
-        <button type="button" className={!teamOpen && !mapOpen && !rebuildOpen && !researchOpen && !contractOpen && !seasonOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setMapOpen(false); setRebuildOpen(false); setResearchOpen(false); setContractOpen(false); setSeasonOpen(false); }}><span>◆</span>Объект</button>
-        <button type="button" className={mapOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setRebuildOpen(false); setResearchOpen(false); setContractOpen(false); setSeasonOpen(false); setMapOpen(true); }}><span>⌖</span>Карта</button>
-        <button type="button" className={teamOpen ? 'active' : ''} onClick={() => { setMapOpen(false); setRebuildOpen(false); setResearchOpen(false); setContractOpen(false); setSeasonOpen(false); setTeamOpen(true); }}><span>♟</span>Команда</button>
-        <button type="button" className={rebuildOpen ? 'active rebuild-nav' : 'rebuild-nav'} onClick={() => { setMapOpen(false); setTeamOpen(false); setResearchOpen(false); setContractOpen(false); setSeasonOpen(false); setRebuildOpen(true); }}><span>↻</span>Rebuild</button>
-        <button type="button" className={researchOpen ? 'active research-nav' : 'research-nav'} onClick={() => { setMapOpen(false); setTeamOpen(false); setRebuildOpen(false); setContractOpen(false); setSeasonOpen(false); setResearchOpen(true); }}><span>◈</span>Research</button>
+        <button type="button" className={!teamOpen && !mapOpen && !rebuildOpen && !researchOpen && !contractOpen && !seasonOpen && !blitzOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setMapOpen(false); setRebuildOpen(false); setResearchOpen(false); setContractOpen(false); setSeasonOpen(false); setBlitzOpen(false); }}><span>◆</span>Объект</button>
+        <button type="button" className={mapOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setRebuildOpen(false); setResearchOpen(false); setContractOpen(false); setSeasonOpen(false); setBlitzOpen(false); setMapOpen(true); }}><span>⌖</span>Карта</button>
+        <button type="button" className={teamOpen ? 'active' : ''} onClick={() => { setMapOpen(false); setRebuildOpen(false); setResearchOpen(false); setContractOpen(false); setSeasonOpen(false); setBlitzOpen(false); setTeamOpen(true); }}><span>♟</span>Команда</button>
+        <button type="button" className={rebuildOpen ? 'active rebuild-nav' : 'rebuild-nav'} onClick={() => { setMapOpen(false); setTeamOpen(false); setResearchOpen(false); setContractOpen(false); setSeasonOpen(false); setBlitzOpen(false); setRebuildOpen(true); }}><span>↻</span>Rebuild</button>
+        <button type="button" className={researchOpen ? 'active research-nav' : 'research-nav'} onClick={() => { setMapOpen(false); setTeamOpen(false); setRebuildOpen(false); setContractOpen(false); setSeasonOpen(false); setBlitzOpen(false); setResearchOpen(true); }}><span>◈</span>Research</button>
       </nav>
 
       {contractOpen && weeklyContract && (
@@ -1356,6 +1363,15 @@ export function App() {
 
       {seasonOpen && seasonalCampaign && (
         <SeasonPanel season={seasonalCampaign} onClose={() => setSeasonOpen(false)} />
+      )}
+
+      {blitzOpen && social && (
+        <BlitzPanel
+          playerId={social.playerId}
+          nickname={social.nickname}
+          apiOnline={apiOnline}
+          onClose={() => setBlitzOpen(false)}
+        />
       )}
 
       {mapOpen && (

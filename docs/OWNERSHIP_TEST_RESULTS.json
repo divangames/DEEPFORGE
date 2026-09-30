@@ -1,0 +1,27 @@
+{
+  "git": "git version 2.47.3",
+  "platform": "Linux; Git ownership mismatch simulated with Git test flag",
+  "windows_cmd_run": false,
+  "tests": [
+    {
+      "name": "ownership mismatch blocks access",
+      "pass": true
+    },
+    {
+      "name": "exact Unicode + !!! path becomes trusted",
+      "pass": true
+    },
+    {
+      "name": "unrelated repository stays blocked",
+      "pass": true
+    },
+    {
+      "name": "only one exact exception, no wildcard",
+      "pass": true
+    },
+    {
+      "name": "next run can skip the trust prompt",
+      "pass": true
+    }
+  ]
+}

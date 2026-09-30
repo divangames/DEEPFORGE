@@ -1,51 +1,33 @@
-# DEEPFORGE: Idle Empire — Stage 14
+# DEEPFORGE: Idle Empire — Stage 15
 
-Browser-first / mobile-first idle tycoon. Основная ориентация телефона — **portrait**.
+Browser-first / mobile-first idle tycoon. Основной режим — вертикальный телефон, затем планшет и ПК.
 
-## Stage 14
+## Что добавлено в Stage 15
 
-Добавлены **Friends + Crew Missions**.
+**Server-authoritative Leaderboards + Blitz Drill**:
 
-- постоянный Player ID `DF-XXXX-XXXX`;
-- список до 20 друзей;
-- +2% global income за друга, cap +10%;
-- bonus работает в live/background/offline экономике;
-- 3 Crew Mission offers за цикл;
-- Common 6h / Rare 12h / Epic 24h / Legendary 48h;
-- до 3 друзей могут подключиться к активной операции;
-- каждый JOIN сокращает оставшееся время на 15%;
-- meta rewards за Crew Missions;
-- server-time при доступном backend, local fallback на GitHub Pages;
-- save schema v12;
-- отдельный portrait-pass 360–440 px и iPhone Pro Max.
+- 10-минутная рейтинговая сессия;
+- 3 билета на недельный цикл;
+- 8 дивизионов Prospect → Legend;
+- группы примерно по 50 игроков;
+- promotion/demotion по рейтингу;
+- Blitz Medals;
+- PostgreSQL persistence + memory fallback;
+- клиент не отправляет score — только допустимые upgrade-actions;
+- мобильный leaderboard UI 360–440 px.
 
-Полное описание: `docs/STAGE_14.md`.
+Подробности: `docs/STAGE_15.md`.
 
 ## Запуск
 
-Windows:
+Windows: `dev.bat`
+
+Публикация клиента на GitHub Pages:
 
 ```bat
-dev.bat
+publish.bat "feat: stage 15 server authoritative leaderboards"
 ```
 
-Публикация:
+## Важно про GitHub Pages
 
-```bat
-publish.bat "feat: stage 14 friends crew missions"
-```
-
-`publish.bat` выполняет sync → typecheck → tests → build → commit → push. GitHub Actions публикует клиент на Pages.
-
-## Адрес Pages
-
-https://divangames.github.io/DEEPFORGE/
-
-## Архитектура
-
-- Client: React + TypeScript + Phaser + Vite
-- State: Zustand
-- Local save: IndexedDB / Dexie
-- Backend foundation: Fastify + PostgreSQL
-- PWA
-- mobile-first / portrait-first
+Для живого рейтинга нужен публичный backend. Укажите его через `VITE_API_URL` при сборке Pages. Пока backend не опубликован, Blitz корректно показывает `SERVER REQUIRED`, а основная игра продолжает работать локально/offline.

@@ -321,3 +321,21 @@
 - Offline summary can aggregate multiple operating mines.
 - Phaser environment receives a temporary theme per site.
 - Stage badge updated to Stage 5.
+
+## Stage 15 — Leaderboards / Blitz Drill
+
+- Добавлен server-authoritative режим Blitz Drill: 10 минут, 3 билета на недельный цикл.
+- Добавлены 8 дивизионов: Prospect → Legend.
+- Добавлено распределение по группам примерно до 50 игроков.
+- Добавлены promotion/demotion зоны по верхним/нижним 15% при 5+ участниках.
+- Score, Drill Credits, upgrade cost, throughput и server-time считаются только backend.
+- Клиент отправляет только разрешённые upgrade-actions и не имеет endpoint для произвольной отправки score.
+- Добавлены Blitz Medals как серверная рейтинговая награда.
+- Добавлены PostgreSQL persistence и memory fallback для разработки.
+- Добавлены `/api/blitz/status`, `/start`, `/action`, `/finish`.
+- Добавлена SQL-схема `002_blitz_leaderboards.sql`.
+- Добавлен Live Ops entry `◆ BLITZ` и полноценный leaderboard UI.
+- Добавлен отдельный portrait layout 360–440 px, включая iPhone Pro Max safe-area.
+- Blitz не создаёт новую Phaser-сцену и не нагружает основной игровой render loop.
+- Save schema основной idle-игры не менялся: рейтинг хранится на сервере.
+- GitHub Pages workflow читает `vars.VITE_API_URL`, поэтому публичный VPS можно подключить без изменения исходников.
