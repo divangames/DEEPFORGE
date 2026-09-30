@@ -1,5 +1,38 @@
 # CHANGELOG — DEEPFORGE
 
+## 0.9.0 — Stage 9 Specialists + iPhone Portrait Pass
+
+### Добавлено
+
+- 6 уникальных Specialists с rarity, role, level 1–10, passive и active abilities.
+- 3 Specialist slots на каждую шахту: Extraction, Cargo Lift, Logistics.
+- Глобальное назначение: один Specialist не может одновременно работать в нескольких шахтах.
+- Starter Specialists + unlock milestones через суммарные Rebuild.
+- Training за валюту активного сектора.
+- Active ability duration/cooldown с сохранением.
+- Specialist passives учитываются в live/background/offline calculations.
+- Research Specialist branch теперь усиливает passives и уменьшает cooldown.
+- Save schema v7 и миграция Stage 8 → Stage 9.
+- Unit coverage assignment, unlocks, training, active cooldown и migration.
+
+### iPhone / Portrait
+
+- Отдельный adaptive pass для iPhone 11–17 Pro Max-class viewport.
+- Исправлен двойной safe-area расход высоты на iPhone.
+- Dynamic Island/notch учитывается верхней панелью, home indicator — нижней.
+- `100dvh`/fixed viewport handling для Safari и PWA.
+- Отдельные compact и Pro Max media rules в диапазоне 360–440 CSS px.
+- Team / Research / Rebuild / Offline / World Map panels ограничены реальным viewport.
+- На телефоне в landscape появляется экран поворота в portrait.
+
+### Performance
+
+- Specialist modifiers считаются только для трёх slots конкретной шахты.
+- Inactive mines получают только passive modifiers, без дополнительных Phaser scenes.
+- Specialist timers — лёгкая глобальная структура из 6 профилей.
+
+# CHANGELOG — DEEPFORGE
+
 ## 0.8.0 — Stage 8 Research Grid
 
 ### Добавлено

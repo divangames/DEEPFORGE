@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { getApiHealth } from '../services/api';
 import { formatCompact } from '../game/core/format';
 import { RESEARCH_BRANCHES, type ResearchBranchId } from '../game/core/research';
+import { SPECIALIST_SLOTS, type SpecialistSlot, type SpecialistSystemView, type SpecialistView } from '../game/core/specialists';
 import type { BulkUpgradeMode, BulkUpgradeQuote, FacilityId, ManagerView, MineId, ResearchView, SectorId, WorldMineView, WorldSectorView } from '../game/core/types';
 import { sendGameCommand } from '../game/runtime/gameRuntime';
 import { useGameStore } from '../state/gameStore';
@@ -330,8 +331,116 @@ function ResearchPanel({ research, onClose }: { research: ResearchView; onClose:
   );
 }
 
+function specialistRoleLabel(role: SpecialistView['role']) {
+  if (role === 'extraction') return 'EXTRACTION';
+  if (role === 'lift') return 'CARGO LIFT';
+  if (role === 'logistics') return 'LOGISTICS';
+  return 'UNIVERSAL';
+}
+
+function specialistAbilityLabel(item: SpecialistView) {
+  if (item.activeRemaining > 0) return `BOOST ${item.activeRemaining.toFixed(0)}с`;
+  if (item.cooldownRemaining > 0) return `CD ${item.cooldownRemaining.toFixed(0)}с`;
+  return `⚡ ${item.abilityName}`;
+}
+
+function SpecialistRoster({
+  data,
+  activeMineId,
+  currencyCode,
+}: {
+  data: SpecialistSystemView;
+  activeMineId: MineId;
+  currencyCode: string;
+}) {
+  const roleSlots = (specialist: SpecialistView): SpecialistSlot[] => {
+    if (specialist.role === 'universal') return SPECIALIST_SLOTS.map((slot) => slot.id);
+    return [specialist.role];
+  };
+
+  return (
+    <div className="specialists-view">
+      <div className="specialist-slot-grid">
+        {data.slots.map((slot) => (
+          <article className={`specialist-slot ${slot.specialistId ? 'filled' : ''}`} key={slot.slot}>
+            <div>
+              <span>{slot.label.toUpperCase()}</span>
+              <strong>{slot.specialistName ?? 'Пустой слот'}</strong>
+            </div>
+            {slot.specialistId ? (
+              <button type="button" onClick={() => sendGameCommand({ type: 'SPECIALIST_UNASSIGN', slot: slot.slot })}>Снять</button>
+            ) : <b>+</b>}
+          </article>
+        ))}
+      </div>
+
+      <div className="specialist-meta-line">
+        <span>Назначено <b>{data.assignedCount}/3</b></span>
+        <span>Всего Rebuild <b>{data.totalRebuilds}</b></span>
+        <span>Эффект действует на <b>текущую шахту</b></span>
+      </div>
+
+      <div className="specialist-list">
+        {data.roster.map((item) => {
+          const availableSlots = roleSlots(item);
+          return (
+            <article className={`specialist-card rarity-${item.rarity.toLowerCase()} ${item.unlocked ? '' : 'locked'} ${item.assignedHere ? 'assigned' : ''}`} key={item.id}>
+              <div className="specialist-avatar"><b>{item.codename.slice(0, 2)}</b><span>LV {item.level}</span></div>
+              <div className="specialist-copy">
+                <div className="specialist-title-row">
+                  <strong>{item.name}</strong>
+                  <em>{item.rarity}</em>
+                </div>
+                <small>{specialistRoleLabel(item.role)} · {item.codename}</small>
+                <p><b>PASSIVE +{item.passiveBonusPercent}%</b> · {item.passiveLabel}</p>
+                <p><b>ACTIVE ×{item.abilityMultiplier.toFixed(2)}</b> · {item.abilityDuration}с · {item.abilityName}</p>
+                {!item.unlocked && <div className="specialist-lock">Откроется после {item.unlockRebuilds} Rebuild</div>}
+                {item.unlocked && item.assignedMineId && !item.assignedHere && (
+                  <div className="specialist-assignment-note">Назначен: {item.assignedMineId.toUpperCase()} · {item.assignedSlot}</div>
+                )}
+              </div>
+              <div className="specialist-actions">
+                <div className="specialist-assign-actions">
+                  {availableSlots.map((slot) => (
+                    <button
+                      type="button"
+                      key={slot}
+                      disabled={!item.unlocked || (item.assignedHere && item.assignedSlot === slot)}
+                      onClick={() => sendGameCommand({ type: 'SPECIALIST_ASSIGN', specialistId: item.id, slot })}
+                    >
+                      {item.assignedHere && item.assignedSlot === slot ? '✓ В слоте' : `→ ${slot === 'extraction' ? 'Deck' : slot === 'lift' ? 'Lift' : 'Hub'}`}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="specialist-train"
+                  disabled={!item.canTrain || item.level >= item.maxLevel}
+                  onClick={() => sendGameCommand({ type: 'SPECIALIST_TRAIN', specialistId: item.id })}
+                >
+                  {item.level >= item.maxLevel ? 'MAX LEVEL' : `TRAIN · ${currencyCode} ${formatCompact(item.trainingCost)}`}
+                </button>
+                <button
+                  type="button"
+                  className={`specialist-ability ${item.activeRemaining > 0 ? 'active' : ''}`}
+                  disabled={!item.abilityReady}
+                  onClick={() => sendGameCommand({ type: 'SPECIALIST_ACTIVATE', specialistId: item.id })}
+                >
+                  {specialistAbilityLabel(item)}
+                </button>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+      <p className="team-note">Specialists глобальны: один персонаж может быть назначен только в одну шахту. Активные навыки работают в открытой шахте; passive-бонусы учитываются и в offline income.</p>
+    </div>
+  );
+}
+
 export function App() {
   const [teamOpen, setTeamOpen] = useState(false);
+  const [teamTab, setTeamTab] = useState<'managers' | 'specialists'>('managers');
   const [mapOpen, setMapOpen] = useState(false);
   const [rebuildOpen, setRebuildOpen] = useState(false);
   const [researchOpen, setResearchOpen] = useState(false);
@@ -352,6 +461,7 @@ export function App() {
   const barrier = useGameStore((state) => state.barrier);
   const rebuild = useGameStore((state) => state.rebuild);
   const research = useGameStore((state) => state.research);
+  const specialists = useGameStore((state) => state.specialists);
   const offlineReport = useGameStore((state) => state.offlineReport);
   const setApiOnline = useGameStore((state) => state.setApiOnline);
   const setOfflineReport = useGameStore((state) => state.setOfflineReport);
@@ -394,6 +504,7 @@ export function App() {
 
   return (
     <main className="app-shell">
+      <div className="portrait-required" aria-hidden="true"><b>DEEPFORGE</b><span>Поверните телефон вертикально</span></div>
       <header className="topbar">
         <div className="brand">
           <span className="brand-mark">DF</span>
@@ -456,7 +567,7 @@ export function App() {
         )}
 
         <div className="stage-badge">
-          <strong>STAGE 8</strong>
+          <strong>STAGE 9</strong>
           <span>{quality}</span>
           <span className={apiOnline ? 'ok' : 'muted'}>{apiOnline ? 'API' : 'LOCAL'}</span>
         </div>
@@ -714,58 +825,71 @@ export function App() {
       )}
 
       {teamOpen && (
-        <div className="team-overlay" role="dialog" aria-modal="true" aria-label="Команда менеджеров">
+        <div className="team-overlay" role="dialog" aria-modal="true" aria-label="Команда объекта">
           <button className="team-backdrop" type="button" aria-label="Закрыть" onClick={() => setTeamOpen(false)} />
-          <section className="team-panel">
+          <section className="team-panel stage9-team-panel">
             <header className="team-header">
-              <div><span>УПРАВЛЕНИЕ ОБЪЕКТОМ</span><strong>Команда менеджеров</strong></div>
+              <div><span>УПРАВЛЕНИЕ КОМАНДОЙ</span><strong>{teamTab === 'managers' ? 'Менеджеры объекта' : 'Specialists'}</strong></div>
               <button type="button" onClick={() => setTeamOpen(false)}>✕</button>
             </header>
-            <div className="team-summary">
-              <strong>{hiredManagers}/{managerRoster.length}</strong>
-              <span>открытых звеньев автоматизировано</span>
+            <div className="team-tabs" role="tablist">
+              <button type="button" className={teamTab === 'managers' ? 'active' : ''} onClick={() => setTeamTab('managers')}>♟ Менеджеры</button>
+              <button type="button" className={teamTab === 'specialists' ? 'active' : ''} onClick={() => setTeamTab('specialists')}>★ Specialists</button>
             </div>
-            <div className="manager-list">
-              {managerRoster.map((manager) => (
-                <article
-                  className={`manager-list-item ${manager.hired ? 'hired' : ''} ${manager.facilityId === selectedFacility ? 'selected' : ''}`}
-                  key={manager.facilityId}
-                >
-                  <button
-                    type="button"
-                    className="manager-list-main"
-                    onClick={() => sendGameCommand({ type: 'SELECT', facilityId: manager.facilityId })}
-                  >
-                    <span className="manager-avatar">{managerInitials(manager.name)}</span>
-                    <span className="manager-list-copy">
-                      <b>{manager.name}</b>
-                      <small>{facilityName(manager.facilityId)} · {manager.role}</small>
-                      <em>{manager.hired ? `AUTO +${manager.passiveBonusPercent}%` : `Найм ${currencyCode} ${formatCompact(manager.hireCost)}`}</em>
-                    </span>
-                  </button>
-                  {!manager.hired ? (
-                    <button
-                      className="manager-list-action"
-                      type="button"
-                      disabled={!manager.canHire}
-                      onClick={() => sendGameCommand({ type: 'HIRE_MANAGER', facilityId: manager.facilityId })}
+
+            {teamTab === 'managers' ? (
+              <>
+                <div className="team-summary">
+                  <strong>{hiredManagers}/{managerRoster.length}</strong>
+                  <span>открытых звеньев автоматизировано</span>
+                </div>
+                <div className="manager-list">
+                  {managerRoster.map((manager) => (
+                    <article
+                      className={`manager-list-item ${manager.hired ? 'hired' : ''} ${manager.facilityId === selectedFacility ? 'selected' : ''}`}
+                      key={manager.facilityId}
                     >
-                      Нанять
-                    </button>
-                  ) : (
-                    <button
-                      className={`manager-list-action ability ${manager.activeRemaining > 0 ? 'active' : ''}`}
-                      type="button"
-                      disabled={!manager.abilityReady}
-                      onClick={() => sendGameCommand({ type: 'ACTIVATE_MANAGER', facilityId: manager.facilityId })}
-                    >
-                      {manager.activeRemaining > 0 ? 'BOOST' : manager.cooldownRemaining > 0 ? `${manager.cooldownRemaining.toFixed(0)}с` : '⚡ Пуск'}
-                    </button>
-                  )}
-                </article>
-              ))}
-            </div>
-            <p className="team-note">Новые менеджеры появляются в списке по мере открытия добывающих уровней.</p>
+                      <button
+                        type="button"
+                        className="manager-list-main"
+                        onClick={() => sendGameCommand({ type: 'SELECT', facilityId: manager.facilityId })}
+                      >
+                        <span className="manager-avatar">{managerInitials(manager.name)}</span>
+                        <span className="manager-list-copy">
+                          <b>{manager.name}</b>
+                          <small>{facilityName(manager.facilityId)} · {manager.role}</small>
+                          <em>{manager.hired ? `AUTO +${manager.passiveBonusPercent}%` : `Найм ${currencyCode} ${formatCompact(manager.hireCost)}`}</em>
+                        </span>
+                      </button>
+                      {!manager.hired ? (
+                        <button
+                          className="manager-list-action"
+                          type="button"
+                          disabled={!manager.canHire}
+                          onClick={() => sendGameCommand({ type: 'HIRE_MANAGER', facilityId: manager.facilityId })}
+                        >
+                          Нанять
+                        </button>
+                      ) : (
+                        <button
+                          className={`manager-list-action ability ${manager.activeRemaining > 0 ? 'active' : ''}`}
+                          type="button"
+                          disabled={!manager.abilityReady}
+                          onClick={() => sendGameCommand({ type: 'ACTIVATE_MANAGER', facilityId: manager.facilityId })}
+                        >
+                          {manager.activeRemaining > 0 ? 'BOOST' : manager.cooldownRemaining > 0 ? `${manager.cooldownRemaining.toFixed(0)}с` : '⚡ Пуск'}
+                        </button>
+                      )}
+                    </article>
+                  ))}
+                </div>
+                <p className="team-note">Новые менеджеры появляются в списке по мере открытия добывающих уровней.</p>
+              </>
+            ) : specialists ? (
+              <SpecialistRoster data={specialists} activeMineId={activeMineId} currencyCode={currencyCode} />
+            ) : (
+              <div className="team-summary"><span>Specialists загружаются…</span></div>
+            )}
           </section>
         </div>
       )}

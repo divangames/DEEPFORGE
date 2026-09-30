@@ -18,6 +18,20 @@ import {
   type PersistentResearchState,
 } from '../core/research';
 import type { FacilityId, MineId, OfflineProgressReport, PersistentMineState, ResearchView, SectorId, ShaftId, WorldMineView, WorldSectorView } from '../core/types';
+import {
+  DEFAULT_SPECIALIST_SYSTEM,
+  activateSpecialist,
+  advanceSpecialistTimers,
+  assignSpecialist,
+  buildSpecialistSystemView,
+  getSpecialistModifiers,
+  getSpecialistTrainingCost,
+  getTotalRebuilds,
+  sanitizeSpecialistSystem,
+  trainSpecialist,
+  unassignSpecialist,
+  type PersistentSpecialistSystem,
+} from '../core/specialists';
 import { DEFAULT_MINE_ID, DEFAULT_SECTOR_ID, getFirstMineId, getMineDefinition, getSectorDefinition, WORLD_MINES, WORLD_SECTORS } from '../core/worldConfig';
 import { onGameCommand, type GameCommand } from '../runtime/gameRuntime';
 
@@ -52,6 +66,7 @@ export class FoundationScene extends Phaser.Scene {
   private mineStates: Partial<Record<MineId, PersistentMineState>> = {};
   private lastSimulatedAt: Partial<Record<MineId, number>> = {};
   private research: PersistentResearchState = { ...DEFAULT_RESEARCH_STATE };
+  private specialists: PersistentSpecialistSystem = sanitizeSpecialistSystem(DEFAULT_SPECIALIST_SYSTEM);
   private simulation = new MineSimulation(undefined, getMineDefinition(DEFAULT_MINE_ID).tuning, getResearchModifiers([]));
   private selectedFacility: FacilityId = 'shaft-1';
   private shaftVisuals = new Map<ShaftId, ShaftVisual>();
@@ -128,7 +143,10 @@ export class FoundationScene extends Phaser.Scene {
   update(_time: number, deltaMs: number) {
     if (document.visibilityState === 'hidden') return;
 
-    this.simulation.tick(deltaMs / 1000);
+    const deltaSeconds = deltaMs / 1000;
+    advanceSpecialistTimers(this.specialists, deltaSeconds);
+    this.applySpecialistsToActiveSimulation();
+    this.simulation.tick(deltaSeconds);
     this.renderSimulation();
 
     this.syncAccumulator += deltaMs;
@@ -408,11 +426,70 @@ export class FoundationScene extends Phaser.Scene {
         void this.persist();
         break;
       }
+      case 'SPECIALIST_ASSIGN': {
+        const next = assignSpecialist(this.specialists, command.specialistId, this.activeMineId, command.slot, this.getTotalRebuildCount());
+        if (!next) break;
+        this.specialists = next;
+        this.applySpecialistsToActiveSimulation();
+        this.worldViewsCacheAt = 0;
+        this.sectorViewsCacheAt = 0;
+        this.syncUi();
+        this.renderSimulation();
+        void this.persist();
+        break;
+      }
+      case 'SPECIALIST_UNASSIGN': {
+        this.specialists = unassignSpecialist(this.specialists, this.activeMineId, command.slot);
+        this.applySpecialistsToActiveSimulation();
+        this.worldViewsCacheAt = 0;
+        this.sectorViewsCacheAt = 0;
+        this.syncUi();
+        this.renderSimulation();
+        void this.persist();
+        break;
+      }
+      case 'SPECIALIST_ACTIVATE': {
+        const research = getResearchModifiers(this.research.purchased);
+        const next = activateSpecialist(this.specialists, command.specialistId, this.activeMineId, this.getTotalRebuildCount(), research.specialistCooldownMultiplier);
+        if (!next) break;
+        this.specialists = next;
+        this.applySpecialistsToActiveSimulation();
+        this.syncUi();
+        this.renderSimulation();
+        void this.persist();
+        break;
+      }
+      case 'SPECIALIST_TRAIN': {
+        const profile = this.specialists.profiles[command.specialistId];
+        const level = Math.max(1, profile?.level ?? 1);
+        const cost = getSpecialistTrainingCost(command.specialistId, level);
+        const sectorId = getMineDefinition(this.activeMineId).sectorId;
+        const wallet = this.getSectorWallet(sectorId);
+        if (wallet + 0.0001 < cost) break;
+        const next = trainSpecialist(this.specialists, command.specialistId, this.getTotalRebuildCount());
+        if (!next) break;
+        this.setSectorWallet(sectorId, wallet - cost);
+        this.simulation.setCash(this.getSectorWallet(sectorId));
+        this.specialists = next;
+        this.applySpecialistsToActiveSimulation();
+        this.worldViewsCacheAt = 0;
+        this.sectorViewsCacheAt = 0;
+        this.syncUi();
+        this.renderSimulation();
+        void this.persist();
+        break;
+      }
     }
   }
 
-  private createSimulation(id: MineId, state?: PersistentMineState | null): MineSimulation {
-    return new MineSimulation(state, getMineDefinition(id).tuning, getResearchModifiers(this.research.purchased));
+  private createSimulation(id: MineId, state?: PersistentMineState | null, includeSpecialistActive = false): MineSimulation {
+    const research = getResearchModifiers(this.research.purchased);
+    return new MineSimulation(
+      state,
+      getMineDefinition(id).tuning,
+      research,
+      getSpecialistModifiers(this.specialists, id, this.getTotalRebuildCount(), includeSpecialistActive, research.specialistPassiveMultiplier),
+    );
   }
 
   private getResearchView(): ResearchView {
@@ -440,8 +517,36 @@ export class FoundationScene extends Phaser.Scene {
 
   private applyResearchToActiveSimulation() {
     this.simulation.setResearchModifiers(getResearchModifiers(this.research.purchased));
+    this.applySpecialistsToActiveSimulation();
     this.worldViewsCacheAt = 0;
     this.sectorViewsCacheAt = 0;
+  }
+
+  private getTotalRebuildCount(): number {
+    const states = Object.entries(this.mineStates).map(([id, state]) => {
+      if (id === this.activeMineId) return this.simulation.serialize();
+      return state;
+    });
+    return getTotalRebuilds(states);
+  }
+
+  private applySpecialistsToActiveSimulation() {
+    const research = getResearchModifiers(this.research.purchased);
+    this.simulation.setSpecialistModifiers(
+      getSpecialistModifiers(this.specialists, this.activeMineId, this.getTotalRebuildCount(), true, research.specialistPassiveMultiplier),
+    );
+  }
+
+  private getSpecialistView() {
+    const sectorId = getMineDefinition(this.activeMineId).sectorId;
+    const research = getResearchModifiers(this.research.purchased);
+    return buildSpecialistSystemView(
+      this.specialists,
+      this.activeMineId,
+      this.getTotalRebuildCount(),
+      this.getSectorWallet(sectorId),
+      research.specialistPassiveMultiplier,
+    );
   }
 
   private serializeMine(simulation: MineSimulation): PersistentMineState {
@@ -537,7 +642,7 @@ export class FoundationScene extends Phaser.Scene {
     this.lastSimulatedAt[this.activeMineId] = now;
 
     const definition = getMineDefinition(id);
-    const target = this.createSimulation(id, this.mineStates[id]);
+    const target = this.createSimulation(id, this.mineStates[id], true);
     target.setCash(this.getSectorWallet(definition.sectorId));
     const lastAt = this.lastSimulatedAt[id] ?? now;
     const rawSeconds = Math.max(0, (now - lastAt) / 1000);
@@ -731,7 +836,7 @@ export class FoundationScene extends Phaser.Scene {
     }
 
     const activeDefinition = getMineDefinition(this.activeMineId);
-    this.simulation = this.createSimulation(this.activeMineId, this.mineStates[this.activeMineId]);
+    this.simulation = this.createSimulation(this.activeMineId, this.mineStates[this.activeMineId], true);
     this.simulation.setCash(this.getSectorWallet(activeDefinition.sectorId));
     this.worldViewsCacheAt = 0;
     this.sectorViewsCacheAt = 0;
@@ -1009,6 +1114,7 @@ export class FoundationScene extends Phaser.Scene {
       this.simulation.getCurrentBarrierView(),
       this.simulation.getRebuildView(),
       this.getResearchView(),
+      this.getSpecialistView(),
       this.activeMineId,
       activeSectorId,
       this.getWorldMineViews(),
@@ -1022,6 +1128,7 @@ export class FoundationScene extends Phaser.Scene {
     this.sectorWallets = { [DEFAULT_SECTOR_ID]: 0 };
     this.unlockedMines = new Set<MineId>([DEFAULT_MINE_ID]);
     this.research = { ...DEFAULT_RESEARCH_STATE, purchased: [] };
+    this.specialists = sanitizeSpecialistSystem(DEFAULT_SPECIALIST_SYSTEM);
     this.simulation = this.createSimulation(DEFAULT_MINE_ID);
     this.simulation.setCash(0);
     this.mineStates = { [DEFAULT_MINE_ID]: this.serializeMine(this.simulation) };
@@ -1056,6 +1163,8 @@ export class FoundationScene extends Phaser.Scene {
         this.lastSimulatedAt = { ...save.world.lastSimulatedAt };
         this.sectorWallets = { ...save.world.sectorWallets };
         this.research = sanitizeResearchState(save.world.research ?? DEFAULT_RESEARCH_STATE);
+        this.specialists = sanitizeSpecialistSystem(save.world.specialists ?? DEFAULT_SPECIALIST_SYSTEM);
+        advanceSpecialistTimers(this.specialists, Math.max(0, (now - save.lastSeenAt) / 1000));
         for (const sectorId of this.unlockedSectors) {
           if (this.sectorWallets[sectorId] === undefined) this.sectorWallets[sectorId] = 0;
         }
@@ -1067,7 +1176,7 @@ export class FoundationScene extends Phaser.Scene {
         }
 
         const activeDefinition = getMineDefinition(this.activeMineId);
-        this.simulation = this.createSimulation(this.activeMineId, this.mineStates[this.activeMineId]);
+        this.simulation = this.createSimulation(this.activeMineId, this.mineStates[this.activeMineId], true);
         this.simulation.setCash(this.getSectorWallet(activeDefinition.sectorId));
         const report = this.applyBackgroundProgress(now);
         if (report && report.rawSeconds >= STAGE_ONE_BALANCE.idle.minimumReportSeconds) {
@@ -1097,6 +1206,7 @@ export class FoundationScene extends Phaser.Scene {
 
     if (this.hiddenAt !== null) {
       const resumedAt = Date.now();
+      advanceSpecialistTimers(this.specialists, Math.max(0, (resumedAt - this.hiddenAt) / 1000));
       const report = this.applyBackgroundProgress(resumedAt);
       if (report && report.rawSeconds >= STAGE_ONE_BALANCE.idle.minimumReportSeconds) {
         useGameStore.getState().setOfflineReport(report);
@@ -1127,6 +1237,7 @@ export class FoundationScene extends Phaser.Scene {
         world: {
           activeMineId: this.activeMineId,
           research: { ...this.research, purchased: [...this.research.purchased] },
+          specialists: sanitizeSpecialistSystem(this.specialists),
           unlockedSectors: [...this.unlockedSectors],
           sectorWallets: { ...this.sectorWallets },
           unlockedMines: [...this.unlockedMines],

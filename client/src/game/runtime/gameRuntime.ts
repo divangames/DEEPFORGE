@@ -1,4 +1,5 @@
 import type { BulkUpgradeMode, FacilityId, MineId, SectorId, ShaftId } from '../core/types';
+import type { SpecialistId, SpecialistSlot } from '../core/specialists';
 
 export type GameCommand =
   | { type: 'START_SHAFT'; shaftId: ShaftId }
@@ -16,7 +17,11 @@ export type GameCommand =
   | { type: 'UNLOCK_SECTOR'; sectorId: SectorId }
   | { type: 'REBUILD_MINE' }
   | { type: 'RESEARCH_BUY'; nodeId: string }
-  | { type: 'RESEARCH_RESET' };
+  | { type: 'RESEARCH_RESET' }
+  | { type: 'SPECIALIST_ASSIGN'; specialistId: SpecialistId; slot: SpecialistSlot }
+  | { type: 'SPECIALIST_UNASSIGN'; slot: SpecialistSlot }
+  | { type: 'SPECIALIST_ACTIVATE'; specialistId: SpecialistId }
+  | { type: 'SPECIALIST_TRAIN'; specialistId: SpecialistId };
 
 type CommandListener = (command: GameCommand) => void;
 

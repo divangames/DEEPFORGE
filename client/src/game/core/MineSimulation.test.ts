@@ -256,6 +256,8 @@ describe('Stage 8 research modifiers', () => {
       offlineIncomeMultiplier: 1,
       offlineCapMultiplier: 1,
       unlockCostMultiplier: 1,
+      specialistPassiveMultiplier: 1,
+      specialistCooldownMultiplier: 1,
     });
     expect(researched.getShaftYield(researched.getState().shafts[0])).toBeGreaterThan(base.getShaftYield(base.getState().shafts[0]));
     expect(researched.getUpgradeCost('shaft-1')).toBeLessThan(base.getUpgradeCost('shaft-1'));
@@ -274,6 +276,8 @@ describe('Stage 8 research modifiers', () => {
       offlineIncomeMultiplier: 1,
       offlineCapMultiplier: 1.25,
       unlockCostMultiplier: 1,
+      specialistPassiveMultiplier: 1,
+      specialistCooldownMultiplier: 1,
     });
     sim.hireManager('shaft-1');
     sim.hireManager('lift');

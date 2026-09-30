@@ -11,7 +11,9 @@ export type ResearchEffectKey =
   | 'barrierDurationMultiplier'
   | 'offlineIncomeMultiplier'
   | 'offlineCapMultiplier'
-  | 'unlockCostMultiplier';
+  | 'unlockCostMultiplier'
+  | 'specialistPassiveMultiplier'
+  | 'specialistCooldownMultiplier';
 
 export interface ResearchNodeDefinition {
   id: string;
@@ -44,6 +46,8 @@ export interface ResearchModifiers {
   offlineIncomeMultiplier: number;
   offlineCapMultiplier: number;
   unlockCostMultiplier: number;
+  specialistPassiveMultiplier: number;
+  specialistCooldownMultiplier: number;
 }
 
 export interface PersistentResearchState {
@@ -84,9 +88,9 @@ export const RESEARCH_NODES: readonly ResearchNodeDefinition[] = [
   { id: 'exp-2', branch: 'exploration', tier: 2, title: 'Remote Survey', description: '-10% стоимости открытия новых Deck.', cost: 2, requires: ['exp-1'], effects: { unlockCostMultiplier: 0.90 } },
   { id: 'exp-3', branch: 'exploration', tier: 3, title: 'Deep Shift', description: '+25% к лимиту автономной работы.', cost: 3, requires: ['exp-2'], effects: { offlineCapMultiplier: 1.25 } },
 
-  { id: 'spc-1', branch: 'specialists', tier: 1, title: 'Field Doctrine', description: '+6% общего дохода.', cost: 1, requires: [], effects: { incomeMultiplier: 1.06 } },
-  { id: 'spc-2', branch: 'specialists', tier: 2, title: 'Cross Training', description: '+8% добычи и логистики.', cost: 2, requires: ['spc-1'], effects: { shaftYieldMultiplier: 1.08, hubCapacityMultiplier: 1.08 } },
-  { id: 'spc-3', branch: 'specialists', tier: 3, title: 'Elite Rotation', description: '+12% к пассивным бонусам менеджеров.', cost: 4, requires: ['spc-2'], effects: { managerPassiveMultiplier: 1.12 } },
+  { id: 'spc-1', branch: 'specialists', tier: 1, title: 'Field Doctrine', description: '+10% к пассивным бонусам Specialists.', cost: 1, requires: [], effects: { specialistPassiveMultiplier: 1.10 } },
+  { id: 'spc-2', branch: 'specialists', tier: 2, title: 'Cross Training', description: '-10% cooldown способностей Specialists.', cost: 2, requires: ['spc-1'], effects: { specialistCooldownMultiplier: 0.90 } },
+  { id: 'spc-3', branch: 'specialists', tier: 3, title: 'Elite Rotation', description: 'Ещё +18% к пассивным бонусам Specialists.', cost: 4, requires: ['spc-2'], effects: { specialistPassiveMultiplier: 1.18 } },
 
   { id: 'evt-1', branch: 'events', tier: 1, title: 'Reserve Shifts', description: '+10% автономного дохода.', cost: 1, requires: [], effects: { offlineIncomeMultiplier: 1.10 } },
   { id: 'evt-2', branch: 'events', tier: 2, title: 'Contract Supply', description: '-5% стоимости улучшений.', cost: 2, requires: ['evt-1'], effects: { upgradeCostMultiplier: 0.95 } },
@@ -117,6 +121,8 @@ export function getResearchModifiers(purchased: readonly string[]): ResearchModi
     offlineIncomeMultiplier: 1,
     offlineCapMultiplier: 1,
     unlockCostMultiplier: 1,
+    specialistPassiveMultiplier: 1,
+    specialistCooldownMultiplier: 1,
   };
 
   for (const id of purchased) {

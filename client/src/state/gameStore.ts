@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { QualityTier } from '../core/device';
 import { detectQualityTier } from '../core/device';
+import type { SpecialistSystemView } from '../game/core/specialists';
 import type {
   BarrierView,
   BottleneckView,
@@ -35,6 +36,7 @@ interface GameState {
   barrier: BarrierView | null;
   rebuild: RebuildView | null;
   research: ResearchView | null;
+  specialists: SpecialistSystemView | null;
   canUpgradeSelected: boolean;
   offlineReport: OfflineProgressReport | null;
   setApiOnline: (online: boolean) => void;
@@ -52,6 +54,7 @@ interface GameState {
     barrier: BarrierView | null,
     rebuild: RebuildView,
     research: ResearchView,
+    specialists: SpecialistSystemView,
     activeMineId: MineId,
     activeSectorId: SectorId,
     worldMines: WorldMineView[],
@@ -76,6 +79,7 @@ export const useGameStore = create<GameState>((set) => ({
   barrier: null,
   rebuild: null,
   research: null,
+  specialists: null,
   canUpgradeSelected: false,
   offlineReport: null,
   setApiOnline: (apiOnline) => set({ apiOnline }),
@@ -93,6 +97,7 @@ export const useGameStore = create<GameState>((set) => ({
     barrier,
     rebuild,
     research,
+    specialists,
     activeMineId,
     activeSectorId,
     worldMines,
@@ -109,6 +114,7 @@ export const useGameStore = create<GameState>((set) => ({
     barrier,
     rebuild,
     research,
+    specialists,
     activeMineId,
     activeSectorId,
     worldMines,

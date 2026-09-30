@@ -1,6 +1,6 @@
 # DEEPFORGE: Idle Empire
 
-Browser-first idle / tycoon game. Текущая версия: **Stage 8 — Research Grid + Global Progression**.
+Browser-first idle / tycoon game. Текущая версия: **Stage 9 — Specialists + iPhone Portrait Pass**.
 
 ## Уже работает
 
@@ -12,6 +12,8 @@ Browser-first idle / tycoon game. Текущая версия: **Stage 8 — Res
 - независимый прогресс каждой шахты;
 - **Rebuild / Prestige для каждой шахты с постоянным multiplier**;
 - **Research Grid: 6 веток / 18 глобальных исследований**;
+- **6 Specialists: rarity, levels, assignment, passive/active abilities**;
+- 3 Specialist slots на каждую шахту: Extraction / Lift / Logistics;
 - Research Cores за Rebuild, зависимости узлов и respec с комиссией;
 - background income неактивных автоматизированных шахт;
 - offline income по правильным валютам регионов;
@@ -21,14 +23,20 @@ Browser-first idle / tycoon game. Текущая версия: **Stage 8 — Res
 - barriers, bulk upgrades и milestones;
 - bottleneck HUD;
 - primary + backup IndexedDB save;
-- save schema v6 с миграцией старых Stage 0–7;
-- mobile-first portrait UI 360–430 px;
+- save schema v7 с миграцией старых Stage 0–8;
+- mobile-first portrait UI 360–440 px с отдельным iPhone 11–17 Pro Max pass;
 - swipe / touch в шахте, scrollable panels и safe-area support;
 - adaptive LOW / MEDIUM / HIGH render profile;
 - offscreen culling Deck и barriers;
 - PWA;
 - GitHub Pages deployment.
 
+
+## Specialists
+
+В `Команда → Specialists` доступен глобальный roster. Один Specialist может быть назначен только в одну шахту одновременно. Passive-бонусы работают и в offline income, active abilities — только в активной шахте. Уровни 1–10 улучшают passive и active значения.
+
+Стартовые Rook Hale, Ion Reyes и Talia Cruz доступны сразу; более редкие персонажи открываются за суммарные Rebuild milestones. Stage 10 добавит Academy, fragments и полноценную Specialist-прогрессию.
 
 ## Research Grid
 
@@ -70,11 +78,15 @@ Rebuild применяется **только к текущему объекту
 
 Проверять минимум:
 
-- 360×640;
-- 375×667;
+- 360×780 — compact iPhone class;
+- 375×812;
 - 390×844;
-- 412×915;
-- 430×932.
+- 393×852;
+- 402×874;
+- 414×896;
+- 428×926;
+- 430×932 — iPhone 14/15 Pro Max class;
+- 440×956 — large Pro Max class.
 
 На коротких экранах нижняя панель объекта имеет собственный scroll, карта делится на viewport карты + scrollable information area, а debug badge скрывается.
 
@@ -97,7 +109,7 @@ build.bat
 ## Публикация
 
 ```bat
-publish.bat "feat: stage 7 rebuild prestige mobile portrait"
+publish.bat "feat: stage 9 specialists iphone portrait"
 ```
 
 `publish.bat` сначала синхронизируется с `origin/main`, затем запускает typecheck, tests, production build, commit и push. GitHub Actions обновляет Pages.
@@ -116,3 +128,5 @@ publish.bat "feat: stage 7 rebuild prestige mobile portrait"
 - `docs/STAGE_5.md`
 - `docs/STAGE_6.md`
 - `docs/STAGE_7.md`
+- `docs/STAGE_8.md`
+- `docs/STAGE_9.md`

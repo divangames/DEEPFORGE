@@ -1,8 +1,8 @@
 {
   "name": "deepforge-idle-empire",
   "private": true,
-  "version": "0.8.0",
-  "description": "DEEPFORGE: Idle Empire — Stage 8 Research Grid",
+  "version": "0.9.0",
+  "description": "DEEPFORGE: Idle Empire — Stage 9 Specialists + iPhone portrait pass",
   "workspaces": [
     "client",
     "server"

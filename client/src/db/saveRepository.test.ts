@@ -119,3 +119,32 @@ describe('Stage 8 research migration', () => {
     expect(migrated?.world.research?.purchased).toEqual([]);
   });
 });
+
+describe('Stage 9 specialists migration', () => {
+  it('добавляет Specialist roster к Stage 8 save без потери прогресса', () => {
+    const record: SaveRecord = {
+      id: 'primary',
+      schemaVersion: 6,
+      updatedAt: 1000,
+      payload: {
+        createdAt: 10,
+        lastSeenAt: 900,
+        settings: { quality: 'HIGH' },
+        world: {
+          activeMineId: 'rust-01',
+          research: { cores: 4, purchased: ['ind-1'], respecCount: 0 },
+          unlockedSectors: ['rust'],
+          sectorWallets: { rust: 900 },
+          unlockedMines: ['rust-01'],
+          mines: { 'rust-01': { ...legacyMine, cash: 0, rebuildLevel: 1, rebuildCycleCashEarned: 50 } },
+          lastSimulatedAt: { 'rust-01': 850 },
+        },
+      },
+    };
+
+    const migrated = parseSaveRecord(record);
+    expect(migrated?.world.sectorWallets?.rust).toBe(900);
+    expect(migrated?.world.research?.purchased).toContain('ind-1');
+    expect(migrated?.world.specialists?.profiles['rook-hale']?.level).toBe(1);
+  });
+});
