@@ -2,6 +2,7 @@ import cors from '@fastify/cors';
 import Fastify from 'fastify';
 import { env } from './config.js';
 import { healthRoutes } from './routes/health.js';
+import { timeRoutes } from './routes/time.js';
 
 const app = Fastify({ logger: true });
 
@@ -11,6 +12,7 @@ await app.register(cors, {
 });
 
 await app.register(healthRoutes);
+await app.register(timeRoutes);
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error);

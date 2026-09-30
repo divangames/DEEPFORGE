@@ -6,6 +6,7 @@ import type { AcademyView } from '../game/core/academy';
 import type { EquipmentView } from '../game/core/equipment';
 import type { CollectionView } from '../game/core/collection';
 import type { RelicView } from '../game/core/relics';
+import type { WeeklyContractView } from '../game/core/weeklyContract';
 import type {
   BarrierView,
   BottleneckView,
@@ -45,6 +46,7 @@ interface GameState {
   equipment: EquipmentView | null;
   collection: CollectionView | null;
   relics: RelicView | null;
+  weeklyContract: WeeklyContractView | null;
   canUpgradeSelected: boolean;
   offlineReport: OfflineProgressReport | null;
   setApiOnline: (online: boolean) => void;
@@ -67,6 +69,7 @@ interface GameState {
     equipment: EquipmentView,
     collection: CollectionView,
     relics: RelicView,
+    weeklyContract: WeeklyContractView,
     activeMineId: MineId,
     activeSectorId: SectorId,
     worldMines: WorldMineView[],
@@ -96,6 +99,7 @@ export const useGameStore = create<GameState>((set) => ({
   equipment: null,
   collection: null,
   relics: null,
+  weeklyContract: null,
   canUpgradeSelected: false,
   offlineReport: null,
   setApiOnline: (apiOnline) => set({ apiOnline }),
@@ -118,6 +122,7 @@ export const useGameStore = create<GameState>((set) => ({
     equipment,
     collection,
     relics,
+    weeklyContract,
     activeMineId,
     activeSectorId,
     worldMines,
@@ -139,6 +144,7 @@ export const useGameStore = create<GameState>((set) => ({
     equipment,
     collection,
     relics,
+    weeklyContract,
     activeMineId,
     activeSectorId,
     worldMines,

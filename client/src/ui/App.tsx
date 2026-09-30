@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getApiHealth } from '../services/api';
+import { resetServerClockToLocal, syncServerClock } from '../services/serverClock';
 import { formatCompact } from '../game/core/format';
 import { RESEARCH_BRANCHES, type ResearchBranchId } from '../game/core/research';
 import { SPECIALIST_SLOTS, type SpecialistSlot, type SpecialistSystemView, type SpecialistView } from '../game/core/specialists';
@@ -7,6 +8,7 @@ import type { AcademyView } from '../game/core/academy';
 import type { EquipmentId, EquipmentView } from '../game/core/equipment';
 import type { CollectionCardId, CollectionView } from '../game/core/collection';
 import type { RelicView } from '../game/core/relics';
+import type { WeeklyContractView } from '../game/core/weeklyContract';
 import type { BulkUpgradeMode, BulkUpgradeQuote, FacilityId, ManagerView, MineId, ResearchView, SectorId, WorldMineView, WorldSectorView } from '../game/core/types';
 import { sendGameCommand } from '../game/runtime/gameRuntime';
 import { useGameStore } from '../state/gameStore';
@@ -727,12 +729,121 @@ function ProgressionPanel({
   );
 }
 
+
+function ContractPanel({ contract, onClose }: { contract: WeeklyContractView; onClose: () => void }) {
+  const remaining = Math.max(0, contract.remainingSeconds);
+  const nextMilestone = contract.milestones.find((item) => !item.claimed);
+  const facilityIcon = (id: string) => id === 'extraction' ? '⛏' : id === 'lift' ? '↕' : '▰';
+  const bottleneckName = contract.bottleneck === 'extraction' ? 'EXTRACTION' : contract.bottleneck === 'lift' ? 'CARGO LIFT' : 'LOGISTICS';
+
+  return (
+    <div className="contract-overlay" role="dialog" aria-modal="true" aria-label="Weekly Contract">
+      <button type="button" className="contract-backdrop" aria-label="Закрыть событие" onClick={onClose} />
+      <section className="contract-panel" style={{ '--contract-accent': contract.accent } as React.CSSProperties}>
+        <header className="contract-header">
+          <div>
+            <span>WEEKLY CONTRACT · STAGE 12</span>
+            <strong>{contract.title}</strong>
+            <small>{contract.subtitle}</small>
+          </div>
+          <button type="button" onClick={onClose}>✕</button>
+        </header>
+
+        <div className="contract-timer-strip">
+          <div><span>ДО КОНЦА</span><strong>{formatAwayTime(remaining)}</strong></div>
+          <div><span>ВРЕМЯ</span><strong>{contract.timeSource === 'server' ? 'SERVER' : 'LOCAL FALLBACK'}</strong></div>
+          <div><span>MILESTONES</span><strong>{contract.claimedCount}/{contract.milestones.length}</strong></div>
+        </div>
+
+        <div className="contract-hero">
+          <div>
+            <span>EVENT CURRENCY</span>
+            <strong>{contract.currencyCode} {formatCompact(contract.cash)}</strong>
+            <small>{contract.resourceName} · lifetime {formatCompact(contract.totalCashEarned)}</small>
+          </div>
+          <div>
+            <span>AUTO INCOME</span>
+            <strong>{contract.currencyCode} {formatCompact(contract.incomePerSecond)}/с</strong>
+            <small>Узкое место: {bottleneckName}</small>
+          </div>
+        </div>
+
+        <button type="button" className="contract-shift" onClick={() => sendGameCommand({ type: 'CONTRACT_MANUAL_SHIFT' })}>
+          ⚡ РУЧНАЯ СМЕНА · +4 СЕК ПРОИЗВОДСТВА
+        </button>
+
+        <div className="contract-facilities">
+          {contract.facilities.map((facility) => (
+            <article className={`contract-facility ${contract.bottleneck === facility.id ? 'bottleneck' : ''}`} key={facility.id}>
+              <div className="contract-facility-icon">{facilityIcon(facility.id)}</div>
+              <div className="contract-facility-copy">
+                <span>{facility.id.toUpperCase()}</span>
+                <strong>{facility.name}</strong>
+                <small>LV {facility.level} · {formatCompact(facility.rate)} ore/s</small>
+              </div>
+              <div className="contract-facility-actions">
+                <button
+                  type="button"
+                  disabled={contract.cash < facility.upgradeCost}
+                  onClick={() => sendGameCommand({ type: 'CONTRACT_UPGRADE', facilityId: facility.id })}
+                >
+                  UPGRADE · {contract.currencyCode} {formatCompact(facility.upgradeCost)}
+                </button>
+                <button
+                  type="button"
+                  className={facility.managerHired ? 'hired' : ''}
+                  disabled={facility.managerHired || contract.cash < facility.managerCost}
+                  onClick={() => sendGameCommand({ type: 'CONTRACT_HIRE_MANAGER', facilityId: facility.id })}
+                >
+                  {facility.managerHired ? '✓ AUTO' : `MANAGER · ${contract.currencyCode} ${formatCompact(facility.managerCost)}`}
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <section className="contract-milestones">
+          <header>
+            <div><span>CONTRACT PROGRESS</span><strong>Milestones</strong></div>
+            {nextMilestone && <small>Следующая цель: {contract.currencyCode} {formatCompact(nextMilestone.requiredCash)}</small>}
+          </header>
+          <div className="contract-milestone-list">
+            {contract.milestones.map((milestone, index) => (
+              <article className={`contract-milestone ${milestone.claimed ? 'claimed' : milestone.ready ? 'ready' : ''}`} key={milestone.id}>
+                <b className="contract-milestone-index">{String(index + 1).padStart(2, '0')}</b>
+                <div>
+                  <strong>{contract.currencyCode} {formatCompact(milestone.requiredCash)}</strong>
+                  <span>{milestone.reward.label}</span>
+                  <div className="contract-progress"><i style={{ width: `${Math.round(milestone.progress * 100)}%` }} /></div>
+                </div>
+                <button
+                  type="button"
+                  disabled={!milestone.ready}
+                  onClick={() => sendGameCommand({ type: 'CONTRACT_CLAIM_MILESTONE', milestoneId: milestone.id })}
+                >
+                  {milestone.claimed ? '✓' : milestone.ready ? 'CLAIM' : `${Math.round(milestone.progress * 100)}%`}
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <footer className="contract-footer">
+          <span>Отдельная event-экономика сбрасывается с началом нового недельного контракта.</span>
+          <span>Автодоход работает только после найма всех 3 event-менеджеров.</span>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
 export function App() {
   const [teamOpen, setTeamOpen] = useState(false);
   const [teamTab, setTeamTab] = useState<'managers' | 'specialists' | 'academy' | 'progression'>('managers');
   const [mapOpen, setMapOpen] = useState(false);
   const [rebuildOpen, setRebuildOpen] = useState(false);
   const [researchOpen, setResearchOpen] = useState(false);
+  const [contractOpen, setContractOpen] = useState(false);
   const [bulkMode, setBulkMode] = useState<BulkUpgradeMode>(1);
   const quality = useGameStore((state) => state.quality);
   const apiOnline = useGameStore((state) => state.apiOnline);
@@ -755,6 +866,7 @@ export function App() {
   const equipment = useGameStore((state) => state.equipment);
   const collection = useGameStore((state) => state.collection);
   const relics = useGameStore((state) => state.relics);
+  const weeklyContract = useGameStore((state) => state.weeklyContract);
   const offlineReport = useGameStore((state) => state.offlineReport);
   const setApiOnline = useGameStore((state) => state.setApiOnline);
   const setOfflineReport = useGameStore((state) => state.setOfflineReport);
@@ -762,9 +874,9 @@ export function App() {
   useEffect(() => {
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), 1800);
-    getApiHealth(controller.signal)
+    Promise.all([getApiHealth(controller.signal), syncServerClock(controller.signal)])
       .then(() => setApiOnline(true))
-      .catch(() => setApiOnline(false))
+      .catch(() => { resetServerClockToLocal(); setApiOnline(false); })
       .finally(() => window.clearTimeout(timer));
     return () => {
       window.clearTimeout(timer);
@@ -859,8 +971,14 @@ export function App() {
           </div>
         )}
 
+        {weeklyContract && (
+          <button type="button" className="contract-entry" onClick={() => setContractOpen(true)}>
+            <span>⚡ WEEKLY</span><strong>{weeklyContract.title}</strong><small>{weeklyContract.currencyCode} {formatCompact(weeklyContract.cash)} · {formatAwayTime(weeklyContract.remainingSeconds)}</small>
+          </button>
+        )}
+
         <div className="stage-badge">
-          <strong>STAGE 11</strong>
+          <strong>STAGE 12</strong>
           <span>{quality}</span>
           <span className={apiOnline ? 'ok' : 'muted'}>{apiOnline ? 'API' : 'LOCAL'}</span>
         </div>
@@ -986,12 +1104,16 @@ export function App() {
       </section>
 
       <nav className="bottom-nav" aria-label="Главная навигация">
-        <button type="button" className={!teamOpen && !mapOpen && !rebuildOpen && !researchOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setMapOpen(false); setRebuildOpen(false); setResearchOpen(false); }}><span>◆</span>Объект</button>
-        <button type="button" className={mapOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setRebuildOpen(false); setResearchOpen(false); setMapOpen(true); }}><span>⌖</span>Карта</button>
-        <button type="button" className={teamOpen ? 'active' : ''} onClick={() => { setMapOpen(false); setRebuildOpen(false); setResearchOpen(false); setTeamOpen(true); }}><span>♟</span>Команда</button>
-        <button type="button" className={rebuildOpen ? 'active rebuild-nav' : 'rebuild-nav'} onClick={() => { setMapOpen(false); setTeamOpen(false); setResearchOpen(false); setRebuildOpen(true); }}><span>↻</span>Rebuild</button>
-        <button type="button" className={researchOpen ? 'active research-nav' : 'research-nav'} onClick={() => { setMapOpen(false); setTeamOpen(false); setRebuildOpen(false); setResearchOpen(true); }}><span>◈</span>Research</button>
+        <button type="button" className={!teamOpen && !mapOpen && !rebuildOpen && !researchOpen && !contractOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setMapOpen(false); setRebuildOpen(false); setResearchOpen(false); setContractOpen(false); }}><span>◆</span>Объект</button>
+        <button type="button" className={mapOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setRebuildOpen(false); setResearchOpen(false); setContractOpen(false); setMapOpen(true); }}><span>⌖</span>Карта</button>
+        <button type="button" className={teamOpen ? 'active' : ''} onClick={() => { setMapOpen(false); setRebuildOpen(false); setResearchOpen(false); setContractOpen(false); setTeamOpen(true); }}><span>♟</span>Команда</button>
+        <button type="button" className={rebuildOpen ? 'active rebuild-nav' : 'rebuild-nav'} onClick={() => { setMapOpen(false); setTeamOpen(false); setResearchOpen(false); setContractOpen(false); setRebuildOpen(true); }}><span>↻</span>Rebuild</button>
+        <button type="button" className={researchOpen ? 'active research-nav' : 'research-nav'} onClick={() => { setMapOpen(false); setTeamOpen(false); setRebuildOpen(false); setContractOpen(false); setResearchOpen(true); }}><span>◈</span>Research</button>
       </nav>
+
+      {contractOpen && weeklyContract && (
+        <ContractPanel contract={weeklyContract} onClose={() => setContractOpen(false)} />
+      )}
 
       {mapOpen && (
         <WorldMap

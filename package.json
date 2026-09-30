@@ -1,8 +1,8 @@
 {
   "name": "deepforge-idle-empire",
   "private": true,
-  "version": "0.11.0",
-  "description": "DEEPFORGE: Idle Empire — Stage 11 Equipment, Collection and Relics",
+  "version": "0.12.0",
+  "description": "DEEPFORGE: Idle Empire — Stage 12 Weekly Contract and server-time foundation",
   "workspaces": [
     "client",
     "server"

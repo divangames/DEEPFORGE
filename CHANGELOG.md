@@ -1,3 +1,17 @@
+# Changelog
+
+## Stage 12 — Weekly Contract
+
+- Первый недельный live-ops контракт с отдельной event-экономикой.
+- CT currency, 3 production facilities, event-managers и manual shift.
+- Автоматический income через bottleneck после найма всей цепочки.
+- 8 milestones с meta rewards.
+- Weekly reset и 4h background event progress.
+- `/api/time` и server-clock offset с local fallback.
+- Save schema v10 + миграция Stage 11.
+- Fullscreen portrait UI 360–440 px с safe-area.
+- Event слой data-driven, без второй Phaser scene.
+
 # CHANGELOG — DEEPFORGE
 
 ## 0.11.0 — Stage 11 Equipment + Collection + Relics

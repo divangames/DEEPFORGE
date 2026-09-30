@@ -81,6 +81,18 @@ import {
   type PersistentRelicState,
 } from '../core/relics';
 import { DEFAULT_MINE_ID, DEFAULT_SECTOR_ID, getFirstMineId, getMineDefinition, getSectorDefinition, WORLD_MINES, WORLD_SECTORS } from '../core/worldConfig';
+import {
+  advanceWeeklyContract,
+  buildWeeklyContractView,
+  claimWeeklyContractMilestone,
+  createWeeklyContractState,
+  hireWeeklyContractManager,
+  runWeeklyContractManualShift,
+  sanitizeWeeklyContractState,
+  upgradeWeeklyContractFacility,
+  type PersistentWeeklyContractState,
+} from '../core/weeklyContract';
+import { getServerClock } from '../../services/serverClock';
 import { onGameCommand, type GameCommand } from '../runtime/gameRuntime';
 
 interface ShaftVisual {
@@ -119,6 +131,7 @@ export class FoundationScene extends Phaser.Scene {
   private equipment: PersistentEquipmentState = sanitizeEquipmentState(DEFAULT_EQUIPMENT_STATE);
   private collection: PersistentCollectionState = sanitizeCollectionState(DEFAULT_COLLECTION_STATE);
   private relics: PersistentRelicState = sanitizeRelicState(DEFAULT_RELIC_STATE);
+  private weeklyContract: PersistentWeeklyContractState = createWeeklyContractState(Date.now());
   private lastCollectionCrate: CollectionCardId[] = [];
   private relicContextKey = '';
   private totalRebuildCache: number | null = null;
@@ -650,6 +663,52 @@ export class FoundationScene extends Phaser.Scene {
         this.sectorViewsCacheAt = 0;
         this.syncUi();
         this.renderSimulation();
+        void this.persist();
+        break;
+      }
+      case 'CONTRACT_MANUAL_SHIFT': {
+        const clock = getServerClock();
+        this.weeklyContract = advanceWeeklyContract(this.weeklyContract, clock.now);
+        this.weeklyContract = runWeeklyContractManualShift(this.weeklyContract);
+        this.syncUi();
+        void this.persist();
+        break;
+      }
+      case 'CONTRACT_UPGRADE': {
+        const clock = getServerClock();
+        this.weeklyContract = advanceWeeklyContract(this.weeklyContract, clock.now);
+        const next = upgradeWeeklyContractFacility(this.weeklyContract, command.facilityId);
+        if (!next) break;
+        this.weeklyContract = next;
+        this.syncUi();
+        void this.persist();
+        break;
+      }
+      case 'CONTRACT_HIRE_MANAGER': {
+        const clock = getServerClock();
+        this.weeklyContract = advanceWeeklyContract(this.weeklyContract, clock.now);
+        const next = hireWeeklyContractManager(this.weeklyContract, command.facilityId);
+        if (!next) break;
+        this.weeklyContract = next;
+        this.syncUi();
+        void this.persist();
+        break;
+      }
+      case 'CONTRACT_CLAIM_MILESTONE': {
+        const clock = getServerClock();
+        this.weeklyContract = advanceWeeklyContract(this.weeklyContract, clock.now);
+        const result = claimWeeklyContractMilestone(this.weeklyContract, command.milestoneId);
+        if (!result) break;
+        this.weeklyContract = result.state;
+        const reward = result.reward;
+        if (reward.kind === 'research') this.research.cores += reward.amount ?? 0;
+        if (reward.kind === 'recruit') this.academy = { ...this.academy, resources: { ...this.academy.resources, recruitData: this.academy.resources.recruitData + (reward.amount ?? 0) } };
+        if (reward.kind === 'training') this.academy = { ...this.academy, resources: { ...this.academy.resources, trainingModules: this.academy.resources.trainingModules + (reward.amount ?? 0) } };
+        if (reward.kind === 'promotion') this.academy = { ...this.academy, resources: { ...this.academy.resources, promotionBadges: this.academy.resources.promotionBadges + (reward.amount ?? 0) } };
+        if (reward.kind === 'supply') this.collection = grantSupplyKeys(this.collection, reward.amount ?? 0);
+        if (reward.kind === 'materials') this.equipment = grantCraftMaterials(this.equipment, { alloy: reward.alloy ?? 0, circuits: reward.circuits ?? 0, fiber: reward.fiber ?? 0 });
+        this.refreshRelics(true);
+        this.syncUi();
         void this.persist();
         break;
       }
@@ -1335,6 +1394,8 @@ export class FoundationScene extends Phaser.Scene {
   }
 
   private syncUi() {
+    const contractClock = getServerClock();
+    this.weeklyContract = advanceWeeklyContract(this.weeklyContract, contractClock.now);
     this.syncActiveWalletFromSimulation();
     this.refreshRelics();
     const snapshot = this.simulation.getSnapshot();
@@ -1357,6 +1418,7 @@ export class FoundationScene extends Phaser.Scene {
       buildEquipmentView(this.equipment),
       buildCollectionView(this.collection, this.lastCollectionCrate),
       buildRelicView(this.relics),
+      buildWeeklyContractView(this.weeklyContract, contractClock.now, contractClock.source),
       this.activeMineId,
       activeSectorId,
       this.getWorldMineViews(),
@@ -1375,6 +1437,7 @@ export class FoundationScene extends Phaser.Scene {
     this.equipment = sanitizeEquipmentState(DEFAULT_EQUIPMENT_STATE);
     this.collection = sanitizeCollectionState(DEFAULT_COLLECTION_STATE);
     this.relics = sanitizeRelicState(DEFAULT_RELIC_STATE);
+    this.weeklyContract = createWeeklyContractState(now);
     this.lastCollectionCrate = [];
     this.relicContextKey = '';
     this.totalRebuildCache = null;
@@ -1418,6 +1481,13 @@ export class FoundationScene extends Phaser.Scene {
         this.equipment = sanitizeEquipmentState(save.world.equipment ?? DEFAULT_EQUIPMENT_STATE);
         this.collection = sanitizeCollectionState(save.world.collection ?? DEFAULT_COLLECTION_STATE);
         this.relics = sanitizeRelicState(save.world.relics ?? DEFAULT_RELIC_STATE);
+        {
+          const contractClock = getServerClock();
+          this.weeklyContract = advanceWeeklyContract(
+            sanitizeWeeklyContractState(save.world.weeklyContract, contractClock.now),
+            contractClock.now,
+          );
+        }
         this.lastCollectionCrate = [];
         this.relicContextKey = '';
         advanceSpecialistTimers(this.specialists, Math.max(0, (now - save.lastSeenAt) / 1000));
@@ -1482,6 +1552,8 @@ export class FoundationScene extends Phaser.Scene {
 
     try {
       const now = this.hiddenAt ?? Date.now();
+      const contractClock = getServerClock();
+      this.weeklyContract = advanceWeeklyContract(this.weeklyContract, contractClock.now);
       // Пока игрок находится на одном объекте, остальные автоматизированные шахты
       // получают фоновый доход каждые 5 секунд вместе с autosave.
       this.advanceInactiveMines(now);
@@ -1500,6 +1572,7 @@ export class FoundationScene extends Phaser.Scene {
           equipment: sanitizeEquipmentState(this.equipment),
           collection: sanitizeCollectionState(this.collection),
           relics: sanitizeRelicState(this.relics),
+          weeklyContract: sanitizeWeeklyContractState(this.weeklyContract, contractClock.now),
           unlockedSectors: [...this.unlockedSectors],
           sectorWallets: { ...this.sectorWallets },
           unlockedMines: [...this.unlockedMines],

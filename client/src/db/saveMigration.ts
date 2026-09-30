@@ -5,6 +5,7 @@ import { DEFAULT_SPECIALIST_SYSTEM, migrateStageNineSpecialists, sanitizeSpecial
 import { DEFAULT_EQUIPMENT_STATE, sanitizeEquipmentState } from '../game/core/equipment';
 import { DEFAULT_COLLECTION_STATE, sanitizeCollectionState } from '../game/core/collection';
 import { DEFAULT_RELIC_STATE, sanitizeRelicState } from '../game/core/relics';
+import { createWeeklyContractState, sanitizeWeeklyContractState } from '../game/core/weeklyContract';
 import type { MineId, PersistentMineState, PersistentWorldState, SectorId } from '../game/core/types';
 import { DEFAULT_MINE_ID, DEFAULT_SECTOR_ID, getMineDefinition, WORLD_MINES } from '../game/core/worldConfig';
 import type { SaveRecord } from './gameDb';
@@ -53,7 +54,7 @@ function inferUnlockedSectors(unlockedMines: MineId[]): SectorId[] {
   return [...result];
 }
 
-function parseStageEleven(record: SaveRecord): DeepforgeSave | null {
+function parseStageTwelve(record: SaveRecord): DeepforgeSave | null {
   if (record.schemaVersion !== APP_CONFIG.saveSchemaVersion) return null;
   const payload = record.payload as Partial<DeepforgeSave> | null;
   if (!payload?.world || !isSettings(payload.settings) || typeof payload.createdAt !== 'number' || typeof payload.lastSeenAt !== 'number') return null;
@@ -68,6 +69,7 @@ function parseStageEleven(record: SaveRecord): DeepforgeSave | null {
   payload.world.equipment = sanitizeEquipmentState(payload.world.equipment ?? DEFAULT_EQUIPMENT_STATE);
   payload.world.collection = sanitizeCollectionState(payload.world.collection ?? DEFAULT_COLLECTION_STATE);
   payload.world.relics = sanitizeRelicState(payload.world.relics ?? DEFAULT_RELIC_STATE);
+  payload.world.weeklyContract = sanitizeWeeklyContractState(payload.world.weeklyContract, payload.lastSeenAt);
   const mines: Partial<Record<MineId, PersistentMineState>> = {};
   for (const [id, state] of Object.entries(payload.world.mines) as [MineId, PersistentMineState][]) {
     if (!state) continue;
@@ -79,6 +81,45 @@ function parseStageEleven(record: SaveRecord): DeepforgeSave | null {
   }
   payload.world.mines = mines;
   return payload as DeepforgeSave;
+}
+
+
+function migrateStageEleven(record: SaveRecord): DeepforgeSave | null {
+  if (record.schemaVersion !== 9) return null;
+  const payload = record.payload as Partial<DeepforgeSave> | null;
+  if (!payload?.world || !isSettings(payload.settings) || typeof payload.createdAt !== 'number' || typeof payload.lastSeenAt !== 'number') return null;
+  if (!payload.world.activeMineId || !Array.isArray(payload.world.unlockedMines) || !payload.world.mines) return null;
+
+  const mines: Partial<Record<MineId, PersistentMineState>> = {};
+  for (const [id, state] of Object.entries(payload.world.mines) as [MineId, PersistentMineState][]) {
+    if (!state) continue;
+    mines[id] = {
+      ...state,
+      rebuildLevel: Math.max(0, Math.floor(state.rebuildLevel ?? 0)),
+      rebuildCycleCashEarned: Math.max(0, state.rebuildCycleCashEarned ?? state.totalCashEarned ?? 0),
+    };
+  }
+
+  return {
+    createdAt: payload.createdAt,
+    lastSeenAt: payload.lastSeenAt,
+    settings: payload.settings,
+    world: {
+      activeMineId: payload.world.activeMineId,
+      research: sanitizeResearchState(payload.world.research ?? DEFAULT_RESEARCH_STATE),
+      specialists: sanitizeSpecialistSystem(payload.world.specialists ?? DEFAULT_SPECIALIST_SYSTEM),
+      academy: sanitizeAcademyState(payload.world.academy ?? DEFAULT_ACADEMY_STATE),
+      equipment: sanitizeEquipmentState(payload.world.equipment ?? DEFAULT_EQUIPMENT_STATE),
+      collection: sanitizeCollectionState(payload.world.collection ?? DEFAULT_COLLECTION_STATE),
+      relics: sanitizeRelicState(payload.world.relics ?? DEFAULT_RELIC_STATE),
+      weeklyContract: createWeeklyContractState(payload.lastSeenAt),
+      unlockedSectors: payload.world.unlockedSectors ?? inferUnlockedSectors(payload.world.unlockedMines),
+      sectorWallets: { ...(payload.world.sectorWallets ?? {}) },
+      unlockedMines: [...payload.world.unlockedMines],
+      mines,
+      lastSimulatedAt: { ...(payload.world.lastSimulatedAt ?? {}) },
+    },
+  };
 }
 
 function migrateStageTen(record: SaveRecord): DeepforgeSave | null {
@@ -287,5 +328,5 @@ function migrateLegacy(record: SaveRecord): DeepforgeSave | null {
 
 export function parseSaveRecord(record: SaveRecord | undefined): DeepforgeSave | null {
   if (!record) return null;
-  return parseStageEleven(record) ?? migrateStageTen(record) ?? migrateStageNine(record) ?? migrateStageEight(record) ?? migrateStageSeven(record) ?? migrateStageSix(record) ?? migrateStageFive(record) ?? migrateLegacy(record);
+  return parseStageTwelve(record) ?? migrateStageEleven(record) ?? migrateStageTen(record) ?? migrateStageNine(record) ?? migrateStageEight(record) ?? migrateStageSeven(record) ?? migrateStageSix(record) ?? migrateStageFive(record) ?? migrateLegacy(record);
 }
