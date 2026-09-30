@@ -185,3 +185,49 @@ describe('Stage 10 Academy migration', () => {
     expect(migrated?.world.academy?.resources.trainingModules).toBeGreaterThan(60);
   });
 });
+
+describe('Stage 11 meta migration', () => {
+  it('добавляет Equipment, Collection и Relics к Stage 10 save без потери Academy/Specialists', () => {
+    const record: SaveRecord = {
+      id: 'primary',
+      schemaVersion: 8,
+      updatedAt: 1000,
+      payload: {
+        createdAt: 10,
+        lastSeenAt: 900,
+        settings: { quality: 'HIGH' },
+        world: {
+          activeMineId: 'rust-01',
+          research: { cores: 4, purchased: ['ind-1'], respecCount: 0 },
+          specialists: {
+            profiles: {
+              'rook-hale': { level: 4, recruited: true, fragments: 8, rank: 2, promotion: 0, activeRemaining: 0, cooldownRemaining: 0 },
+            },
+            assignments: {},
+          },
+          academy: {
+            resources: { recruitData: 123, trainingModules: 77, promotionBadges: 2 },
+            completedOperations: 3,
+            activeOperationId: null,
+            activeStartedAt: 0,
+            activeEndsAt: 0,
+            recruitCount: 1,
+            lastRecruit: null,
+          },
+          unlockedSectors: ['rust'],
+          sectorWallets: { rust: 900 },
+          unlockedMines: ['rust-01'],
+          mines: { 'rust-01': { ...legacyMine, cash: 0, rebuildLevel: 1, rebuildCycleCashEarned: 50 } },
+          lastSimulatedAt: { 'rust-01': 850 },
+        },
+      },
+    };
+
+    const migrated = parseSaveRecord(record);
+    expect(migrated?.world.specialists?.profiles['rook-hale']?.level).toBe(4);
+    expect(migrated?.world.academy?.resources.recruitData).toBe(123);
+    expect(migrated?.world.equipment?.materials.alloy).toBeGreaterThan(0);
+    expect(migrated?.world.collection?.supplyKeys).toBeGreaterThan(0);
+    expect(migrated?.world.relics?.unlocked).toEqual([]);
+  });
+});

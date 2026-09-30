@@ -1,5 +1,8 @@
 import type { PersistentSpecialistSystem } from './specialists';
 import type { PersistentAcademyState } from './academy';
+import type { PersistentEquipmentState } from './equipment';
+import type { PersistentCollectionState } from './collection';
+import type { PersistentRelicState } from './relics';
 
 export type SectorId = 'rust' | 'glacier' | 'ember' | 'aurora' | 'twilight' | 'relic' | 'sunken' | 'storm';
 export type MineOrdinal = '01' | '02' | '03' | '04' | '05';
@@ -99,6 +102,9 @@ export interface PersistentWorldState {
   research?: { cores: number; purchased: string[]; respecCount: number };
   specialists?: PersistentSpecialistSystem;
   academy?: PersistentAcademyState;
+  equipment?: PersistentEquipmentState;
+  collection?: PersistentCollectionState;
+  relics?: PersistentRelicState;
   unlockedSectors?: SectorId[];
   sectorWallets?: Partial<Record<SectorId, number>>;
   unlockedMines: MineId[];

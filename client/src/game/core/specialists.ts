@@ -1,5 +1,6 @@
 import type { MineId } from './types';
 import type { AcademyResources } from './academy';
+import { getEquipmentDefinition, getEquipmentSpecialistBonus, type PersistentEquipmentState } from './equipment';
 
 export type SpecialistId = 'rook-hale' | 'mara-vex' | 'ion-reyes' | 'talia-cruz' | 'kael-soren' | 'sera-knox';
 export type SpecialistRarity = 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY';
@@ -81,6 +82,8 @@ export interface SpecialistView {
   activeRemaining: number;
   cooldownRemaining: number;
   abilityReady: boolean;
+  equipmentId: string | null;
+  equipmentName: string | null;
 }
 
 export interface SpecialistSlotView {
@@ -369,7 +372,7 @@ export function trainSpecialist(system: PersistentSpecialistSystem, id: Speciali
   return next;
 }
 
-export function activateSpecialist(system: PersistentSpecialistSystem, id: SpecialistId, activeMineId: MineId, totalRebuilds: number, cooldownMultiplier = 1): PersistentSpecialistSystem | null {
+export function activateSpecialist(system: PersistentSpecialistSystem, id: SpecialistId, activeMineId: MineId, totalRebuilds: number, cooldownMultiplier = 1, equipment?: PersistentEquipmentState): PersistentSpecialistSystem | null {
   if (!isSpecialistUnlocked(id, totalRebuilds)) return null;
   const clean = sanitizeSpecialistSystem(system);
   const profile = clean.profiles[id] ?? createDefaultSpecialistProfile(id);
@@ -379,7 +382,8 @@ export function activateSpecialist(system: PersistentSpecialistSystem, id: Speci
   if (profile.activeRemaining > 0.001 || profile.cooldownRemaining > 0.001) return null;
   const definition = getSpecialistDefinition(id);
   profile.activeRemaining = definition.abilityDuration;
-  profile.cooldownRemaining = definition.abilityCooldown * cooldownMultiplier;
+  const gear = equipment ? getEquipmentSpecialistBonus(equipment, id) : { cooldownMultiplier: 1 };
+  profile.cooldownRemaining = definition.abilityCooldown * cooldownMultiplier * gear.cooldownMultiplier;
   clean.profiles[id] = profile;
   return clean;
 }
@@ -401,6 +405,7 @@ export function getSpecialistModifiers(
   totalRebuilds: number,
   includeActive: boolean,
   passiveResearchMultiplier = 1,
+  equipment?: PersistentEquipmentState,
 ): SpecialistModifiers {
   const modifiers: SpecialistModifiers = {
     shaftYieldMultiplier: 1,
@@ -419,9 +424,11 @@ export function getSpecialistModifiers(
     const definition = getSpecialistDefinition(id);
     const profile = system.profiles[id] ?? createDefaultSpecialistProfile(id);
     if (!profile.recruited) continue;
-    const passive = 1 + getSpecialistLevelPassiveBonus(definition, profile.level, profile.rank, profile.promotion) * passiveResearchMultiplier;
+    const gear = equipment ? getEquipmentSpecialistBonus(equipment, id) : { passiveMultiplier: 1, abilityMultiplier: 1, cooldownMultiplier: 1 };
+    const passiveBonus = getSpecialistLevelPassiveBonus(definition, profile.level, profile.rank, profile.promotion) * passiveResearchMultiplier * gear.passiveMultiplier;
+    const passive = 1 + passiveBonus;
     const active = includeActive && profile.activeRemaining > 0.001
-      ? getSpecialistLevelAbilityMultiplier(definition, profile.level, profile.rank, profile.promotion)
+      ? 1 + (getSpecialistLevelAbilityMultiplier(definition, profile.level, profile.rank, profile.promotion) - 1) * gear.abilityMultiplier
       : 1;
     const combined = passive * active;
 
@@ -444,6 +451,7 @@ export function buildSpecialistSystemView(
   totalRebuilds: number,
   academyResources: AcademyResources,
   passiveResearchMultiplier = 1,
+  equipment?: PersistentEquipmentState,
 ): SpecialistSystemView {
   const clean = sanitizeSpecialistSystem(system);
   const roster: SpecialistView[] = SPECIALISTS.map((definition) => {
@@ -454,6 +462,8 @@ export function buildSpecialistSystemView(
     const rankCost = getSpecialistRankCost(profile.rank);
     const promotionCost = getSpecialistPromotionCost(profile.promotion);
     const levelCap = getSpecialistLevelCap(profile);
+    const gear = equipment ? getEquipmentSpecialistBonus(equipment, definition.id) : { passiveMultiplier: 1, abilityMultiplier: 1, cooldownMultiplier: 1 };
+    const equipmentId = equipment?.equippedBySpecialist[definition.id] ?? null;
     const canPromote = profile.recruited
       && promotionCost !== null
       && profile.level >= levelCap
@@ -489,13 +499,15 @@ export function buildSpecialistSystemView(
       assignedSlot: assignment?.slot ?? null,
       assignedHere: assignment?.mineId === activeMineId,
       passiveLabel: definition.passiveLabel,
-      passiveBonusPercent: Math.round(getSpecialistLevelPassiveBonus(definition, profile.level, profile.rank, profile.promotion) * passiveResearchMultiplier * 100),
+      passiveBonusPercent: Math.round(getSpecialistLevelPassiveBonus(definition, profile.level, profile.rank, profile.promotion) * passiveResearchMultiplier * gear.passiveMultiplier * 100),
       abilityName: definition.abilityName,
-      abilityMultiplier: getSpecialistLevelAbilityMultiplier(definition, profile.level, profile.rank, profile.promotion),
+      abilityMultiplier: 1 + (getSpecialistLevelAbilityMultiplier(definition, profile.level, profile.rank, profile.promotion) - 1) * gear.abilityMultiplier,
       abilityDuration: definition.abilityDuration,
       activeRemaining: profile.activeRemaining,
       cooldownRemaining: profile.cooldownRemaining,
       abilityReady: available && profile.recruited && assignment?.mineId === activeMineId && profile.activeRemaining <= 0.001 && profile.cooldownRemaining <= 0.001,
+      equipmentId,
+      equipmentName: equipmentId ? getEquipmentDefinition(equipmentId).name : null,
     };
   });
 

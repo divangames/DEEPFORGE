@@ -1,5 +1,33 @@
 # CHANGELOG — DEEPFORGE
 
+## 0.11.0 — Stage 11 Equipment + Collection + Relics
+
+### Добавлено
+
+- Equipment crafting: 8 предметов Common / Rare / Epic / Legendary.
+- 3 crafting materials: Alloy, Circuits и Fiber.
+- Один Equipment slot на Specialist с role compatibility.
+- Equipment реально усиливает passive / active и может уменьшать cooldown.
+- Academy Operations теперь также выдают crafting materials и Supply Keys.
+- Crew Collection: 9 карточек/визуальных наборов в категориях Crew / Cargo Lift / Logistics.
+- Supply Crates по 3 карточки; дубликаты повышают level до 5.
+- Один активный Collection visual на каждую категорию.
+- Collection bonuses реально влияют на Deck / Lift / Logistics throughput.
+- Временные prototype-colors выбранных Collection visuals применяются прямо к Phaser scene; финальные арты позже заменяются Adobe assets.
+- 6 permanent Corporate Relics с auto-unlock за Rebuild, mines, Specialists, Academy, Collection и Equipment.
+- Relic bonuses действуют во всех 40 шахтах, включая background/offline income.
+- `Команда → Meta` с отдельными вкладками Equipment / Collection / Relics.
+- Save schema v9 и миграция Stage 10 → Stage 11 со starter materials/keys без потери старого прогресса.
+- Unit coverage Equipment / Collection / Relics.
+
+### Mobile / Performance
+
+- Meta UI рассчитан на portrait 360–440 CSS px и iPhone Pro Max safe-area.
+- Equipment Specialist selector использует лёгкий horizontal list вместо одновременной отрисовки дополнительных экранов.
+- Collection содержит только 9 data-driven cards; Relics — 6 записей, без новых Phaser scenes.
+- Collection visuals меняют цвета существующих объектов и не создают дополнительные sprites/particles.
+- Relic context кэшируется и пересчитывается только при изменении meta-прогресса.
+
 ## 0.10.0 — Stage 10 Academy + Fragments + Rank / Promotion
 
 ### Добавлено

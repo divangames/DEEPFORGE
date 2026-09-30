@@ -1,5 +1,7 @@
 import type { BulkUpgradeMode, FacilityId, MineId, SectorId, ShaftId } from '../core/types';
 import type { SpecialistId, SpecialistSlot } from '../core/specialists';
+import type { EquipmentId } from '../core/equipment';
+import type { CollectionCardId } from '../core/collection';
 
 export type GameCommand =
   | { type: 'START_SHAFT'; shaftId: ShaftId }
@@ -27,7 +29,12 @@ export type GameCommand =
   | { type: 'SPECIALIST_PROMOTE'; specialistId: SpecialistId }
   | { type: 'ACADEMY_START' }
   | { type: 'ACADEMY_CLAIM' }
-  | { type: 'ACADEMY_RECRUIT_SCAN' };
+  | { type: 'ACADEMY_RECRUIT_SCAN' }
+  | { type: 'EQUIPMENT_CRAFT'; equipmentId: EquipmentId }
+  | { type: 'EQUIPMENT_EQUIP'; specialistId: SpecialistId; equipmentId: EquipmentId }
+  | { type: 'EQUIPMENT_UNEQUIP'; specialistId: SpecialistId }
+  | { type: 'COLLECTION_OPEN_CRATE' }
+  | { type: 'COLLECTION_SELECT'; cardId: CollectionCardId };
 
 type CommandListener = (command: GameCommand) => void;
 

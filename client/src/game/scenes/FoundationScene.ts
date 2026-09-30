@@ -47,7 +47,39 @@ import {
   trainSpecialist,
   unassignSpecialist,
   type PersistentSpecialistSystem,
+  getSpecialistDefinition,
 } from '../core/specialists';
+import {
+  DEFAULT_EQUIPMENT_STATE,
+  buildEquipmentView,
+  craftEquipment,
+  equipSpecialist,
+  grantCraftMaterials,
+  sanitizeEquipmentState,
+  unequipSpecialist,
+  type PersistentEquipmentState,
+} from '../core/equipment';
+import {
+  DEFAULT_COLLECTION_STATE,
+  buildCollectionView,
+  getCollectionModifiers,
+  getCollectionVisualPalette,
+  getTotalCollectionLevels,
+  grantSupplyKeys,
+  openSupplyCrate,
+  sanitizeCollectionState,
+  selectCollectionCard,
+  type CollectionCardId,
+  type PersistentCollectionState,
+} from '../core/collection';
+import {
+  DEFAULT_RELIC_STATE,
+  buildRelicView,
+  evaluateRelics,
+  getRelicModifiers,
+  sanitizeRelicState,
+  type PersistentRelicState,
+} from '../core/relics';
 import { DEFAULT_MINE_ID, DEFAULT_SECTOR_ID, getFirstMineId, getMineDefinition, getSectorDefinition, WORLD_MINES, WORLD_SECTORS } from '../core/worldConfig';
 import { onGameCommand, type GameCommand } from '../runtime/gameRuntime';
 
@@ -84,6 +116,11 @@ export class FoundationScene extends Phaser.Scene {
   private research: PersistentResearchState = { ...DEFAULT_RESEARCH_STATE };
   private specialists: PersistentSpecialistSystem = sanitizeSpecialistSystem(DEFAULT_SPECIALIST_SYSTEM);
   private academy: PersistentAcademyState = sanitizeAcademyState(DEFAULT_ACADEMY_STATE);
+  private equipment: PersistentEquipmentState = sanitizeEquipmentState(DEFAULT_EQUIPMENT_STATE);
+  private collection: PersistentCollectionState = sanitizeCollectionState(DEFAULT_COLLECTION_STATE);
+  private relics: PersistentRelicState = sanitizeRelicState(DEFAULT_RELIC_STATE);
+  private lastCollectionCrate: CollectionCardId[] = [];
+  private relicContextKey = '';
   private totalRebuildCache: number | null = null;
   private simulation = new MineSimulation(undefined, getMineDefinition(DEFAULT_MINE_ID).tuning, getResearchModifiers([]));
   private selectedFacility: FacilityId = 'shaft-1';
@@ -137,6 +174,7 @@ export class FoundationScene extends Phaser.Scene {
     this.createBarrierVisuals();
     this.createLiftVisuals();
     this.createHubVisuals();
+    this.applyCollectionVisuals();
     this.createScrollInput();
 
     this.unsubscribeCommands = onGameCommand((command) => this.handleCommand(command));
@@ -471,7 +509,7 @@ export class FoundationScene extends Phaser.Scene {
       }
       case 'SPECIALIST_ACTIVATE': {
         const research = getResearchModifiers(this.research.purchased);
-        const next = activateSpecialist(this.specialists, command.specialistId, this.activeMineId, this.getTotalRebuildCount(), research.specialistCooldownMultiplier);
+        const next = activateSpecialist(this.specialists, command.specialistId, this.activeMineId, this.getTotalRebuildCount(), research.specialistCooldownMultiplier, this.equipment);
         if (!next) break;
         this.specialists = next;
         this.applySpecialistsToActiveSimulation();
@@ -550,6 +588,9 @@ export class FoundationScene extends Phaser.Scene {
         if (!result) break;
         this.academy = result.state;
         this.specialists = grantSpecialistFragments(this.specialists, result.fragments.specialistId, result.fragments.amount);
+        this.equipment = grantCraftMaterials(this.equipment, { alloy: result.rewards.alloy, circuits: result.rewards.circuits, fiber: result.rewards.fiber });
+        this.collection = grantSupplyKeys(this.collection, result.rewards.supplyKeys);
+        this.refreshRelics();
         this.syncUi();
         void this.persist();
         break;
@@ -563,6 +604,68 @@ export class FoundationScene extends Phaser.Scene {
         void this.persist();
         break;
       }
+      case 'EQUIPMENT_CRAFT': {
+        const next = craftEquipment(this.equipment, command.equipmentId);
+        if (!next) break;
+        this.equipment = next;
+        this.refreshRelics(true);
+        this.syncUi();
+        void this.persist();
+        break;
+      }
+      case 'EQUIPMENT_EQUIP': {
+        const profile = this.specialists.profiles[command.specialistId];
+        if (!profile?.recruited) break;
+        const role = getSpecialistDefinition(command.specialistId).role;
+        const next = equipSpecialist(this.equipment, command.specialistId, role, command.equipmentId);
+        if (!next) break;
+        this.equipment = next;
+        this.applySpecialistsToActiveSimulation();
+        this.worldViewsCacheAt = 0;
+        this.sectorViewsCacheAt = 0;
+        this.syncUi();
+        this.renderSimulation();
+        void this.persist();
+        break;
+      }
+      case 'EQUIPMENT_UNEQUIP': {
+        this.equipment = unequipSpecialist(this.equipment, command.specialistId);
+        this.applySpecialistsToActiveSimulation();
+        this.worldViewsCacheAt = 0;
+        this.sectorViewsCacheAt = 0;
+        this.syncUi();
+        this.renderSimulation();
+        void this.persist();
+        break;
+      }
+      case 'COLLECTION_OPEN_CRATE': {
+        const result = openSupplyCrate(this.collection);
+        if (!result) break;
+        this.collection = result.state;
+        this.lastCollectionCrate = result.cards;
+        this.applyCollectionVisuals();
+        this.refreshRelics(true);
+        this.applySpecialistsToActiveSimulation();
+        this.worldViewsCacheAt = 0;
+        this.sectorViewsCacheAt = 0;
+        this.syncUi();
+        this.renderSimulation();
+        void this.persist();
+        break;
+      }
+      case 'COLLECTION_SELECT': {
+        const next = selectCollectionCard(this.collection, command.cardId);
+        if (!next) break;
+        this.collection = next;
+        this.applyCollectionVisuals();
+        this.applySpecialistsToActiveSimulation();
+        this.worldViewsCacheAt = 0;
+        this.sectorViewsCacheAt = 0;
+        this.syncUi();
+        this.renderSimulation();
+        void this.persist();
+        break;
+      }
     }
   }
 
@@ -572,7 +675,7 @@ export class FoundationScene extends Phaser.Scene {
       state,
       getMineDefinition(id).tuning,
       research,
-      getSpecialistModifiers(this.specialists, id, this.getTotalRebuildCount(), includeSpecialistActive, research.specialistPassiveMultiplier),
+      this.getCombinedProductionModifiers(id, includeSpecialistActive),
     );
   }
 
@@ -616,11 +719,23 @@ export class FoundationScene extends Phaser.Scene {
     return this.totalRebuildCache;
   }
 
-  private applySpecialistsToActiveSimulation() {
+  private getCombinedProductionModifiers(id: MineId, includeActive: boolean) {
     const research = getResearchModifiers(this.research.purchased);
-    this.simulation.setSpecialistModifiers(
-      getSpecialistModifiers(this.specialists, this.activeMineId, this.getTotalRebuildCount(), true, research.specialistPassiveMultiplier),
+    const specialists = getSpecialistModifiers(
+      this.specialists, id, this.getTotalRebuildCount(), includeActive, research.specialistPassiveMultiplier, this.equipment,
     );
+    const collection = getCollectionModifiers(this.collection);
+    const relics = getRelicModifiers(this.relics);
+    return {
+      shaftYieldMultiplier: specialists.shaftYieldMultiplier * collection.shaftYieldMultiplier * relics.shaftYieldMultiplier,
+      liftCapacityMultiplier: specialists.liftCapacityMultiplier * collection.liftCapacityMultiplier * relics.liftCapacityMultiplier,
+      hubCapacityMultiplier: specialists.hubCapacityMultiplier * collection.hubCapacityMultiplier * relics.hubCapacityMultiplier,
+      incomeMultiplier: specialists.incomeMultiplier * relics.incomeMultiplier,
+    };
+  }
+
+  private applySpecialistsToActiveSimulation() {
+    this.simulation.setSpecialistModifiers(this.getCombinedProductionModifiers(this.activeMineId, true));
   }
 
   private getSpecialistView() {
@@ -631,11 +746,44 @@ export class FoundationScene extends Phaser.Scene {
       this.getTotalRebuildCount(),
       this.academy.resources,
       research.specialistPassiveMultiplier,
+      this.equipment,
     );
   }
 
   private getAcademyView() {
     return buildAcademyView(this.academy, Date.now(), this.getTotalRebuildCount());
+  }
+
+  private getRecruitedSpecialistCount() {
+    return Object.values(this.specialists.profiles).filter((profile) => profile?.recruited).length;
+  }
+
+  private refreshRelics(force = false) {
+    const context = {
+      totalRebuilds: this.getTotalRebuildCount(),
+      unlockedMines: this.unlockedMines.size,
+      recruitedSpecialists: this.getRecruitedSpecialistCount(),
+      academyCompleted: this.academy.completedOperations,
+      collectionLevels: getTotalCollectionLevels(this.collection),
+      craftedEquipment: this.equipment.craftedCount,
+    };
+    const key = Object.values(context).join(':');
+    if (!force && key === this.relicContextKey) return;
+    const before = this.relics.unlocked.length;
+    this.relics = evaluateRelics(this.relics, context);
+    this.relicContextKey = key;
+    if (this.relics.unlocked.length !== before) {
+      this.applySpecialistsToActiveSimulation();
+      this.worldViewsCacheAt = 0;
+      this.sectorViewsCacheAt = 0;
+    }
+  }
+
+  private applyCollectionVisuals() {
+    const palette = getCollectionVisualPalette(this.collection);
+    for (const visual of this.shaftVisuals.values()) visual.workerBody.setFillStyle(palette.workerColor);
+    this.liftCage?.setFillStyle(palette.liftColor);
+    this.hubTruck?.setFillStyle(palette.hubColor);
   }
 
   private serializeMine(simulation: MineSimulation): PersistentMineState {
@@ -1188,6 +1336,7 @@ export class FoundationScene extends Phaser.Scene {
 
   private syncUi() {
     this.syncActiveWalletFromSimulation();
+    this.refreshRelics();
     const snapshot = this.simulation.getSnapshot();
     const stats = this.simulation.getFacilityStats(this.selectedFacility);
     const activeSectorId = getMineDefinition(this.activeMineId).sectorId;
@@ -1205,6 +1354,9 @@ export class FoundationScene extends Phaser.Scene {
       this.getResearchView(),
       this.getSpecialistView(),
       this.getAcademyView(),
+      buildEquipmentView(this.equipment),
+      buildCollectionView(this.collection, this.lastCollectionCrate),
+      buildRelicView(this.relics),
       this.activeMineId,
       activeSectorId,
       this.getWorldMineViews(),
@@ -1220,6 +1372,11 @@ export class FoundationScene extends Phaser.Scene {
     this.research = { ...DEFAULT_RESEARCH_STATE, purchased: [] };
     this.specialists = sanitizeSpecialistSystem(DEFAULT_SPECIALIST_SYSTEM);
     this.academy = sanitizeAcademyState(DEFAULT_ACADEMY_STATE);
+    this.equipment = sanitizeEquipmentState(DEFAULT_EQUIPMENT_STATE);
+    this.collection = sanitizeCollectionState(DEFAULT_COLLECTION_STATE);
+    this.relics = sanitizeRelicState(DEFAULT_RELIC_STATE);
+    this.lastCollectionCrate = [];
+    this.relicContextKey = '';
     this.totalRebuildCache = null;
     this.simulation = this.createSimulation(DEFAULT_MINE_ID);
     this.simulation.setCash(0);
@@ -1258,6 +1415,11 @@ export class FoundationScene extends Phaser.Scene {
         this.research = sanitizeResearchState(save.world.research ?? DEFAULT_RESEARCH_STATE);
         this.specialists = sanitizeSpecialistSystem(save.world.specialists ?? DEFAULT_SPECIALIST_SYSTEM);
         this.academy = sanitizeAcademyState(save.world.academy ?? DEFAULT_ACADEMY_STATE);
+        this.equipment = sanitizeEquipmentState(save.world.equipment ?? DEFAULT_EQUIPMENT_STATE);
+        this.collection = sanitizeCollectionState(save.world.collection ?? DEFAULT_COLLECTION_STATE);
+        this.relics = sanitizeRelicState(save.world.relics ?? DEFAULT_RELIC_STATE);
+        this.lastCollectionCrate = [];
+        this.relicContextKey = '';
         advanceSpecialistTimers(this.specialists, Math.max(0, (now - save.lastSeenAt) / 1000));
         for (const sectorId of this.unlockedSectors) {
           if (this.sectorWallets[sectorId] === undefined) this.sectorWallets[sectorId] = 0;
@@ -1284,6 +1446,7 @@ export class FoundationScene extends Phaser.Scene {
       this.initializeFreshWorld(now);
     } finally {
       this.applyMineTheme();
+      this.applyCollectionVisuals();
       this.syncUi();
       this.renderSimulation();
       this.persistenceReady = true;
@@ -1307,6 +1470,7 @@ export class FoundationScene extends Phaser.Scene {
       }
       this.hiddenAt = null;
       this.applyMineTheme();
+      this.applyCollectionVisuals();
       this.syncUi();
       this.renderSimulation();
       await this.persist();
@@ -1333,6 +1497,9 @@ export class FoundationScene extends Phaser.Scene {
           research: { ...this.research, purchased: [...this.research.purchased] },
           specialists: sanitizeSpecialistSystem(this.specialists),
           academy: sanitizeAcademyState(this.academy),
+          equipment: sanitizeEquipmentState(this.equipment),
+          collection: sanitizeCollectionState(this.collection),
+          relics: sanitizeRelicState(this.relics),
           unlockedSectors: [...this.unlockedSectors],
           sectorWallets: { ...this.sectorWallets },
           unlockedMines: [...this.unlockedMines],

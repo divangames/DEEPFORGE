@@ -4,6 +4,9 @@ import { formatCompact } from '../game/core/format';
 import { RESEARCH_BRANCHES, type ResearchBranchId } from '../game/core/research';
 import { SPECIALIST_SLOTS, type SpecialistSlot, type SpecialistSystemView, type SpecialistView } from '../game/core/specialists';
 import type { AcademyView } from '../game/core/academy';
+import type { EquipmentId, EquipmentView } from '../game/core/equipment';
+import type { CollectionCardId, CollectionView } from '../game/core/collection';
+import type { RelicView } from '../game/core/relics';
 import type { BulkUpgradeMode, BulkUpgradeQuote, FacilityId, ManagerView, MineId, ResearchView, SectorId, WorldMineView, WorldSectorView } from '../game/core/types';
 import { sendGameCommand } from '../game/runtime/gameRuntime';
 import { useGameStore } from '../state/gameStore';
@@ -402,6 +405,7 @@ function SpecialistRoster({
                   <em>{item.rarity}</em>
                 </div>
                 <small>{specialistRoleLabel(item.role)} · RANK {item.rank}/{item.maxRank} · PROMO {item.promotion}/{item.maxPromotion}</small>
+                {item.equipmentName && <div className="specialist-equipment-note">⚙ {item.equipmentName}</div>}
                 <p><b>PASSIVE +{item.passiveBonusPercent}%</b> · {item.passiveLabel}</p>
                 <p><b>ACTIVE ×{item.abilityMultiplier.toFixed(2)}</b> · {item.abilityDuration}с · {item.abilityName}</p>
                 <div className="fragment-line">
@@ -549,6 +553,8 @@ function AcademyPanel({ data }: { data: AcademyView }) {
               <span>▲ {operation.rewards.trainingModules}</span>
               {operation.rewards.promotionBadges > 0 && <span>● {operation.rewards.promotionBadges}</span>}
               <span>◆ {operation.rewards.fragments}</span>
+              <span>⚙ {operation.rewards.alloy}/{operation.rewards.circuits}/{operation.rewards.fiber}</span>
+              {operation.rewards.supplyKeys > 0 && <span>▣ {operation.rewards.supplyKeys}</span>}
             </div>
             <b className="academy-op-state">{operation.completed ? '✓' : operation.current ? 'LIVE' : operation.available ? 'NEXT' : 'LOCK'}</b>
           </article>
@@ -558,9 +564,172 @@ function AcademyPanel({ data }: { data: AcademyView }) {
   );
 }
 
+
+function equipmentRoleLabel(role: string) {
+  if (role === 'any') return 'ANY SPECIALIST';
+  if (role === 'universal') return 'UNIVERSAL ONLY';
+  if (role === 'extraction') return 'EXTRACTION';
+  if (role === 'lift') return 'CARGO LIFT';
+  return 'LOGISTICS';
+}
+
+function ProgressionPanel({
+  equipment,
+  collection,
+  relics,
+  specialists,
+}: {
+  equipment: EquipmentView;
+  collection: CollectionView;
+  relics: RelicView;
+  specialists: SpecialistSystemView;
+}) {
+  const [tab, setTab] = useState<'equipment' | 'collection' | 'relics'>('equipment');
+  const recruited = specialists.roster.filter((item) => item.recruited);
+  const [selectedSpecialistId, setSelectedSpecialistId] = useState(recruited[0]?.id ?? specialists.roster[0]?.id);
+  const selectedSpecialist = specialists.roster.find((item) => item.id === selectedSpecialistId) ?? recruited[0] ?? specialists.roster[0];
+  const assignment = equipment.assignments.find((item) => item.specialistId === selectedSpecialist?.id);
+
+  const compatible = (role: string) => {
+    if (!selectedSpecialist) return false;
+    return role === 'any' || role === selectedSpecialist.role || (role === 'universal' && selectedSpecialist.role === 'universal');
+  };
+
+  return (
+    <div className="progression-view">
+      <div className="progression-tabs" role="tablist">
+        <button type="button" className={tab === 'equipment' ? 'active' : ''} onClick={() => setTab('equipment')}>⚙ Equipment</button>
+        <button type="button" className={tab === 'collection' ? 'active' : ''} onClick={() => setTab('collection')}>▣ Collection</button>
+        <button type="button" className={tab === 'relics' ? 'active' : ''} onClick={() => setTab('relics')}>✦ Relics</button>
+      </div>
+
+      {tab === 'equipment' && (
+        <div className="equipment-view">
+          <div className="equipment-materials">
+            <span><b>▰ {equipment.materials.alloy}</b> Alloy</span>
+            <span><b>▧ {equipment.materials.circuits}</b> Circuits</span>
+            <span><b>⌁ {equipment.materials.fiber}</b> Fiber</span>
+            <span><b>{equipment.craftedCount}</b> Crafted</span>
+          </div>
+
+          <div className="equipment-specialists" aria-label="Выбор Specialist для экипировки">
+            {recruited.map((item) => (
+              <button
+                type="button"
+                key={item.id}
+                className={selectedSpecialist?.id === item.id ? 'active' : ''}
+                onClick={() => setSelectedSpecialistId(item.id)}
+              >
+                <b>{item.codename}</b><span>{item.equipmentName ?? 'NO GEAR'}</span>
+              </button>
+            ))}
+          </div>
+
+          {selectedSpecialist && (
+            <div className="equipment-current">
+              <div><span>ВЫБРАН</span><strong>{selectedSpecialist.name}</strong><small>{specialistRoleLabel(selectedSpecialist.role)}</small></div>
+              <div><span>EQUIPPED</span><strong>{assignment?.equipmentName ?? 'Нет предмета'}</strong></div>
+              {assignment?.equipmentId && (
+                <button type="button" onClick={() => sendGameCommand({ type: 'EQUIPMENT_UNEQUIP', specialistId: selectedSpecialist.id })}>СНЯТЬ</button>
+              )}
+            </div>
+          )}
+
+          <div className="equipment-list">
+            {equipment.items.map((item) => {
+              const canUse = compatible(item.role);
+              const isEquipped = assignment?.equipmentId === item.id;
+              return (
+                <article className={`equipment-card rarity-${item.rarity.toLowerCase()} ${!canUse ? 'incompatible' : ''}`} key={item.id}>
+                  <div className="equipment-icon">⚙</div>
+                  <div className="equipment-copy">
+                    <div><strong>{item.name}</strong><em>{item.rarity}</em></div>
+                    <small>{item.slotLabel} · {equipmentRoleLabel(item.role)}</small>
+                    <p>{item.description}</p>
+                    <span>OWNED {item.crafted} · FREE {item.availableCopies}</span>
+                  </div>
+                  <div className="equipment-actions">
+                    <button
+                      type="button"
+                      className="equipment-craft"
+                      disabled={!item.canCraft}
+                      onClick={() => sendGameCommand({ type: 'EQUIPMENT_CRAFT', equipmentId: item.id as EquipmentId })}
+                    >
+                      CRAFT · {item.cost.alloy}/{item.cost.circuits}/{item.cost.fiber}
+                    </button>
+                    <button
+                      type="button"
+                      className="equipment-equip"
+                      disabled={!selectedSpecialist || !selectedSpecialist.recruited || !canUse || item.availableCopies <= 0 || isEquipped}
+                      onClick={() => selectedSpecialist && sendGameCommand({ type: 'EQUIPMENT_EQUIP', specialistId: selectedSpecialist.id, equipmentId: item.id as EquipmentId })}
+                    >
+                      {isEquipped ? '✓ EQUIPPED' : 'EQUIP'}
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {tab === 'collection' && (
+        <div className="collection-view">
+          <section className="collection-hero">
+            <div><span>SUPPLY KEYS</span><strong>▣ {collection.supplyKeys}</strong><small>{collection.cratesOpened} crates opened · {collection.totalLevels} collection levels</small></div>
+            <button type="button" disabled={!collection.canOpenCrate} onClick={() => sendGameCommand({ type: 'COLLECTION_OPEN_CRATE' })}>OPEN SUPPLY CRATE</button>
+          </section>
+          {collection.lastCrate.length > 0 && (
+            <div className="collection-last-crate"><span>ПОСЛЕДНИЙ CRATE</span>{collection.lastCrate.map((id, index) => <b key={`${id}-${index}`}>{id}</b>)}</div>
+          )}
+          <div className="collection-list">
+            {(['crew', 'lift', 'logistics'] as const).map((category) => (
+              <section className="collection-category" key={category}>
+                <header><span>{category === 'crew' ? 'CREW VISUAL' : category === 'lift' ? 'CARGO LIFT VISUAL' : 'LOGISTICS VISUAL'}</span><b>ACTIVE BONUS</b></header>
+                <div className="collection-card-grid">
+                  {collection.cards.filter((card) => card.category === category).map((card) => (
+                    <article className={`collection-card rarity-${card.rarity.toLowerCase()} ${card.selected ? 'selected' : ''} ${!card.owned ? 'locked' : ''}`} key={card.id}>
+                      <div className="collection-card-art"><span>{card.visualLabel}</span></div>
+                      <strong>{card.name}</strong>
+                      <small>LV {card.level}/{card.maxLevel} · +{card.bonusPercent}%</small>
+                      <div className="collection-progress"><i style={{ width: `${card.nextLevelCopies ? Math.min(100, card.progress / card.nextLevelCopies * 100) : 100}%` }} /></div>
+                      <button
+                        type="button"
+                        disabled={!card.owned || card.selected}
+                        onClick={() => sendGameCommand({ type: 'COLLECTION_SELECT', cardId: card.id as CollectionCardId })}
+                      >
+                        {card.selected ? '✓ ACTIVE' : card.owned ? 'SELECT' : 'LOCKED'}
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {tab === 'relics' && (
+        <div className="relic-view">
+          <div className="relic-summary"><span>PERMANENT RELICS</span><strong>{relics.unlockedCount}/{relics.total}</strong><small>Реликвии открываются автоматически за долгосрочный прогресс и действуют во всех секторах.</small></div>
+          <div className="relic-grid">
+            {relics.items.map((item) => (
+              <article className={`relic-card ${item.unlocked ? 'unlocked' : 'locked'}`} key={item.id}>
+                <div className="relic-symbol">✦</div>
+                <div><strong>{item.name}</strong><span>{item.requirement}</span><p>{item.description}</p></div>
+                <b>{item.unlocked ? 'UNLOCKED' : 'LOCKED'}</b>
+              </article>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function App() {
   const [teamOpen, setTeamOpen] = useState(false);
-  const [teamTab, setTeamTab] = useState<'managers' | 'specialists' | 'academy'>('managers');
+  const [teamTab, setTeamTab] = useState<'managers' | 'specialists' | 'academy' | 'progression'>('managers');
   const [mapOpen, setMapOpen] = useState(false);
   const [rebuildOpen, setRebuildOpen] = useState(false);
   const [researchOpen, setResearchOpen] = useState(false);
@@ -583,6 +752,9 @@ export function App() {
   const research = useGameStore((state) => state.research);
   const specialists = useGameStore((state) => state.specialists);
   const academy = useGameStore((state) => state.academy);
+  const equipment = useGameStore((state) => state.equipment);
+  const collection = useGameStore((state) => state.collection);
+  const relics = useGameStore((state) => state.relics);
   const offlineReport = useGameStore((state) => state.offlineReport);
   const setApiOnline = useGameStore((state) => state.setApiOnline);
   const setOfflineReport = useGameStore((state) => state.setOfflineReport);
@@ -688,7 +860,7 @@ export function App() {
         )}
 
         <div className="stage-badge">
-          <strong>STAGE 10</strong>
+          <strong>STAGE 11</strong>
           <span>{quality}</span>
           <span className={apiOnline ? 'ok' : 'muted'}>{apiOnline ? 'API' : 'LOCAL'}</span>
         </div>
@@ -948,15 +1120,16 @@ export function App() {
       {teamOpen && (
         <div className="team-overlay" role="dialog" aria-modal="true" aria-label="Команда объекта">
           <button className="team-backdrop" type="button" aria-label="Закрыть" onClick={() => setTeamOpen(false)} />
-          <section className="team-panel stage9-team-panel stage10-team-panel">
+          <section className="team-panel stage9-team-panel stage10-team-panel stage11-team-panel">
             <header className="team-header">
-              <div><span>УПРАВЛЕНИЕ КОМАНДОЙ</span><strong>{teamTab === 'managers' ? 'Менеджеры объекта' : teamTab === 'specialists' ? 'Specialists' : 'Academy Operations'}</strong></div>
+              <div><span>УПРАВЛЕНИЕ КОМАНДОЙ</span><strong>{teamTab === 'managers' ? 'Менеджеры объекта' : teamTab === 'specialists' ? 'Specialists' : teamTab === 'academy' ? 'Academy Operations' : 'Equipment · Collection · Relics'}</strong></div>
               <button type="button" onClick={() => setTeamOpen(false)}>✕</button>
             </header>
             <div className="team-tabs" role="tablist">
               <button type="button" className={teamTab === 'managers' ? 'active' : ''} onClick={() => setTeamTab('managers')}>♟ Менеджеры</button>
               <button type="button" className={teamTab === 'specialists' ? 'active' : ''} onClick={() => setTeamTab('specialists')}>★ Specialists</button>
               <button type="button" className={teamTab === 'academy' ? 'active' : ''} onClick={() => setTeamTab('academy')}>▣ Academy</button>
+              <button type="button" className={teamTab === 'progression' ? 'active' : ''} onClick={() => setTeamTab('progression')}>⚙ Meta</button>
             </div>
 
             {teamTab === 'managers' ? (
@@ -1009,8 +1182,12 @@ export function App() {
               </>
             ) : teamTab === 'specialists' ? (
               specialists ? <SpecialistRoster data={specialists} activeMineId={activeMineId} /> : <div className="team-summary"><span>Specialists загружаются…</span></div>
-            ) : (
+            ) : teamTab === 'academy' ? (
               academy ? <AcademyPanel data={academy} /> : <div className="team-summary"><span>Academy загружается…</span></div>
+            ) : (
+              equipment && collection && relics && specialists
+                ? <ProgressionPanel equipment={equipment} collection={collection} relics={relics} specialists={specialists} />
+                : <div className="team-summary"><span>Meta-прогрессия загружается…</span></div>
             )}
           </section>
         </div>

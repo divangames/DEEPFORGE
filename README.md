@@ -1,61 +1,65 @@
 # DEEPFORGE: Idle Empire
 
-Browser-first idle / tycoon game. Текущая версия: **Stage 10 — Academy + Fragments + Rank / Promotion**.
+Browser-first idle / tycoon game. Текущая версия: **Stage 11 — Equipment + Collection + Relics**.
 
 ## Уже работает
 
 - 8 секторов / 40 data-driven шахт;
-- отдельная валюта каждого сектора;
-- общий wallet пяти шахт сектора;
+- отдельная валюта каждого сектора и общий wallet пяти шахт;
 - независимый прогресс каждой шахты;
-- Rebuild / Prestige с постоянными multiplier;
+- Rebuild / Prestige с permanent multiplier;
 - Research Grid: 6 веток / 18 узлов;
 - 6 Specialists с rarity, roles, passive/active abilities;
-- **Academy: 30 timed operations**;
-- **Recruit Data / Training Modules / Promotion Badges**;
-- **fragments, recruitment, Rank 1–5, Promotion 0–3**;
-- Specialist level cap до 25 через Promotion;
-- 3 Specialist slots на шахту: Extraction / Lift / Logistics;
-- Managers, AUTO и active abilities;
+- Academy: 30 timed operations;
+- fragments, Recruitment, Rank 1–5, Promotion 0–3, level cap до 25;
+- **Equipment crafting: 8 предметов + Alloy/Circuits/Fiber**;
+- **Crew Collection: 9 карточек/визуалов, Supply Crates, уровни до 5**;
+- **6 permanent Relics с auto-unlock**;
 - 30 Deck, Cargo Lift, Logistics Hub;
-- barriers, bulk upgrades, milestones и bottleneck HUD;
+- managers, AUTO, barriers, bulk upgrades, milestones, bottleneck HUD;
 - background / offline income;
 - primary + backup IndexedDB save;
-- save schema v8 с миграцией старых версий;
+- save schema **v9** с миграцией старых версий;
 - PWA + GitHub Pages;
 - mobile-first portrait UI 360–440 CSS px;
-- отдельный iPhone 11–17 Pro Max safe-area pass;
+- iPhone 11–17 Pro Max safe-area / Dynamic Island / home indicator pass;
 - LOW / MEDIUM / HIGH quality tiers и offscreen culling.
 
-## Stage 10 — Academy
+## Stage 11 — Meta progression
 
-Открой `Команда → Academy`.
+Открой `Команда → Meta`.
 
-Academy содержит 30 последовательных операций. Они работают по timestamp, поэтому операция продолжает идти после закрытия браузера или PWA.
+### Equipment
 
-Награды:
+- `▰ Alloy`, `▧ Circuits`, `⌁ Fiber` выдаются Academy Operations;
+- крафт создаёт реальные копии предметов;
+- один Specialist носит один предмет;
+- role-specific gear нельзя назначить несовместимому персонажу;
+- предметы усиливают passive / active и иногда сокращают cooldown.
 
-- `⬢ Recruit Data` — Recruitment Signal;
-- `▲ Training Modules` — повышение Level;
-- `● Promotion Badges` — Promotion;
-- `◆ Fragments` — Recruit и Rank Up.
+### Collection
 
-Recruitment Signal стоит 100 Recruit Data и гарантированно выдаёт fragment-пак.
+- `▣ Supply Keys` выдаются отдельными Academy Operations;
+- Supply Crate содержит 3 карточки;
+- дубликаты повышают уровень карточки до 5;
+- одновременно выбран один Crew, один Cargo Lift и один Logistics visual;
+- выбранные карты дают реальные throughput bonuses;
+- пока art pass не начался, визуальные наборы меняют prototype-colors работников, лифта и транспорта на Phaser scene.
 
-## Specialists
+### Relics
 
-Прогресс Specialist теперь состоит из четырёх слоёв:
+Relics открываются автоматически за долгосрочные достижения: Rebuild, количество шахт, Specialists, Academy, Collection и Equipment. Их бонусы постоянные и работают во всех секторах, включая background/offline расчёты.
 
-1. **Recruit** — собрать fragments и нанять персонажа.
-2. **Level** — Training Modules повышают базовые параметры.
-3. **Rank** — fragments усиливают passive и active.
-4. **Promotion** — Promotion Badges повышают level cap.
+## Academy
 
-Level caps:
+Academy Operations теперь выдают:
 
-`P0 → LV10 → P1 → LV15 → P2 → LV20 → P3 → LV25`
-
-Один Specialist может быть назначен только в одну шахту. Passive работает также в background/offline income; active ability — в открытой шахте.
+- `⬢ Recruit Data`;
+- `▲ Training Modules`;
+- `● Promotion Badges`;
+- `◆ Fragments`;
+- Alloy / Circuits / Fiber;
+- Supply Keys на отдельных этапах.
 
 ## Mobile portrait
 
@@ -73,7 +77,7 @@ Level caps:
 - **430×932 — iPhone 14/15 Pro Max class**;
 - 440×956 — large Pro Max class.
 
-Team / Academy / Specialists / Research / Rebuild / World Map используют собственные scroll areas и `100dvh`. На iPhone верхний safe-area расходуется только topbar, а home indicator — только bottom navigation / нижняя часть panel.
+Team / Academy / Specialists / Meta / Research / Rebuild / World Map используют собственные scroll areas и `100dvh`. Safe-area верхней части и home indicator не должны дважды съедать полезную высоту.
 
 ## Запуск
 
@@ -94,7 +98,7 @@ build.bat
 ## Публикация
 
 ```bat
-publish.bat "feat: stage 10 academy fragments rank promotion"
+publish.bat "feat: stage 11 equipment collection relics"
 ```
 
 `publish.bat` синхронизируется с `origin/main`, запускает typecheck, tests, production build, commit и push. GitHub Actions обновляет Pages.
@@ -105,4 +109,4 @@ publish.bat "feat: stage 10 academy fragments rank promotion"
 
 ## Документация
 
-`docs/STAGE_0.md` … `docs/STAGE_10.md`
+`docs/STAGE_0.md` … `docs/STAGE_11.md`

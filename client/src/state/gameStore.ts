@@ -3,6 +3,9 @@ import type { QualityTier } from '../core/device';
 import { detectQualityTier } from '../core/device';
 import type { SpecialistSystemView } from '../game/core/specialists';
 import type { AcademyView } from '../game/core/academy';
+import type { EquipmentView } from '../game/core/equipment';
+import type { CollectionView } from '../game/core/collection';
+import type { RelicView } from '../game/core/relics';
 import type {
   BarrierView,
   BottleneckView,
@@ -39,6 +42,9 @@ interface GameState {
   research: ResearchView | null;
   specialists: SpecialistSystemView | null;
   academy: AcademyView | null;
+  equipment: EquipmentView | null;
+  collection: CollectionView | null;
+  relics: RelicView | null;
   canUpgradeSelected: boolean;
   offlineReport: OfflineProgressReport | null;
   setApiOnline: (online: boolean) => void;
@@ -58,6 +64,9 @@ interface GameState {
     research: ResearchView,
     specialists: SpecialistSystemView,
     academy: AcademyView,
+    equipment: EquipmentView,
+    collection: CollectionView,
+    relics: RelicView,
     activeMineId: MineId,
     activeSectorId: SectorId,
     worldMines: WorldMineView[],
@@ -84,6 +93,9 @@ export const useGameStore = create<GameState>((set) => ({
   research: null,
   specialists: null,
   academy: null,
+  equipment: null,
+  collection: null,
+  relics: null,
   canUpgradeSelected: false,
   offlineReport: null,
   setApiOnline: (apiOnline) => set({ apiOnline }),
@@ -103,6 +115,9 @@ export const useGameStore = create<GameState>((set) => ({
     research,
     specialists,
     academy,
+    equipment,
+    collection,
+    relics,
     activeMineId,
     activeSectorId,
     worldMines,
@@ -121,6 +136,9 @@ export const useGameStore = create<GameState>((set) => ({
     research,
     specialists,
     academy,
+    equipment,
+    collection,
+    relics,
     activeMineId,
     activeSectorId,
     worldMines,

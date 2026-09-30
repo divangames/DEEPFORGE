@@ -9,6 +9,10 @@ export interface AcademyResources {
 export interface AcademyOperationRewards extends AcademyResources {
   fragmentSpecialistId: SpecialistId;
   fragments: number;
+  alloy: number;
+  circuits: number;
+  fiber: number;
+  supplyKeys: number;
 }
 
 export interface AcademyOperationDefinition {
@@ -85,6 +89,10 @@ export const ACADEMY_OPERATIONS: readonly AcademyOperationDefinition[] = Array.f
       promotionBadges,
       fragmentSpecialistId: specialist.id,
       fragments,
+      alloy: 4 + block * 2 + (index % 3),
+      circuits: 3 + block * 2 + (index % 4 === 0 ? 2 : 0),
+      fiber: 5 + block * 2 + (index % 2),
+      supplyKeys: index % 3 === 0 ? 1 : 0,
     },
   };
 });
@@ -160,7 +168,7 @@ export function startAcademyOperation(
 export function claimAcademyOperation(
   state: PersistentAcademyState,
   now: number,
-): { state: PersistentAcademyState; fragments: { specialistId: SpecialistId; amount: number } } | null {
+): { state: PersistentAcademyState; fragments: { specialistId: SpecialistId; amount: number }; rewards: AcademyOperationRewards } | null {
   const next = sanitizeAcademyState(state);
   const operation = getAcademyOperation(next.activeOperationId);
   if (!operation || now + 10 < next.activeEndsAt) return null;
@@ -176,6 +184,7 @@ export function claimAcademyOperation(
   return {
     state: next,
     fragments: { specialistId: operation.rewards.fragmentSpecialistId, amount: operation.rewards.fragments },
+    rewards: { ...operation.rewards },
   };
 }
 

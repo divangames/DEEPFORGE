@@ -1,8 +1,8 @@
 {
   "name": "deepforge-idle-empire",
   "private": true,
-  "version": "0.10.0",
-  "description": "DEEPFORGE: Idle Empire — Stage 10 Academy, fragments, rank and promotion",
+  "version": "0.11.0",
+  "description": "DEEPFORGE: Idle Empire — Stage 11 Equipment, Collection and Relics",
   "workspaces": [
     "client",
     "server"
