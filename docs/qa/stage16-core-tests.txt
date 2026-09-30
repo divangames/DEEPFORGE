@@ -1,0 +1,125 @@
+TAP version 13
+# Full expedition: 86.5 simulated minutes, score 22408, rewards {"cores":15,"recruitData":225,"trainingModules":150,"promotionBadges":15,"supplyKeys":5,"alloy":180,"circuits":90,"fiber":120,"medals":45}
+# Subtest: UTC weeks align to Monday; all 5 stage IDs are unique
+ok 1 - UTC weeks align to Monday; all 5 stage IDs are unique
+  ---
+  duration_ms: 2.872193
+  type: 'test'
+  ...
+# Subtest: 60 seconds of server time yields exactly 180 credits, polling does not mint extra cash
+ok 2 - 60 seconds of server time yields exactly 180 credits, polling does not mint extra cash
+  ---
+  duration_ms: 1.820731
+  type: 'test'
+  ...
+# Subtest: offline cap is 4 hours, storage increases it to 7; rollback never recredits
+ok 3 - offline cap is 4 hours, storage increases it to 7; rollback never recredits
+  ---
+  duration_ms: 0.210319
+  type: 'test'
+  ...
+# Subtest: event end clamps income even if the user returns next week
+ok 4 - event end clamps income even if the user returns next week
+  ---
+  duration_ms: 0.175254
+  type: 'test'
+  ...
+# Subtest: client score/time/identity are forbidden by request validation
+ok 5 - client score/time/identity are forbidden by request validation
+  ---
+  duration_ms: 2.217816
+  type: 'test'
+  ...
+# Subtest: bulk upgrades spend quoted cost and score is server-derived
+ok 6 - bulk upgrades spend quoted cost and score is server-derived
+  ---
+  duration_ms: 0.49673
+  type: 'test'
+  ...
+# Subtest: upgrade, research prerequisites and level caps reject invalid purchases
+ok 7 - upgrade, research prerequisites and level caps reject invalid purchases
+  ---
+  duration_ms: 0.55331
+  type: 'test'
+  ...
+# Subtest: new stage resets local levels/credits but preserves tree, reward chips and score
+ok 8 - new stage resets local levels/credits but preserves tree, reward chips and score
+  ---
+  duration_ms: 0.349013
+  type: 'test'
+  ...
+# Subtest: same request ID returns once, different payload with same ID is rejected
+ok 9 - same request ID returns once, different payload with same ID is rejected
+  ---
+  duration_ms: 0.431417
+  type: 'test'
+  ...
+# Subtest: milestone claim is once-only; earned unclaimed rewards settle once
+ok 10 - milestone claim is once-only; earned unclaimed rewards settle once
+  ---
+  duration_ms: 1.012105
+  type: 'test'
+  ...
+# Subtest: authentication requires a secret, not a public player ID
+ok 11 - authentication requires a secret, not a public player ID
+  ---
+  duration_ms: 3.51879
+  type: 'test'
+  ...
+# Subtest: concurrent start is idempotent and does not allocate several groups
+ok 12 - concurrent start is idempotent and does not allocate several groups
+  ---
+  duration_ms: 4.074306
+  type: 'test'
+  ...
+# Subtest: two concurrent actions at one revision: one success, one conflict
+ok 13 - two concurrent actions at one revision: one success, one conflict
+  ---
+  duration_ms: 1.802856
+  type: 'test'
+  ...
+# Subtest: transaction rollback leaves wallet/score/revision untouched after failure
+ok 14 - transaction rollback leaves wallet/score/revision untouched after failure
+  ---
+  duration_ms: 1.32854
+  type: 'test'
+  ...
+# Subtest: concurrent retries cannot double a claim
+ok 15 - concurrent retries cannot double a claim
+  ---
+  duration_ms: 1.773662
+  type: 'test'
+  ...
+# Subtest: end-of-week reward is atomic, auto-claims milestones and never repeats
+ok 16 - end-of-week reward is atomic, auto-claims milestones and never repeats
+  ---
+  duration_ms: 2.484185
+  type: 'test'
+  ...
+# Subtest: closed event does not accept actions, even with a valid old guest token
+ok 17 - closed event does not accept actions, even with a valid old guest token
+  ---
+  duration_ms: 0.486394
+  type: 'test'
+  ...
+# Subtest: 101 players get groups of 100 and 1; own row is shown outside top 10
+ok 18 - 101 players get groups of 100 and 1; own row is shown outside top 10
+  ---
+  duration_ms: 43.617559
+  type: 'test'
+  ...
+# Subtest: full five-stage expedition completes through legitimate economy actions
+ok 19 - full five-stage expedition completes through legitimate economy actions
+  ---
+  duration_ms: 6.635215
+  type: 'test'
+  ...
+1..19
+# tests 19
+# suites 0
+# pass 19
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 182.544703

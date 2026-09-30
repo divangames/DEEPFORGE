@@ -1,0 +1,5 @@
+{
+  "scope": "Syntax only, not dependency-backed project typecheck",
+  "files": 71,
+  "errors": []
+}

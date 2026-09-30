@@ -1,8 +1,8 @@
 {
   "name": "deepforge-idle-empire",
   "private": true,
-  "version": "0.15.0",
-  "description": "DEEPFORGE: Idle Empire — Stage 15 Server-authoritative Leaderboards and Blitz Drill",
+  "version": "0.16.0",
+  "description": "DEEPFORGE Stage 16 — Rift Expedition",
   "workspaces": [
     "client",
     "server"
@@ -10,9 +10,11 @@
   "scripts": {
     "dev": "concurrently -n CLIENT,SERVER -c auto \"npm run dev -w client\" \"npm run dev -w server\"",
     "build": "npm run build -w client && npm run build -w server",
-    "typecheck": "npm run typecheck -w client && npm run typecheck -w server",
-    "test": "npm run test -w client && npm run test -w server",
-    "start": "npm run start -w server"
+    "typecheck": "npm run check:rift-contract && npm run typecheck -w client && npm run typecheck -w server",
+    "test": "npm run test -w client && npm run test -w server && npm run test:rift",
+    "start": "npm run start -w server",
+    "check:rift-contract": "node scripts/sync-rift-contract.mjs --check",
+    "test:rift": "node scripts/test-rift.mjs"
   },
   "devDependencies": {
     "concurrently": "10.0.5"

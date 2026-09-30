@@ -1,3 +1,4 @@
+import { isGameSceneCovered } from '../runtime/viewPerformance';
 import Phaser from 'phaser';
 import { loadGameState, saveGameState } from '../../db/saveRepository';
 import { useGameStore } from '../../state/gameStore';
@@ -240,10 +241,10 @@ export class FoundationScene extends Phaser.Scene {
     advanceSpecialistTimers(this.specialists, deltaSeconds);
     this.applySpecialistsToActiveSimulation();
     this.simulation.tick(deltaSeconds);
-    this.renderSimulation();
+    if (!isGameSceneCovered()) this.renderSimulation();
 
     this.syncAccumulator += deltaMs;
-    if (this.syncAccumulator >= this.uiSyncInterval) {
+    if (this.syncAccumulator >= (isGameSceneCovered() ? 1000 : this.uiSyncInterval)) {
       this.syncAccumulator = 0;
       this.syncUi();
     }

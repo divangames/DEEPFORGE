@@ -1,0 +1,27 @@
+{
+  "checks": {
+    "ascii_no_bom": true,
+    "crlf_only": true,
+    "delayed_expansion_disabled": true,
+    "all_labels_defined": true,
+    "no_duplicate_labels": true,
+    "no_history_rewrites": true,
+    "no_force_push": true,
+    "fast_forward_guard_allows_update": true,
+    "exact_commit_push_succeeds": true,
+    "history_and_untracked_file_preserved": true,
+    "upstream_stays_origin_main": true,
+    "fast_forward_guard_stops_new_remote_commit": true,
+    "blocked_flow_preserves_local_remote": true,
+    "fresh_helper_overrides_old_helpers": true
+  },
+  "passed": 14,
+  "environment": "Linux Git, static BAT validation; GitHub CLI mocked only for helper selection",
+  "not_executed": [
+    "cmd.exe on Windows",
+    "WinGet installation",
+    "real GitHub OAuth login",
+    "push to user GitHub repository",
+    "GitHub Actions deployment"
+  ]
+}

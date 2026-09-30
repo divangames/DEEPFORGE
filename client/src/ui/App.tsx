@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getApiHealth } from '../services/api';
 import { resetServerClockToLocal, syncServerClock } from '../services/serverClock';
 import { formatCompact } from '../game/core/format';
@@ -16,6 +16,8 @@ import { sendGameCommand } from '../game/runtime/gameRuntime';
 import { useGameStore } from '../state/gameStore';
 import { GameCanvas } from './GameCanvas';
 import { BlitzPanel } from './BlitzPanel';
+import { RiftPanel } from './RiftPanel';
+import { EventsMenu, type EventScreen } from './EventsMenu';
 
 function runFacility(id: FacilityId) {
   if (id === 'lift') return sendGameCommand({ type: 'START_LIFT' });
@@ -1074,6 +1076,14 @@ export function App() {
   const [contractOpen, setContractOpen] = useState(false);
   const [seasonOpen, setSeasonOpen] = useState(false);
   const [blitzOpen, setBlitzOpen] = useState(false);
+  const [riftOpen, setRiftOpen] = useState(false);
+  const [eventsOpen, setEventsOpen] = useState(false);
+  const closeRift = useCallback(() => setRiftOpen(false), []);
+  const openEvent = (screen: EventScreen) => {
+    setEventsOpen(false); setTeamOpen(false); setMapOpen(false); setRebuildOpen(false); setResearchOpen(false);
+    setContractOpen(screen === 'weekly'); setSeasonOpen(screen === 'season');
+    setBlitzOpen(screen === 'blitz'); setRiftOpen(screen === 'rift');
+  };
   const [bulkMode, setBulkMode] = useState<BulkUpgradeMode>(1);
   const quality = useGameStore((state) => state.quality);
   const apiOnline = useGameStore((state) => state.apiOnline);
@@ -1203,28 +1213,12 @@ export function App() {
           </div>
         )}
 
-        {(weeklyContract || seasonalCampaign || social) && (
-          <div className="liveops-stack">
-            {weeklyContract && (
-              <button type="button" className="contract-entry" onClick={() => { setSeasonOpen(false); setBlitzOpen(false); setContractOpen(true); }}>
-                <span>⚡ WEEKLY</span><strong>{weeklyContract.title}</strong><small>{weeklyContract.currencyCode} {formatCompact(weeklyContract.cash)} · {formatAwayTime(weeklyContract.remainingSeconds)}</small>
-              </button>
-            )}
-            {seasonalCampaign && (
-              <button type="button" className="season-entry" onClick={() => { setContractOpen(false); setBlitzOpen(false); setSeasonOpen(true); }}>
-                <span>✦ SEASON</span><strong>{seasonalCampaign.title}</strong><small>LV {seasonalCampaign.currentLevel}/{seasonalCampaign.maxLevel} · {seasonalCampaign.xp} XP</small>
-              </button>
-            )}
-            {social && (
-              <button type="button" className="blitz-entry" onClick={() => { setContractOpen(false); setSeasonOpen(false); setBlitzOpen(true); }}>
-                <span>◆ BLITZ</span><strong>Velocity Run</strong><small>{apiOnline ? 'SERVER RANKING · 10 MIN' : 'SERVER REQUIRED'}</small>
-              </button>
-            )}
-          </div>
-        )}
+        <button type="button" className="events-launcher" aria-haspopup="dialog" onClick={() => setEventsOpen(true)}>
+          <span>События</span><b>4</b>
+        </button>
 
         <div className="stage-badge">
-          <strong>STAGE 15</strong>
+          <strong>STAGE 16</strong>
           <span>{quality}</span>
           <span className={apiOnline ? 'ok' : 'muted'}>{apiOnline ? 'API' : 'LOCAL'}</span>
         </div>
@@ -1350,12 +1344,15 @@ export function App() {
       </section>
 
       <nav className="bottom-nav" aria-label="Главная навигация">
-        <button type="button" className={!teamOpen && !mapOpen && !rebuildOpen && !researchOpen && !contractOpen && !seasonOpen && !blitzOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setMapOpen(false); setRebuildOpen(false); setResearchOpen(false); setContractOpen(false); setSeasonOpen(false); setBlitzOpen(false); }}><span>◆</span>Объект</button>
-        <button type="button" className={mapOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setRebuildOpen(false); setResearchOpen(false); setContractOpen(false); setSeasonOpen(false); setBlitzOpen(false); setMapOpen(true); }}><span>⌖</span>Карта</button>
-        <button type="button" className={teamOpen ? 'active' : ''} onClick={() => { setMapOpen(false); setRebuildOpen(false); setResearchOpen(false); setContractOpen(false); setSeasonOpen(false); setBlitzOpen(false); setTeamOpen(true); }}><span>♟</span>Команда</button>
-        <button type="button" className={rebuildOpen ? 'active rebuild-nav' : 'rebuild-nav'} onClick={() => { setMapOpen(false); setTeamOpen(false); setResearchOpen(false); setContractOpen(false); setSeasonOpen(false); setBlitzOpen(false); setRebuildOpen(true); }}><span>↻</span>Rebuild</button>
-        <button type="button" className={researchOpen ? 'active research-nav' : 'research-nav'} onClick={() => { setMapOpen(false); setTeamOpen(false); setRebuildOpen(false); setContractOpen(false); setSeasonOpen(false); setBlitzOpen(false); setResearchOpen(true); }}><span>◈</span>Research</button>
+        <button type="button" className={!teamOpen && !mapOpen && !rebuildOpen && !researchOpen && !contractOpen && !seasonOpen && !blitzOpen && !riftOpen && !eventsOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setMapOpen(false); setRebuildOpen(false); setResearchOpen(false); setContractOpen(false); setSeasonOpen(false); setBlitzOpen(false); setRiftOpen(false); setEventsOpen(false); }}><span>◆</span>Объект</button>
+        <button type="button" className={mapOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setRebuildOpen(false); setResearchOpen(false); setContractOpen(false); setSeasonOpen(false); setBlitzOpen(false); setRiftOpen(false); setEventsOpen(false); setMapOpen(true); }}><span>⌖</span>Карта</button>
+        <button type="button" className={teamOpen ? 'active' : ''} onClick={() => { setMapOpen(false); setRebuildOpen(false); setResearchOpen(false); setContractOpen(false); setSeasonOpen(false); setBlitzOpen(false); setRiftOpen(false); setEventsOpen(false); setTeamOpen(true); }}><span>♟</span>Команда</button>
+        <button type="button" className={rebuildOpen ? 'active rebuild-nav' : 'rebuild-nav'} onClick={() => { setMapOpen(false); setTeamOpen(false); setResearchOpen(false); setContractOpen(false); setSeasonOpen(false); setBlitzOpen(false); setRiftOpen(false); setEventsOpen(false); setRebuildOpen(true); }}><span>↻</span>Rebuild</button>
+        <button type="button" className={researchOpen ? 'active research-nav' : 'research-nav'} onClick={() => { setMapOpen(false); setTeamOpen(false); setRebuildOpen(false); setContractOpen(false); setSeasonOpen(false); setBlitzOpen(false); setRiftOpen(false); setEventsOpen(false); setResearchOpen(true); }}><span>◈</span>Research</button>
       </nav>
+
+      {eventsOpen && <EventsMenu onSelect={openEvent} onClose={() => setEventsOpen(false)} />}
+      {riftOpen && <RiftPanel nickname={social?.nickname ?? 'Operator'} onClose={closeRift} />}
 
       {contractOpen && weeklyContract && (
         <ContractPanel contract={weeklyContract} onClose={() => setContractOpen(false)} />

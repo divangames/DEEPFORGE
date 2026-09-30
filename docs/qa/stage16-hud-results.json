@@ -1,0 +1,37 @@
+[
+  {
+    "viewport": [
+      320,
+      568
+    ],
+    "noOverlap": true
+  },
+  {
+    "viewport": [
+      360,
+      640
+    ],
+    "noOverlap": true
+  },
+  {
+    "viewport": [
+      430,
+      932
+    ],
+    "noOverlap": true
+  },
+  {
+    "viewport": [
+      440,
+      956
+    ],
+    "noOverlap": true
+  },
+  {
+    "viewport": [
+      1366,
+      768
+    ],
+    "noOverlap": true
+  }
+]

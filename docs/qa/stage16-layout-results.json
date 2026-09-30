@@ -1,0 +1,149 @@
+{
+  "scope": "Chromium CSS fixture with production styles, NOT React/PWA E2E or physical iPhone testing",
+  "cases": [
+    {
+      "viewport": [
+        320,
+        568
+      ],
+      "safeAreaSimulated": true,
+      "passed": true,
+      "scrollHeight": 166
+    },
+    {
+      "viewport": [
+        360,
+        640
+      ],
+      "safeAreaSimulated": true,
+      "passed": true,
+      "scrollHeight": 238
+    },
+    {
+      "viewport": [
+        375,
+        667
+      ],
+      "safeAreaSimulated": true,
+      "passed": true,
+      "scrollHeight": 265
+    },
+    {
+      "viewport": [
+        375,
+        812
+      ],
+      "safeAreaSimulated": true,
+      "passed": true,
+      "scrollHeight": 410
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "safeAreaSimulated": true,
+      "passed": true,
+      "scrollHeight": 442
+    },
+    {
+      "viewport": [
+        393,
+        852
+      ],
+      "safeAreaSimulated": true,
+      "passed": true,
+      "scrollHeight": 450
+    },
+    {
+      "viewport": [
+        402,
+        874
+      ],
+      "safeAreaSimulated": true,
+      "passed": true,
+      "scrollHeight": 472
+    },
+    {
+      "viewport": [
+        414,
+        896
+      ],
+      "safeAreaSimulated": true,
+      "passed": true,
+      "scrollHeight": 494
+    },
+    {
+      "viewport": [
+        428,
+        926
+      ],
+      "safeAreaSimulated": true,
+      "passed": true,
+      "scrollHeight": 524
+    },
+    {
+      "viewport": [
+        430,
+        932
+      ],
+      "safeAreaSimulated": true,
+      "passed": true,
+      "scrollHeight": 530
+    },
+    {
+      "viewport": [
+        430,
+        774
+      ],
+      "safeAreaSimulated": true,
+      "passed": true,
+      "scrollHeight": 372
+    },
+    {
+      "viewport": [
+        440,
+        956
+      ],
+      "safeAreaSimulated": true,
+      "passed": true,
+      "scrollHeight": 554
+    },
+    {
+      "viewport": [
+        768,
+        1024
+      ],
+      "safeAreaSimulated": false,
+      "passed": true,
+      "scrollHeight": 630
+    },
+    {
+      "viewport": [
+        1024,
+        768
+      ],
+      "safeAreaSimulated": false,
+      "passed": true,
+      "scrollHeight": 466
+    },
+    {
+      "viewport": [
+        1366,
+        768
+      ],
+      "safeAreaSimulated": false,
+      "passed": true,
+      "scrollHeight": 466
+    },
+    {
+      "viewport": [
+        1920,
+        1080
+      ],
+      "safeAreaSimulated": false,
+      "passed": true,
+      "scrollHeight": 630
+    }
+  ]
+}

@@ -1,0 +1,164 @@
+{
+  "baseCommit": "7f6f2b31133d61857ba9ebd3ba89643fe78d5d59",
+  "excludedFromArchive": [
+    ".git",
+    "node_modules",
+    "dist",
+    ".env",
+    "package-lock.json"
+  ],
+  "changes": [
+    {
+      "path": ".gitignore",
+      "status": "modified"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "status": "modified"
+    },
+    {
+      "path": "README.md",
+      "status": "modified"
+    },
+    {
+      "path": "client/package.json",
+      "status": "modified"
+    },
+    {
+      "path": "client/src/config/appConfig.ts",
+      "status": "modified"
+    },
+    {
+      "path": "client/src/game/core/rift.ts",
+      "status": "added"
+    },
+    {
+      "path": "client/src/game/runtime/viewPerformance.ts",
+      "status": "added"
+    },
+    {
+      "path": "client/src/game/scenes/FoundationScene.ts",
+      "status": "modified"
+    },
+    {
+      "path": "client/src/services/riftApi.ts",
+      "status": "added"
+    },
+    {
+      "path": "client/src/ui/App.tsx",
+      "status": "modified"
+    },
+    {
+      "path": "client/src/ui/EventsMenu.tsx",
+      "status": "added"
+    },
+    {
+      "path": "client/src/ui/RiftPanel.tsx",
+      "status": "added"
+    },
+    {
+      "path": "client/src/ui/rift.css",
+      "status": "added"
+    },
+    {
+      "path": "dev_rift_memory.bat",
+      "status": "added"
+    },
+    {
+      "path": "docs/STAGE_16.md",
+      "status": "added"
+    },
+    {
+      "path": "docs/STAGE_16_QA.md",
+      "status": "added"
+    },
+    {
+      "path": "docs/qa/stage16-core-tests.txt",
+      "status": "added"
+    },
+    {
+      "path": "docs/qa/stage16-hud-results.json",
+      "status": "added"
+    },
+    {
+      "path": "docs/qa/stage16-layout-results.json",
+      "status": "added"
+    },
+    {
+      "path": "docs/qa/stage16-syntax-results.json",
+      "status": "added"
+    },
+    {
+      "path": "package.json",
+      "status": "modified"
+    },
+    {
+      "path": "publish.bat",
+      "status": "modified"
+    },
+    {
+      "path": "scripts/rift-tests.mjs",
+      "status": "added"
+    },
+    {
+      "path": "scripts/sync-rift-contract.mjs",
+      "status": "added"
+    },
+    {
+      "path": "scripts/test-rift.mjs",
+      "status": "added"
+    },
+    {
+      "path": "server/package.json",
+      "status": "modified"
+    },
+    {
+      "path": "server/sql/003_rift.sql",
+      "status": "added"
+    },
+    {
+      "path": "server/src/index.ts",
+      "status": "modified"
+    },
+    {
+      "path": "server/src/rift/engine.ts",
+      "status": "added"
+    },
+    {
+      "path": "server/src/rift/postgres.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "server/src/rift/postgresRepository.ts",
+      "status": "added"
+    },
+    {
+      "path": "server/src/rift/protocol.ts",
+      "status": "added"
+    },
+    {
+      "path": "server/src/rift/repository.ts",
+      "status": "added"
+    },
+    {
+      "path": "server/src/rift/schema.ts",
+      "status": "added"
+    },
+    {
+      "path": "server/src/rift/service.ts",
+      "status": "added"
+    },
+    {
+      "path": "server/src/rift/validation.ts",
+      "status": "added"
+    },
+    {
+      "path": "server/src/routes/rift.test.ts",
+      "status": "added"
+    },
+    {
+      "path": "server/src/routes/rift.ts",
+      "status": "added"
+    }
+  ]
+}

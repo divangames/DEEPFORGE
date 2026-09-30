@@ -3,6 +3,7 @@ import Fastify from 'fastify';
 import { env } from './config.js';
 import { healthRoutes } from './routes/health.js';
 import { timeRoutes } from './routes/time.js';
+import { riftRoutes } from './routes/rift.js';
 import { blitzRoutes } from './routes/blitz.js';
 
 const app = Fastify({ logger: true });
@@ -15,6 +16,7 @@ await app.register(cors, {
 await app.register(healthRoutes);
 await app.register(timeRoutes);
 await app.register(blitzRoutes);
+await app.register(riftRoutes);
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error);

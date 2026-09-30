@@ -12,3 +12,6 @@ dist/
 # Local packaged snapshots
 steps/*.zip
 *.zip
+
+# Изолированные тестовые сборки
+.rift-tests/

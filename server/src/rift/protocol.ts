@@ -1,0 +1,44 @@
+// Публичный контракт Rift API. Клиентскую копию обновляет scripts/sync-rift-contract.mjs.
+export type RiftFacility = 'extraction' | 'lift' | 'logistics';
+export type RiftTech = 'drills' | 'refining' | 'cables' | 'dispatch' | 'efficiency' | 'storage';
+export type RiftResource = 'cores' | 'recruitData' | 'trainingModules' | 'promotionBadges' | 'supplyKeys' | 'alloy' | 'circuits' | 'fiber' | 'medals';
+export type RiftWallet = Record<RiftResource, number>;
+export interface RiftEvent { id: string; title: string; startsAt: number; endsAt: number }
+export interface RiftAction {
+  requestId: string;
+  eventId: string;
+  revision: number;
+  kind: 'upgrade' | 'research' | 'complete' | 'claim';
+  target?: RiftFacility | RiftTech | string;
+  count?: 1 | 10;
+}
+export interface RiftStage { id: string; title: string; target: number; minLevel: number; yield: number; costScale: number }
+export interface RiftRank { rank: number; playerId: string; nickname: string; score: number; self: boolean }
+export interface RiftTechView {
+  id: RiftTech; title: string; description: string; level: number; maxLevel: number;
+  cost: number; prerequisite: string | null; available: boolean;
+}
+export interface RiftMilestoneView {
+  id: string; title: string; reached: boolean; claimed: boolean; chips: number;
+  reward: Partial<RiftWallet>;
+}
+export interface RiftStatus {
+  ok: true;
+  serverNow: number;
+  persistence: 'postgres' | 'memory';
+  event: RiftEvent;
+  player: { id: string; nickname: string; wallet: RiftWallet };
+  stages: RiftStage[];
+  run: null | {
+    revision: number; stageIndex: number; completed: boolean; credits: number; chips: number;
+    stageEarned: number; target: number; minLevel: number; canComplete: boolean;
+    score: number; incomePerSecond: number; bottleneck: RiftFacility; offlineCapHours: number;
+    facilities: { id: RiftFacility; title: string; level: number; maxLevel: number; rate: number; cost1: number; cost10: number | null }[];
+    startedAt: number; completedAt: number | null;
+  };
+  tree: RiftTechView[];
+  milestones: RiftMilestoneView[];
+  board: { group: string | null; participants: number; selfRank: number | null; entries: RiftRank[] };
+  previous: null | { eventId: string; score: number; rank: number | null; medals: number; unclaimedPaid: number };
+}
+export interface RiftGuest { ok: true; playerId: string; token: string }
