@@ -1,0 +1,49 @@
+{
+  "baseCommit": "ec4234f2577d6dd5809b3e3ecbf0b2f750909bf4",
+  "baseWorkflowRun": 36729571471,
+  "baseDeployment": "success",
+  "candidateVersion": "0.17.0",
+  "riftCore": {
+    "passed": 43,
+    "failed": 0
+  },
+  "uiPolicy": {
+    "passed": 17,
+    "failed": 0
+  },
+  "compilerHelper": {
+    "passed": 10,
+    "failed": 0
+  },
+  "browserHelpers": {
+    "passed": 12,
+    "failed": 0
+  },
+  "layout": {
+    "cases": 512,
+    "failed": 0,
+    "states": 32,
+    "viewports": [
+      "1024x768",
+      "1366x768",
+      "1920x1080",
+      "320x568",
+      "360x640",
+      "375x667",
+      "375x812",
+      "390x844",
+      "393x852",
+      "402x874",
+      "414x896",
+      "428x926",
+      "430x774",
+      "430x932",
+      "440x956",
+      "768x1024"
+    ]
+  },
+  "fullDependencyBuild": "NOT_RUN: npm registry DNS unavailable",
+  "physicalIPhone": "NOT_RUN",
+  "postgresIntegration": "NOT_RUN",
+  "newStagePushedByAssistant": false
+}

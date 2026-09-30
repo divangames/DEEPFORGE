@@ -1,0 +1,271 @@
+[TSC] explicit DF_TSC_PATH: /opt/nvm/versions/node/v22.16.0/lib/node_modules/typescript/bin/tsc
+TAP version 13
+# Reactor expedition: 22.2 simulated minutes; 32 cores earned; 23370 score.
+# Subtest: Reactor is unavailable on first site; actual completion unlocks it exactly once
+ok 1 - Reactor is unavailable on first site; actual completion unlocks it exactly once
+  ---
+  duration_ms: 2.952009
+  type: 'test'
+  ...
+# Subtest: legacy v1 JSON keeps progress, no reactor or new grouping inserted mid-run
+ok 2 - legacy v1 JSON keeps progress, no reactor or new grouping inserted mid-run
+  ---
+  duration_ms: 0.439139
+  type: 'test'
+  ...
+# Subtest: six operators have unique IDs, finite buffs and positive durations/cooldowns
+ok 3 - six operators have unique IDs, finite buffs and positive durations/cooldowns
+  ---
+  duration_ms: 0.227181
+  type: 'test'
+  ...
+# Subtest: strict request validation accepts reactor commands and rejects all client rewards/times
+ok 4 - strict request validation accepts reactor commands and rejects all client rewards/times
+  ---
+  duration_ms: 1.431888
+  type: 'test'
+  ...
+# Subtest: locked slot, locked operator, duplicate operator and occupied role cannot be assigned
+ok 5 - locked slot, locked operator, duplicate operator and occupied role cannot be assigned
+  ---
+  duration_ms: 0.438578
+  type: 'test'
+  ...
+# Subtest: a valid use grants one core, no direct score, and a finite personal cooldown
+ok 6 - a valid use grants one core, no direct score, and a finite personal cooldown
+  ---
+  duration_ms: 0.84004
+  type: 'test'
+  ...
+# Subtest: cooldown is not bypassed by unassign/reassign; active operators cannot be removed
+ok 7 - cooldown is not bypassed by unassign/reassign; active operators cannot be removed
+  ---
+  duration_ms: 0.885498
+  type: 'test'
+  ...
+# Subtest: same request replay gives no second core; edited payload is rejected
+ok 8 - same request replay gives no second core; edited payload is rejected
+  ---
+  duration_ms: 0.284006
+  type: 'test'
+  ...
+# Subtest: v1 receipt encoding still accepts a retry after deployment
+ok 9 - v1 receipt encoding still accepts a retry after deployment
+  ---
+  duration_ms: 0.514923
+  type: 'test'
+  ...
+# Subtest: upgrade costs debit once, max levels and insufficient cores are enforced
+ok 10 - upgrade costs debit once, max levels and insufficient cores are enforced
+  ---
+  duration_ms: 1.23357
+  type: 'test'
+  ...
+# Subtest: pulse starts after 60 seconds, lasts exactly 12 seconds and repeats without polling
+ok 11 - pulse starts after 60 seconds, lasts exactly 12 seconds and repeats without polling
+  ---
+  duration_ms: 0.251157
+  type: 'test'
+  ...
+# Subtest: partial coverage respects bottlenecks; full coverage boosts the actual chain
+ok 12 - partial coverage respects bottlenecks; full coverage boosts the actual chain
+  ---
+  duration_ms: 0.215473
+  type: 'test'
+  ...
+# Subtest: offline pulse integration gives the same money as frequent status calls
+ok 13 - offline pulse integration gives the same money as frequent status calls
+  ---
+  duration_ms: 35.190488
+  type: 'test'
+  ...
+# Subtest: operator endings split offline integration, no permanent buff or extra cores while offline
+ok 14 - operator endings split offline integration, no permanent buff or extra cores while offline
+  ---
+  duration_ms: 488.813491
+  type: 'test'
+  ...
+# Subtest: mid-pulse upgrade cannot retroactively reprice the interval already elapsed
+ok 15 - mid-pulse upgrade cannot retroactively reprice the interval already elapsed
+  ---
+  duration_ms: 0.272629
+  type: 'test'
+  ...
+# Subtest: pulse and operator stack only on targets and respect the same minimum throughput
+ok 16 - pulse and operator stack only on targets and respect the same minimum throughput
+  ---
+  duration_ms: 0.147531
+  type: 'test'
+  ...
+# Subtest: offline cap clips automatic pulses and expiry clips income at the weekly end
+ok 17 - offline cap clips automatic pulses and expiry clips income at the weekly end
+  ---
+  duration_ms: 0.474852
+  type: 'test'
+  ...
+# Subtest: completion preserves reactor upgrades, assignments and cooldown across sites
+ok 18 - completion preserves reactor upgrades, assignments and cooldown across sites
+  ---
+  duration_ms: 0.288292
+  type: 'test'
+  ...
+# Subtest: finished run produces no reactor income and rejects new activations/upgrades
+ok 19 - finished run produces no reactor income and rejects new activations/upgrades
+  ---
+  duration_ms: 0.331377
+  type: 'test'
+  ...
+# Subtest: simultaneous retries serialize to one activation and persist across service instances
+ok 20 - simultaneous retries serialize to one activation and persist across service instances
+  ---
+  duration_ms: 3.81901
+  type: 'test'
+  ...
+# Subtest: failed reactor command rolls back credits, cores, revision and slot together
+ok 21 - failed reactor command rolls back credits, cores, revision and slot together
+  ---
+  duration_ms: 1.19312
+  type: 'test'
+  ...
+# Subtest: legacy and Reactor runs are allocated distinct rating cohorts, next week migrates naturally
+ok 22 - legacy and Reactor runs are allocated distinct rating cohorts, next week migrates naturally
+  ---
+  duration_ms: 1.074222
+  type: 'test'
+  ...
+# Subtest: all six operators can be earned/used and a fully upgraded reactor survives serialization
+ok 23 - all six operators can be earned/used and a fully upgraded reactor survives serialization
+  ---
+  duration_ms: 0.394962
+  type: 'test'
+  ...
+# Subtest: full new expedition uses reactor commands and completes all five sites legitimately
+ok 24 - full new expedition uses reactor commands and completes all five sites legitimately
+  ---
+  duration_ms: 9.999913
+  type: 'test'
+  ...
+# Full expedition: 86.5 simulated minutes, score 22408, rewards {"cores":15,"recruitData":225,"trainingModules":150,"promotionBadges":15,"supplyKeys":5,"alloy":180,"circuits":90,"fiber":120,"medals":45}
+# Subtest: UTC weeks align to Monday; all 5 stage IDs are unique
+ok 25 - UTC weeks align to Monday; all 5 stage IDs are unique
+  ---
+  duration_ms: 1.704307
+  type: 'test'
+  ...
+# Subtest: 60 seconds of server time yields exactly 180 credits, polling does not mint extra cash
+ok 26 - 60 seconds of server time yields exactly 180 credits, polling does not mint extra cash
+  ---
+  duration_ms: 1.073781
+  type: 'test'
+  ...
+# Subtest: offline cap is 4 hours, storage increases it to 7; rollback never recredits
+ok 27 - offline cap is 4 hours, storage increases it to 7; rollback never recredits
+  ---
+  duration_ms: 0.220631
+  type: 'test'
+  ...
+# Subtest: event end clamps income even if the user returns next week
+ok 28 - event end clamps income even if the user returns next week
+  ---
+  duration_ms: 0.230366
+  type: 'test'
+  ...
+# Subtest: client score/time/identity are forbidden by request validation
+ok 29 - client score/time/identity are forbidden by request validation
+  ---
+  duration_ms: 1.851007
+  type: 'test'
+  ...
+# Subtest: bulk upgrades spend quoted cost and score is server-derived
+ok 30 - bulk upgrades spend quoted cost and score is server-derived
+  ---
+  duration_ms: 0.455693
+  type: 'test'
+  ...
+# Subtest: upgrade, research prerequisites and level caps reject invalid purchases
+ok 31 - upgrade, research prerequisites and level caps reject invalid purchases
+  ---
+  duration_ms: 0.512869
+  type: 'test'
+  ...
+# Subtest: new stage resets local levels/credits but preserves tree, reward chips and score
+ok 32 - new stage resets local levels/credits but preserves tree, reward chips and score
+  ---
+  duration_ms: 0.483675
+  type: 'test'
+  ...
+# Subtest: same request ID returns once, different payload with same ID is rejected
+ok 33 - same request ID returns once, different payload with same ID is rejected
+  ---
+  duration_ms: 0.72604
+  type: 'test'
+  ...
+# Subtest: milestone claim is once-only; earned unclaimed rewards settle once
+ok 34 - milestone claim is once-only; earned unclaimed rewards settle once
+  ---
+  duration_ms: 1.195864
+  type: 'test'
+  ...
+# Subtest: authentication requires a secret, not a public player ID
+ok 35 - authentication requires a secret, not a public player ID
+  ---
+  duration_ms: 2.963296
+  type: 'test'
+  ...
+# Subtest: concurrent start is idempotent and does not allocate several groups
+ok 36 - concurrent start is idempotent and does not allocate several groups
+  ---
+  duration_ms: 5.576187
+  type: 'test'
+  ...
+# Subtest: two concurrent actions at one revision: one success, one conflict
+ok 37 - two concurrent actions at one revision: one success, one conflict
+  ---
+  duration_ms: 1.17983
+  type: 'test'
+  ...
+# Subtest: transaction rollback leaves wallet/score/revision untouched after failure
+ok 38 - transaction rollback leaves wallet/score/revision untouched after failure
+  ---
+  duration_ms: 1.071167
+  type: 'test'
+  ...
+# Subtest: concurrent retries cannot double a claim
+ok 39 - concurrent retries cannot double a claim
+  ---
+  duration_ms: 1.096755
+  type: 'test'
+  ...
+# Subtest: end-of-week reward is atomic, auto-claims milestones and never repeats
+ok 40 - end-of-week reward is atomic, auto-claims milestones and never repeats
+  ---
+  duration_ms: 1.039049
+  type: 'test'
+  ...
+# Subtest: closed event does not accept actions, even with a valid old guest token
+ok 41 - closed event does not accept actions, even with a valid old guest token
+  ---
+  duration_ms: 0.38019
+  type: 'test'
+  ...
+# Subtest: 101 players get groups of 100 and 1; own row is shown outside top 10
+ok 42 - 101 players get groups of 100 and 1; own row is shown outside top 10
+  ---
+  duration_ms: 38.277599
+  type: 'test'
+  ...
+# Subtest: full five-stage expedition completes through legitimate economy actions
+ok 43 - full five-stage expedition completes through legitimate economy actions
+  ---
+  duration_ms: 7.825771
+  type: 'test'
+  ...
+1..43
+# tests 43
+# suites 0
+# pass 43
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 634.119898

@@ -32,10 +32,11 @@ export class PostgresRiftRepository implements RiftRepository {
             : 'SELECT pg_advisory_xact_lock_shared(hashtext($1)::bigint)';
           await connection.query(sql, [`deepforge:${eventId}`]);
         },
-        allocateGroup: async (eventId) => {
+        allocateGroup: async (eventId, rulesVersion = 1) => {
+          const allocationKey = rulesVersion >= 2 ? `${eventId}:rules-${rulesVersion}` : eventId;
           const allocated = await connection.query<{ allocated: number }>(
-            'INSERT INTO rift_cohorts(event_id,allocated) VALUES($1,1) ON CONFLICT(event_id) DO UPDATE SET allocated=rift_cohorts.allocated+1 RETURNING allocated', [eventId]);
-          return `R-${String(Math.floor((Number(allocated.rows[0].allocated) - 1) / 100) + 1).padStart(4, '0')}`;
+            'INSERT INTO rift_cohorts(event_id,allocated) VALUES($1,1) ON CONFLICT(event_id) DO UPDATE SET allocated=rift_cohorts.allocated+1 RETURNING allocated', [allocationKey]);
+          return `R${rulesVersion >= 2 ? rulesVersion : ''}-${String(Math.floor((Number(allocated.rows[0].allocated) - 1) / 100) + 1).padStart(4, '0')}`;
         },
         saveEntry: async (entry) => {
           await connection.query(`INSERT INTO rift_scores(event_id,group_id,player_id,nickname,score,reached_at) VALUES($1,$2,$3,$4,$5,$6)

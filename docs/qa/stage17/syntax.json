@@ -1,0 +1,6 @@
+{
+  "compiler": "5.8.3",
+  "kind": "syntax only (not dependency typechecking)",
+  "count": 82,
+  "errors": []
+}

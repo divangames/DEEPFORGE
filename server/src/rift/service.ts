@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { advanceRun, applyAction, canComplete, costOf, createRun, eventAt, FACILITY_LABELS, flowOf, MAX_LEVEL, milestoneView, RIFT_FACILITIES, RIFT_STAGES, RiftError, settleMilestones, stageOf, treeView } from './engine.js';
-import type { RiftAction, RiftGuest, RiftStatus } from './protocol.js';
+import { advanceRun, applyAction, canComplete, costOf, createRun, eventAt, FACILITY_LABELS, flowOf, MAX_LEVEL, milestoneView, RIFT_FACILITIES, RIFT_STAGES, RIFT_RULES_VERSION, RiftError, settleMilestones, stageOf, treeView } from './engine.js';
+import { RIFT_API_VERSION, type RiftAction, type RiftGuest, type RiftStatus } from './protocol.js';
+import { reactorView } from './reactor.js';
 import type { RiftRepository, RiftTransaction } from './repository.js';
 
 export function tokenHash(token: string) { return createHash('sha256').update(token).digest('hex'); }
@@ -45,11 +46,12 @@ export class RiftService {
     const entries = board.map((row, i) => ({ rank: i + 1, playerId: row.playerId, nickname: row.nickname, score: row.score, self: row.playerId === player.id }))
       .filter((_, i) => i < 10 || (selfIndex >= 0 && Math.abs(i - selfIndex) <= 2));
     return {
-      ok: true, serverNow: now, persistence: this.repository.mode, event: eventAt(now),
+      ok: true, apiVersion: RIFT_API_VERSION, serverNow: now, persistence: this.repository.mode, event: eventAt(now),
       player: { id: player.id, nickname: player.nickname, wallet: structuredClone(player.wallet) },
+      reactor: reactorView(run, now),
       stages: RIFT_STAGES.map((s) => ({ ...s })),
       run: run && flow ? {
-        revision: run.revision, stageIndex: run.stageIndex, completed: run.completedAt !== null,
+        rulesVersion: run.rulesVersion, revision: run.revision, stageIndex: run.stageIndex, completed: run.completedAt !== null,
         credits: Math.floor(run.credits * 100) / 100, chips: run.chips, stageEarned: Math.floor(run.stageEarned * 100) / 100,
         target: stageOf(run).target, minLevel: stageOf(run).minLevel, canComplete: canComplete(run),
         score: run.score, incomePerSecond: flow.income, bottleneck: flow.bottleneck, offlineCapHours: 4 + run.tech.storage,
@@ -77,7 +79,7 @@ export class RiftService {
       if (requestedEvent !== eventAt(now).id) throw new RiftError('EVENT_CHANGED');
       await this.rollover(tx, now);
       // Повтор start не сбрасывает прогресс и не занимает второе место в группе.
-      if (!tx.player.run) tx.player.run = createRun(now, await tx.allocateGroup(requestedEvent));
+      if (!tx.player.run) tx.player.run = createRun(now, await tx.allocateGroup(requestedEvent, RIFT_RULES_VERSION));
       await this.saveScore(tx);
       return this.view(tx, now);
     });

@@ -1,0 +1,19 @@
+[TSC] explicit DF_TSC_PATH: /opt/nvm/versions/node/v22.16.0/lib/node_modules/typescript/bin/tsc
+[PASS] open requested panel
+[PASS] replace Events with Rift
+[PASS] late close does not close another panel
+[PASS] return to mine
+[PASS] coverage is reference counted and release is idempotent
+[PASS] invalid IDs explain the format
+[PASS] self invite rejected
+[PASS] duplicate invite rejected
+[PASS] friend limit explained
+[PASS] valid new ID accepted
+[PASS] reactor display boundaries
+[PASS] completed and locked reactor never pulse
+[PASS] cooldown never negative and rounds to seconds
+[PASS] mutation interrupts polling instead of losing the tap
+[PASS] no parallel writes or reads during a mutation
+[PASS] old read cleanup cannot unlock a new read
+[PASS] aborted StrictMode read is immediately replaceable
+UI policy: 17/17 passed. React, browser gestures and the full game build are NOT covered by this script.

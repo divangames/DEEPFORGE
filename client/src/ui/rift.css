@@ -63,3 +63,55 @@
   .rift-summary > div { padding-block: 5px; }
   .rift-summary strong { font-size: 15px; margin-top: 2px; }
 }
+
+/* Reactor Grid: содержимое общей панели. Высота и safe-area принадлежат Dialog. */
+.reactor-grid { display: grid; gap: 22px; min-width: 0; }
+.reactor-grid > section, .reactor-grid > details { min-width: 0; }
+.reactor-topline { display: flex; align-items: center; gap: 12px; }
+.reactor-topline > div:nth-child(2) { min-width: 0; flex: 1; }
+.reactor-topline h3 { margin: 4px 0 0; font-size: 18px; }
+.reactor-eyebrow { font-size: 11px; letter-spacing: .09em; color: var(--muted); }
+.reactor-mark { display: grid; place-items: center; width: 52px; height: 52px; flex: 0 0 52px; border: 1px solid var(--line); border-radius: 14px; color: var(--gold); background: var(--panel-raised); }
+.reactor-core-balance { text-align: right; }
+.reactor-core-balance small { display: block; font-size: 11px; color: var(--muted); }
+.reactor-core-balance strong { display: block; color: var(--gold); font-size: 24px; }
+.reactor-hero.is-pulsing { border-color: var(--green); }
+.reactor-hero.is-pulsing .reactor-mark { color: var(--green); border-color: var(--green); }
+.reactor-readout { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 16px; font-size: 13px; }
+.reactor-readout strong { color: var(--gold); }
+.reactor-coverage { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; margin: 4px 0 12px; }
+.reactor-coverage > div { display: grid; gap: 5px; justify-items: center; padding: 10px 4px; border: 1px solid var(--line); border-radius: 10px; color: var(--muted); text-align: center; font-size: 13px; }
+.reactor-coverage b { display: grid; place-items: center; border-radius: 50%; width: 24px; height: 24px; background: var(--panel-raised); }
+.reactor-coverage small { font-size: 11px; }
+.reactor-coverage .covered { border-color: #8b714f; color: var(--gold); }
+.reactor-section-heading { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+.reactor-section-heading small { color: var(--muted); margin-bottom: 10px; }
+.reactor-slots { display: grid; gap: 10px; grid-template-columns: repeat(3,minmax(0,1fr)); }
+.reactor-slot select { width: 100%; }
+.reactor-select-label { font-size: 12px; display: block; color: var(--muted); margin: 0 0 6px; }
+.reactor-skill-copy { font-size: 13px; margin: 12px 0 0; }
+.reactor-slot-note { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 0; }
+.reactor-upgrades { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
+.reactor-upgrades .rift-card { display: flex; flex-direction: column; }
+.reactor-upgrades .rift-card > button { margin-top: auto; }
+.reactor-rules summary { min-height: 44px; cursor: pointer; padding: 12px 0; font-weight: 650; }
+.reactor-rules p { margin: 12px 0 0; }
+.reactor-locked { display: grid; gap: 10px; }
+.reactor-locked svg { color: var(--gold); }
+.reactor-entry { display: flex; width: 100%; gap: 12px; align-items: center; padding: 14px; text-align: left; border: 1px solid var(--line); }
+.reactor-entry > span { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.reactor-entry strong { color: var(--gold); }
+.reactor-entry small { color: var(--muted); font-size: 12px; }
+@media (max-width: 760px) {
+  .reactor-slots, .reactor-upgrades { grid-template-columns: 1fr; }
+}
+@media (max-width: 390px) {
+  .reactor-topline { gap: 8px; }
+  .reactor-mark { width: 44px; height: 44px; flex-basis: 44px; }
+  .reactor-topline h3 { font-size: 16px; }
+  .reactor-core-balance { max-width: 75px; }
+}
+
+/* Вкладке реактора не нужны две дополнительные постоянно закреплённые цифры. */
+.reactor-summary { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.reactor-summary > div:nth-child(n+3) { display: none; }

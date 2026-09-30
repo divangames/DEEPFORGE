@@ -18,7 +18,7 @@ try {
       lib: ['ES2022', 'DOM', 'DOM.Iterable'], types: [], noEmitOnError: true,
       rootDir: path.join(root, 'client/src'), outDir: out,
     },
-    files: ['ui/platform/uiState.ts', 'ui/platform/dialogController.ts', 'ui/platform/viewport.ts', 'game/runtime/viewPerformance.ts'].map(name => path.join(root, 'client/src', name)),
+    files: ['ui/platform/uiState.ts', 'ui/platform/dialogController.ts', 'ui/platform/viewport.ts', 'game/runtime/viewPerformance.ts', 'ui/platform/reactorDisplay.ts', 'ui/platform/riftRequestGate.ts'].map(name => path.join(root, 'client/src', name)),
   }, null, 2));
   runCompiler(root, ['--project', config, '--pretty', 'false'], { workspaces: ['client', 'server'] });
 
@@ -36,7 +36,17 @@ try {
   check('duplicate invite rejected', () => assert.match(validateFriendId('DF-TEST-0001', self, ['DF-TEST-0001'], 20), /уже/));
   check('friend limit explained', () => assert.match(validateFriendId('DF-TEST-0001', self, Array(20).fill('DF-XXXX-XXXX'), 20), /20/));
   check('valid new ID accepted', () => assert.equal(validateFriendId('DF-TEST-0001', self, [], 20), null));
-  console.log(`UI policy: ${passed}/10 passed. React, browser gestures and the full game build are NOT covered by this script.`);
+  const { reactorPhase, secondsRemaining } = await import(pathToFileURL(path.join(out, 'ui/platform/reactorDisplay.js')).href);
+  const { RiftRequestGate } = await import(pathToFileURL(path.join(out, 'ui/platform/riftRequestGate.js')).href);
+  const pulse = { firstAt:60000, durationMs:12000, periodMs:60000 };
+  check('reactor display boundaries', () => { assert.equal(reactorPhase(pulse,59999).active,false); assert.equal(reactorPhase(pulse,60000).active,true); assert.equal(reactorPhase(pulse,72000).active,false); assert.equal(reactorPhase(pulse,120000).active,true); });
+  check('completed and locked reactor never pulse', () => { assert.equal(reactorPhase(pulse,61000,true).active,false);assert.equal(reactorPhase({...pulse,firstAt:null},61000).active,false); });
+  check('cooldown never negative and rounds to seconds', () => { assert.equal(secondsRemaining(1000,1001),0);assert.equal(secondsRemaining(1001,1000),1); });
+  check('mutation interrupts polling instead of losing the tap', () => { const g=new RiftRequestGate(),r=g.beginRead();assert.ok(r);assert.ok(g.beginWrite());assert.ok(r.signal.aborted);assert.equal(g.acceptsRead(r),false); });
+  check('no parallel writes or reads during a mutation', () => { const g=new RiftRequestGate();assert.ok(g.beginWrite());assert.equal(g.beginWrite(),false);assert.equal(g.beginRead(),null);g.finishWrite();assert.ok(g.beginRead()); });
+  check('old read cleanup cannot unlock a new read', () => { const g=new RiftRequestGate(),old=g.beginRead();g.beginWrite();g.finishWrite();const current=g.beginRead();g.finishRead(old);assert.ok(g.acceptsRead(current));assert.equal(g.beginRead(),null);g.finishRead(current);assert.ok(g.beginRead()); });
+  check('aborted StrictMode read is immediately replaceable', () => { const g=new RiftRequestGate(),old=g.beginRead();old.abort();const current=g.beginRead();assert.ok(current);assert.notEqual(old,current);g.finishRead(old);assert.ok(g.acceptsRead(current)); });
+  console.log(`UI policy: ${passed}/${passed} passed. React, browser gestures and the full game build are NOT covered by this script.`);
 } catch (error) {
   console.error(error); process.exitCode = 1;
 } finally { fs.rmSync(out, { recursive: true, force: true }); }

@@ -1,0 +1,50 @@
+[
+  {
+    "test": "native dialog open + initial close focus",
+    "passed": true
+  },
+  {
+    "test": "focus stays in native modal",
+    "passed": true
+  },
+  {
+    "test": "right arrow selects and focuses next tab",
+    "passed": true
+  },
+  {
+    "test": "End selects last",
+    "passed": true
+  },
+  {
+    "test": "arrow wraps to first",
+    "passed": true
+  },
+  {
+    "test": "Escape closes and restores trigger",
+    "passed": true
+  },
+  {
+    "test": "viewport sync initial",
+    "passed": true
+  },
+  {
+    "test": "viewport resize follows visible height",
+    "passed": true
+  },
+  {
+    "test": "zoom guard does not shrink app to zoomed viewport",
+    "passed": true
+  },
+  {
+    "test": "viewport cleanup removes custom height",
+    "passed": true
+  },
+  {
+    "test": "dialog transition keeps focus in next",
+    "passed": true
+  },
+  {
+    "test": "dialog transition eventually restores navigation",
+    "passed": true
+  }
+]

@@ -1,8 +1,8 @@
 {
   "name": "deepforge-idle-empire",
   "private": true,
-  "version": "0.16.1",
-  "description": "DEEPFORGE Stage 16.1 — mobile UI/UX and accessibility",
+  "version": "0.17.0",
+  "description": "DEEPFORGE Stage 17 — Reactor Grid with server-authoritative event specialists",
   "workspaces": [
     "client",
     "server"

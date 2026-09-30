@@ -11,7 +11,7 @@ export interface RiftEntry {
 export interface RiftTransaction {
   player: RiftPlayer;
   lockEvent(eventId: string, mode: 'shared' | 'exclusive'): Promise<void>;
-  allocateGroup(eventId: string): Promise<string>;
+  allocateGroup(eventId: string, rulesVersion?: number): Promise<string>;
   saveEntry(entry: RiftEntry): Promise<void>;
   board(eventId: string, group: string): Promise<RiftEntry[]>;
 }
@@ -61,10 +61,11 @@ export class MemoryRiftRepository implements RiftRepository {
       const result = await operation({
         player,
         lockEvent: async () => { /* В memory все транзакции уже выполняются последовательно. */ },
-        allocateGroup: async (eventId) => {
-          const position = groups.get(eventId) ?? 0;
-          groups.set(eventId, position + 1);
-          return `R-${String(Math.floor(position / 100) + 1).padStart(4, '0')}`;
+        allocateGroup: async (eventId, rulesVersion = 1) => {
+          const key = rulesVersion >= 2 ? `${eventId}:rules-${rulesVersion}` : eventId;
+          const position = groups.get(key) ?? 0;
+          groups.set(key, position + 1);
+          return `R${rulesVersion >= 2 ? rulesVersion : ''}-${String(Math.floor(position / 100) + 1).padStart(4, '0')}`;
         },
         saveEntry: async (entry) => { entries.set(`${entry.eventId}:${entry.playerId}`, structuredClone(entry)); },
         board: async (eventId, group) => [...entries.values()].filter((row) => row.eventId === eventId && row.group === group).sort(compareEntries),

@@ -66,7 +66,7 @@ const staticStyles = '<style>.fixture-canvas { height:100%; display:grid;place-i
 for(const [name,panel,expanded=false,team='managers'] of scenes){
  overrides={App:{0:panel,1:expanded,3:team},ProgressionPanel:{0:name==='collection'?'collection':name==='relics'?'relics':'equipment'}};
  const markup=html(jsx.jsx(App,{}));
- const page=`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/rift.css">${staticStyles}</head><body><div id="root">${markup}</div><script>for(const d of document.querySelectorAll('dialog')){d.showModal();d.querySelector('[data-dialog-initial]')?.focus({preventScroll:true});}</script></body></html>`;
+ const page=`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/rift.css">${staticStyles}</head><body><div id="root">${markup}</div><script>document.querySelectorAll('select[value]').forEach(e=>e.value=e.getAttribute('value'));for(const d of document.querySelectorAll('dialog')){d.showModal();d.querySelector('[data-dialog-initial]')?.focus({preventScroll:true});}</script></body></html>`;
  fs.writeFileSync(path.join(out,name+'.html'),page);manifest.push(name);
 }
 fs.copyFileSync(root+'/client/src/ui/styles.css',out+'/styles.css');fs.copyFileSync(root+'/client/src/ui/rift.css',out+'/rift.css');
@@ -76,17 +76,38 @@ console.log('Rendered actual JSX snapshots (not a running React app):',manifest.
 (async()=>{
  const {MemoryRiftRepository}=load(root+'/server/src/rift/repository.ts');
  const {RiftService}=load(root+'/server/src/rift/service.ts');
- const {eventAt}=load(root+'/server/src/rift/engine.ts');
- const service = new RiftService(new MemoryRiftRepository(),()=>now);
+ const {eventAt,createRun}=load(root+'/server/src/rift/engine.ts');
+ const {unlockReactor,activateOperator}=load(root+'/server/src/rift/reactor.ts');
+ const repository = new MemoryRiftRepository();
+ let reactorNow = now;
+ const service = new RiftService(repository,()=>reactorNow);
  const guest=await service.register('Контрольный игрок');
  await service.start(guest.playerId,eventAt(now).id);
  const status=await service.status(guest.playerId);
  const extras=[['rift-run','run'],['rift-tree','tree'],['rift-rewards','rewards'],['rift-board','board']];
  function save(name) {
   const markup=html(jsx.jsx(App,{}));
-  fs.writeFileSync(out+'/'+name+'.html',`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/rift.css">${staticStyles}</head><body><div id="root">${markup}</div><script>document.querySelectorAll('dialog').forEach(d=>{d.showModal();d.querySelector('[data-dialog-initial]')?.focus({preventScroll:true})})</script></body></html>`);manifest.push(name);
+  fs.writeFileSync(out+'/'+name+'.html',`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/rift.css">${staticStyles}</head><body><div id="root">${markup}</div><script>document.querySelectorAll('select[value]').forEach(e=>e.value=e.getAttribute('value'));document.querySelectorAll('dialog').forEach(d=>{d.showModal();d.querySelector('[data-dialog-initial]')?.focus({preventScroll:true})})</script></body></html>`);manifest.push(name);
  }
  for(const [name,tab] of extras) { overrides={App:{0:'rift',1:false,3:'managers'},RiftPanel:{0:status,1:tab,8:now}};save(name); }
+ // QA-состояния создаются исключительно в тестовой памяти, не через рабочий API.
+ const renderReactor = async (name) => { const view=await service.status(guest.playerId); overrides={App:{0:'rift'},RiftPanel:{0:view,1:'reactor',8:reactorNow}};save(name); };
+ await renderReactor('reactor-locked');
+ await repository.withPlayer(guest.playerId,async tx=>{tx.player.run.stageIndex=1;unlockReactor(tx.player.run,now);});
+ await renderReactor('reactor-empty');
+ await repository.withPlayer(guest.playerId,async tx=>{const r=tx.player.run;r.reactor.slots[0]='rook';});
+ await renderReactor('reactor-ready');
+ await repository.withPlayer(guest.playerId,async tx=>{const r=tx.player.run;r.stageIndex=4;r.reactor.upgrades={range:2,power:3,slots:2};r.reactor.cores=18;r.reactor.earnedCores=52;r.reactor.slots=['rook','ion','talia'];});
+ reactorNow=now+61000;
+ await repository.withPlayer(guest.playerId,async tx=>{activateOperator(tx.player.run,'rook',reactorNow);activateOperator(tx.player.run,'ion',reactorNow);activateOperator(tx.player.run,'talia',reactorNow);});
+ await renderReactor('reactor-active');
+ reactorNow=now+87000;await renderReactor('reactor-cooldown');
+ await repository.withPlayer(guest.playerId,async tx=>{tx.player.run.completedAt=reactorNow;});
+ await renderReactor('reactor-complete');
+ await repository.withPlayer(guest.playerId,async tx=>{tx.player.run=createRun(now,'R-0001',1);});
+ await renderReactor('reactor-legacy');
+ const oldView=await service.status(guest.playerId);delete oldView.apiVersion;delete oldView.reactor;
+ overrides={App:{0:'rift'},RiftPanel:{0:oldView,1:'reactor',8:reactorNow}};save('reactor-old-backend');
  overrides={App:{0:'map'},WorldMap:{0:'sector'}};save('map-sector');
  overrides={App:{0:null}};
  store.offlineReport={rawSeconds:28800,creditedSeconds:28800,rewardCash:543210,processedOre:12000,fullChainAutomated:true,capped:true,operatingMines:5,unlockedMines:5,unlockedSectors:2,sectorRewards:{rust:342500,glacier:9850}};

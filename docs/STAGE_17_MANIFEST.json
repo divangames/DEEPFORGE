@@ -1,0 +1,217 @@
+{
+  "baseCommit": "ec4234f2577d6dd5809b3e3ecbf0b2f750909bf4",
+  "packageType": "incremental-overlay",
+  "deletePaths": [],
+  "changes": [
+    {
+      "path": "CHANGELOG.md",
+      "status": "modified",
+      "baseBlob": "2f7b66c961453059ec35bbac75f1674cf06e5008",
+      "sha256": "38bac2f92dadefa59846f6433a8d5547f6265b15bdd68e2a59549b8b3bff003c"
+    },
+    {
+      "path": "README.md",
+      "status": "modified",
+      "baseBlob": "1743468cf73c99e095ad877a42a693ea84b9efce",
+      "sha256": "066d26ea2fb06d1375e0bf100842a8ffa11d3ab931f8ddb9280101ac3f115a94"
+    },
+    {
+      "path": "client/package.json",
+      "status": "modified",
+      "baseBlob": "f60789e7a3210d22267a691ad7f2fd012780187e",
+      "sha256": "64028fe8e205f3e1b114249880afff421279fbe5ce96fbb7848a6e86f6a4dc85"
+    },
+    {
+      "path": "client/src/game/core/rift.ts",
+      "status": "modified",
+      "baseBlob": "30a3a8a616f87be68ed4746e65de3e02a9fc3f71",
+      "sha256": "51f2f31b1403d08a90eb6d0d9c432ae3950ccbfa1cdc9c50990c9ee5a361fb05"
+    },
+    {
+      "path": "client/src/ui/App.tsx",
+      "status": "modified",
+      "baseBlob": "80b94fe863764ee7869c0dc4ec5ea4687c2bb03e",
+      "sha256": "7b37753f4fb8da12eb2f7725bfac2c382b530c240dd0579c62fe8da8260a935f"
+    },
+    {
+      "path": "client/src/ui/EventsMenu.tsx",
+      "status": "modified",
+      "baseBlob": "3d3c717ae893895a24724296e3ed267fd82b587b",
+      "sha256": "0716479c9c6fe855f38af8c1ef87250bcd83db24afcde9710f1a46f4453591f6"
+    },
+    {
+      "path": "client/src/ui/RiftPanel.tsx",
+      "status": "modified",
+      "baseBlob": "881d47128375da4344cba66ed7c775ffe088a048",
+      "sha256": "d97f8c8a445c01c657c298c27001dd9215fb5c31c2a1c76f9bdc7bb8857b8793"
+    },
+    {
+      "path": "client/src/ui/RiftReactor.tsx",
+      "status": "added",
+      "baseBlob": null,
+      "sha256": "738f08cff6f7d5f08037837c42c6622bc17e706fbf97331cfce5bcca695d960f"
+    },
+    {
+      "path": "client/src/ui/platform/reactorDisplay.ts",
+      "status": "added",
+      "baseBlob": null,
+      "sha256": "65285ac3a644e4c970b6e2aebf039462bcd02d08a9a13cb5487be1b95e499347"
+    },
+    {
+      "path": "client/src/ui/platform/riftRequestGate.ts",
+      "status": "added",
+      "baseBlob": null,
+      "sha256": "d7c70863e265c2ecd3a6645b04919e281fef758cfa596c208e1515636287da40"
+    },
+    {
+      "path": "client/src/ui/rift.css",
+      "status": "modified",
+      "baseBlob": "cdf5088f7a6571e0c2fea3a6f23effb5160400d6",
+      "sha256": "a72b0769edfbcb610cfd1afc812dda701197e8c56e66c1381dee1df059722b51"
+    },
+    {
+      "path": "docs/STAGE_17.md",
+      "status": "added",
+      "baseBlob": null,
+      "sha256": "1155c05beaaba2c9ddb21a2e08b818ae3d603bf8f22487862cefea943579fe11"
+    },
+    {
+      "path": "docs/STAGE_17_QA.md",
+      "status": "added",
+      "baseBlob": null,
+      "sha256": "b1a9b7dcfbba71e94743c83062f99d496fe948c438002cac799edeb583dbb7a3"
+    },
+    {
+      "path": "docs/qa/stage17/compiler-tools.txt",
+      "status": "added",
+      "baseBlob": null,
+      "sha256": "14954d949714869c8ea27d28ca6d297956f5f512b8d834612b0b41a65d01aedb"
+    },
+    {
+      "path": "docs/qa/stage17/contract-check.txt",
+      "status": "added",
+      "baseBlob": null,
+      "sha256": "7109f607f72715996f803f69b19f45292f17f33f9bd38cdcf37a8cfbdd4a254d"
+    },
+    {
+      "path": "docs/qa/stage17/network-probe.txt",
+      "status": "added",
+      "baseBlob": null,
+      "sha256": "6d5090e530068ab5bdab03bd68fec7baf8026fa977f5a231ec1c39503284531a"
+    },
+    {
+      "path": "docs/qa/stage17/platform-browser-results.json",
+      "status": "added",
+      "baseBlob": null,
+      "sha256": "160eb0547f4c3af2c5fcb1ab478cc794ed3f4a7c670edef5cf453f73d4d7dba5"
+    },
+    {
+      "path": "docs/qa/stage17/rift-tests.txt",
+      "status": "added",
+      "baseBlob": null,
+      "sha256": "bddc9abfa839c90c3ce1d9da7bdd9a8e93b9ddb34f2a608191eabcab3395cd8c"
+    },
+    {
+      "path": "docs/qa/stage17/summary.json",
+      "status": "added",
+      "baseBlob": null,
+      "sha256": "db390576c548ed4627cd455d4200453b136917cc8d233a57f0c8ff8478dd71d5"
+    },
+    {
+      "path": "docs/qa/stage17/syntax.json",
+      "status": "added",
+      "baseBlob": null,
+      "sha256": "e31c9909439cd667899ccb4d51f394bc4cbd64f94dfb80df20a6a971f4be9095"
+    },
+    {
+      "path": "docs/qa/stage17/ui-policy.txt",
+      "status": "added",
+      "baseBlob": null,
+      "sha256": "a45b37801ea845fd930df1ba37c541cd3a35770dec6779bf762ef2e8f3b1d7db"
+    },
+    {
+      "path": "package.json",
+      "status": "modified",
+      "baseBlob": "f9ac1723685c7cbf385723c82a5e340d03e8c725",
+      "sha256": "1de0ff0c6f251c63a51efea3bc056d793b35edb8a2eb111b035df48a614cb445"
+    },
+    {
+      "path": "scripts/reactor-tests.mjs",
+      "status": "added",
+      "baseBlob": null,
+      "sha256": "022760ced976364f7eec5ce5e09554dbedeb55ebdbefa36275c9bdd9dbbd83ee"
+    },
+    {
+      "path": "scripts/render-ui-fixtures.cjs",
+      "status": "modified",
+      "baseBlob": "4dd6c065522f64305db229570fe21171256f7ce6",
+      "sha256": "011845b9791cd4ac419a7cf188e48d9fba16a5be1300ea8d83e7a457114d8384"
+    },
+    {
+      "path": "scripts/test-rift.mjs",
+      "status": "modified",
+      "baseBlob": "1a23464ccbb1c8c661c051f1063d73fb674dfff1",
+      "sha256": "6ebbd46e3c281d80e7de9d0eaa5e51dc8055e408b017f1d805aac5acae2d973d"
+    },
+    {
+      "path": "scripts/test-ui-policy.cjs",
+      "status": "modified",
+      "baseBlob": "a4b39bb68f53bb033b6f49e4c24d004217f80202",
+      "sha256": "f872b191c1b37b73f570fe89aa8c40055b903370a60d62effe3d5ab65240c912"
+    },
+    {
+      "path": "server/package.json",
+      "status": "modified",
+      "baseBlob": "71aad594353c1abcc6ded37bdb89631dc11a87f3",
+      "sha256": "d2b4302d0e108a6a6460f44fa79bed3e5ef207fdc4ca021a125539691f1df3a0"
+    },
+    {
+      "path": "server/src/rift/engine.ts",
+      "status": "modified",
+      "baseBlob": "177cec347cee40dbd7076dcd048a8229dc3a914f",
+      "sha256": "70528beb12db5c652ce92ea715863b60c51918d94ac7ca5cb39ae9015f3744e5"
+    },
+    {
+      "path": "server/src/rift/errors.ts",
+      "status": "added",
+      "baseBlob": null,
+      "sha256": "3148c02c174560b0bcece29bec300f1cb9218b03c63f0bd5de83d40cca9919df"
+    },
+    {
+      "path": "server/src/rift/postgresRepository.ts",
+      "status": "modified",
+      "baseBlob": "2bdee4ea27f7ad26d276a50b3df7a2bcf3c134aa",
+      "sha256": "b22d1111234a1e3433b91cb7bd5c977ce6ea0379ba482ef9cc9c07cd55f91e2b"
+    },
+    {
+      "path": "server/src/rift/protocol.ts",
+      "status": "modified",
+      "baseBlob": "62eef1b32bb5898db614586248cdff4a2df74917",
+      "sha256": "3296d9f59b102586b46db872fdda2479c4c42871bfb4ed99746e532ed4d66d42"
+    },
+    {
+      "path": "server/src/rift/reactor.ts",
+      "status": "added",
+      "baseBlob": null,
+      "sha256": "d2c60c98a1e139b9fdbcf0cda8299bb177189b5d8a182d6cbc2f42df5d3e61a8"
+    },
+    {
+      "path": "server/src/rift/repository.ts",
+      "status": "modified",
+      "baseBlob": "68225201c82a29c4439d6d8a4d71feca53d49e31",
+      "sha256": "ea25bf7ef3487c64f67773d9fb4989b9867320c86c73468f9339d4a1798a581f"
+    },
+    {
+      "path": "server/src/rift/service.ts",
+      "status": "modified",
+      "baseBlob": "3ffd9f00d94a23246629499597395f32d19f876b",
+      "sha256": "b5f4c2e065f15d7273d9a7bef83ddb43ab364d15797ecfb9515a5bc81876b56f"
+    },
+    {
+      "path": "server/src/rift/validation.ts",
+      "status": "modified",
+      "baseBlob": "bd8f013927222fc923ac9ddc07eb8e22fefc5c9f",
+      "sha256": "08127223763b86cb260bd16c5ac9f0314cdcf2de3e4931c6dd5736267f336d33"
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+TAP version 13
+# [TSC] test-fixture: /tmp/df-compiler-2Q0iWS/Программирование !!!GAMES (test)/node_modules/typescript/launcher.cjs
+# [TSC] test-fixture: /tmp/df-compiler-8fOPbJ/Программирование !!!GAMES (test)/node_modules/typescript/launcher.cjs
+# Subtest: reproduces ERR_PACKAGE_PATH_NOT_EXPORTED and resolves tsc via declared bin
+ok 1 - reproduces ERR_PACKAGE_PATH_NOT_EXPORTED and resolves tsc via declared bin
+  ---
+  duration_ms: 5.700302
+  type: 'test'
+  ...
+# Subtest: executes declared local launcher with spaces, Cyrillic and literal exclamation marks
+ok 2 - executes declared local launcher with spaces, Cyrillic and literal exclamation marks
+  ---
+  duration_ms: 23.206907
+  type: 'test'
+  ...
+# Subtest: workspace-specific compiler selection works without a hoisted root dependency
+ok 3 - workspace-specific compiler selection works without a hoisted root dependency
+  ---
+  duration_ms: 1.782214
+  type: 'test'
+  ...
+# Subtest: extensionless Node shebang launcher and string bin are supported
+ok 4 - extensionless Node shebang launcher and string bin are supported
+  ---
+  duration_ms: 1.299389
+  type: 'test'
+  ...
+# Subtest: native executable is dispatched directly, not through node
+ok 5 - native executable is dispatched directly, not through node
+  ---
+  duration_ms: 2.017757
+  type: 'test'
+  ...
+# Subtest: compiler error is propagated, not converted into a passing test
+ok 6 - compiler error is propagated, not converted into a passing test
+  ---
+  duration_ms: 22.693352
+  type: 'test'
+  ...
+# Subtest: missing local compiler stops rather than using a global compiler or npx
+ok 7 - missing local compiler stops rather than using a global compiler or npx
+  ---
+  duration_ms: 0.680982
+  type: 'test'
+  ...
+# Subtest: missing tsc bin and escaping bin fail clearly
+ok 8 - missing tsc bin and escaping bin fail clearly
+  ---
+  duration_ms: 1.83981
+  type: 'test'
+  ...
+# Subtest: node typings are found in workspace even when package exports blocks imports
+ok 9 - node typings are found in workspace even when package exports blocks imports
+  ---
+  duration_ms: 1.046741
+  type: 'test'
+  ...
+# Subtest: explicit compiler override remains available for isolated QA without version changes
+ok 10 - explicit compiler override remains available for isolated QA without version changes
+  ---
+  duration_ms: 0.835784
+  type: 'test'
+  ...
+1..10
+# tests 10
+# suites 0
+# pass 10
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 110.868355

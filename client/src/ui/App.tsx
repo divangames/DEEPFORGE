@@ -1276,7 +1276,7 @@ export function App() {
           <div className="system-stats"><div><span>Менеджеры</span><b>{hiredManagers}/{managerRoster.length}</b></div><div><span>Уровни</span><b>{unlockedShafts}/30</b></div><div><span>В шахте</span><b>{formatCompact(rawOre)} руды</b></div><div><span>На поверхности</span><b>{formatCompact(simulation?.surfaceBuffer ?? 0)} руды</b></div></div>
           <div className="status-message"><b>{apiOnline ? 'Сервер подключён' : 'Локальная игра'}</b><p>{apiOnline ? 'Сетевые режимы используют подключённый API.' : 'Шахты и сохранения работают на этом устройстве. Для рейтингов Blitz и Rift нужен отдельный сервер.'}</p></div>
           <button type="button" className="rebuild-entry" onClick={() => setRebuildOpen(true)}><Icon name="reset" /><span>Перезапуск шахты<small>R{rebuild?.level ?? 0} · множитель ×{rebuild?.currentMultiplier ?? 1}</small></span><Icon name="chevron" /></button>
-          <p className="inline-note">UI 16.1 · автоматическое качество: {quality}. Сохранения основной игры остаются в браузере; не очищайте данные сайта.</p>
+          <p className="inline-note">Stage 17 · UI 16.1 · автоматическое качество: {quality}. Сохранения основной игры остаются в браузере; не очищайте данные сайта.</p>
         </div>
       </section></Dialog>}
 

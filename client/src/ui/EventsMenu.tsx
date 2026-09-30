@@ -5,7 +5,7 @@ const events: Array<{ id: EventScreen; name: string; detail: string; mode: strin
   { id: 'weekly', name: 'Недельный контракт', detail: 'Отдельная шахта и награды за развитие производства.', mode: 'Weekly Contract', icon: 'mine' },
   { id: 'season', name: 'Сезонная кампания', detail: 'Опыт за контракты и 20 уровней сезонных наград.', mode: 'Seasonal Campaign', icon: 'diamond' },
   { id: 'blitz', name: 'Blitz Drill', detail: 'Развивайте цепочку за 10 минут и соревнуйтесь в своей лиге.', mode: 'Нужен сервер', icon: 'trophy' },
-  { id: 'rift', name: 'Rift Expedition', detail: 'Пять объектов, технологии и отдельный рейтинг экспедиции.', mode: 'Нужен сервер', icon: 'bolt' },
+  { id: 'rift', name: 'Rift Expedition', detail: 'Пять объектов, Reactor Grid, команда реактора и отдельный рейтинг.', mode: 'Нужен сервер', icon: 'bolt' },
 ];
 export function EventsMenu({ onSelect, onClose }: { onSelect: (screen: EventScreen) => void; onClose: () => void }) {
   return <Dialog label="События" onClose={onClose} className="events-dialog">

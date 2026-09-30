@@ -1,6 +1,10 @@
 import type { RiftAction, RiftEvent, RiftFacility, RiftMilestoneView, RiftResource, RiftStage, RiftTech, RiftTechView, RiftWallet } from './protocol.js';
 
-export const RIFT_RULES_VERSION = 1;
+import { RiftError } from './errors.js';
+export { RiftError } from './errors.js';
+import { createReactor, unlockReactor, operatorMultiplier, operatorBoundaries, pulseAt, pulseMilliseconds, reactorCoverage, upgradeReactor, assignOperator, activateOperator, type RiftReactorState } from './reactor.js';
+
+export const RIFT_RULES_VERSION = 2;
 export const WEEK_MS = 7 * 86400_000;
 export const MAX_LEVEL = 50;
 export const RIFT_FACILITIES: RiftFacility[] = ['extraction', 'lift', 'logistics'];
@@ -23,6 +27,7 @@ export const TECHS: { id: RiftTech; title: string; description: string; prerequi
 
 export interface RiftRun {
   rulesVersion: number;
+  reactor?: RiftReactorState;
   event: RiftEvent;
   group: string;
   revision: number;
@@ -41,9 +46,6 @@ export interface RiftRun {
   claimed: string[];
   receipts: { id: string; payload: string }[];
 }
-export class RiftError extends Error {
-  constructor(public readonly code: string, public readonly httpStatus = 409) { super(code); }
-}
 export function eventAt(now: number): RiftEvent {
   const anchor = Date.UTC(1970, 0, 5);
   const startsAt = anchor + Math.floor((now - anchor) / WEEK_MS) * WEEK_MS;
@@ -52,9 +54,9 @@ export function eventAt(now: number): RiftEvent {
 export function emptyWallet(): RiftWallet {
   return { cores: 0, recruitData: 0, trainingModules: 0, promotionBadges: 0, supplyKeys: 0, alloy: 0, circuits: 0, fiber: 0, medals: 0 };
 }
-export function createRun(now: number, group: string): RiftRun {
+export function createRun(now: number, group: string, rulesVersion = RIFT_RULES_VERSION): RiftRun {
   return {
-    rulesVersion: RIFT_RULES_VERSION, event: eventAt(now), group, revision: 0,
+    rulesVersion, ...(rulesVersion >= 2 ? { reactor: createReactor() } : {}), event: eventAt(now), group, revision: 0,
     stageIndex: 0, credits: 80, stageEarned: 0,
     levels: { extraction: 1, lift: 1, logistics: 1 },
     tech: { drills: 0, refining: 0, cables: 0, dispatch: 0, efficiency: 0, storage: 0 },
@@ -63,13 +65,13 @@ export function createRun(now: number, group: string): RiftRun {
   };
 }
 export function stageOf(run: RiftRun): RiftStage { return RIFT_STAGES[run.stageIndex]; }
-export function ratesOf(run: RiftRun): Record<RiftFacility, number> {
+export function ratesOf(run: RiftRun, at = run.checkpoint, withPulse = pulseAt(run, at)): Record<RiftFacility, number> {
   const base = { extraction: 4, lift: 3, logistics: 3.5 };
   const bonuses = { extraction: 1 + run.tech.drills * .12, lift: 1 + run.tech.cables * .15, logistics: 1 + run.tech.dispatch * .15 };
-  return Object.fromEntries(RIFT_FACILITIES.map((id) => [id, base[id] * stageOf(run).yield * Math.pow(1.16, run.levels[id] - 1) * bonuses[id]])) as Record<RiftFacility, number>;
+  return Object.fromEntries(RIFT_FACILITIES.map((id) => [id, base[id] * stageOf(run).yield * Math.pow(1.16, run.levels[id] - 1) * bonuses[id] * operatorMultiplier(run, id, at) * (withPulse && reactorCoverage(run).includes(id) ? 2 + (run.reactor?.upgrades.power ?? 0) : 1)])) as Record<RiftFacility, number>;
 }
-export function flowOf(run: RiftRun) {
-  const rates = ratesOf(run);
+export function flowOf(run: RiftRun, at = run.checkpoint, withPulse = pulseAt(run, at)) {
+  const rates = ratesOf(run, at, withPulse);
   const bottleneck = RIFT_FACILITIES.reduce((a, b) => rates[a] <= rates[b] ? a : b);
   return { rates, bottleneck, income: run.completedAt !== null ? 0 : rates[bottleneck] * (1 + run.tech.refining * .08) };
 }
@@ -79,7 +81,16 @@ export function advanceRun(run: RiftRun, now: number): void {
   const until = Math.min(now, run.event.endsAt);
   if (until <= run.checkpoint) return;
   const elapsed = Math.min(until - run.checkpoint, (4 + run.tech.storage) * 3600_000);
-  const earned = flowOf(run).income * elapsed / 1000;
+  let earned = 0;
+  // Способностей максимум три. Разбиваем только на их окончания, не на каждый тик.
+  const boundaries = operatorBoundaries(run, run.checkpoint, run.checkpoint + elapsed);
+  for (let i = 0; i < boundaries.length - 1; i++) {
+    const from = boundaries[i], to = boundaries[i + 1];
+    const baseIncome = flowOf(run, from, false).income;
+    const pulseIncome = flowOf(run, from, true).income;
+    const activeMs = pulseMilliseconds(run, from, to);
+    earned += (baseIncome * (to - from) + (pulseIncome - baseIncome) * activeMs) / 1000;
+  }
   run.credits += earned;
   run.stageEarned += earned;
   run.checkpoint = until;
@@ -127,7 +138,9 @@ function claim(run: RiftRun, wallet: RiftWallet, id: string) {
 }
 // Применяется к копии внутри транзакции. Ошибка не должна частично сохранять состояние.
 export function applyAction(run: RiftRun, wallet: RiftWallet, action: RiftAction, now: number): void {
-  const payload = JSON.stringify([action.eventId, action.revision, action.kind, action.target ?? null, action.count ?? null]);
+  // Старые receipts сохраняют формат: добавляем slot только у новых assign-действий.
+  const payload = JSON.stringify([action.eventId, action.revision, action.kind, action.target ?? null, action.count ?? null,
+    ...(action.slot === undefined ? [] : [action.slot])]);
   const receipt = run.receipts.find((r) => r.id === action.requestId);
   if (receipt) {
     if (receipt.payload !== payload) throw new RiftError('REQUEST_ID_REUSED');
@@ -156,6 +169,12 @@ export function applyAction(run: RiftRun, wallet: RiftWallet, action: RiftAction
       if (!entry?.available) throw new RiftError('RESEARCH_LOCKED');
       run.chips -= entry.cost;
       run.tech[entry.id] += 1;
+    } else if (action.kind === 'reactor-upgrade') {
+      upgradeReactor(run, action.target);
+    } else if (action.kind === 'operator-assign') {
+      assignOperator(run, action.target, action.slot, now);
+    } else if (action.kind === 'operator-activate') {
+      activateOperator(run, action.target, now);
     } else if (action.kind === 'complete') {
       if (!canComplete(run)) throw new RiftError('STAGE_NOT_READY');
       run.reached.push(`${stageOf(run).id}-complete`);
@@ -170,6 +189,7 @@ export function applyAction(run: RiftRun, wallet: RiftWallet, action: RiftAction
         run.credits = 80 * stageOf(run).costScale;
         run.stageEarned = 0;
         run.levels = { extraction: 1, lift: 1, logistics: 1 };
+        unlockReactor(run, now);
       }
     } else throw new RiftError('INVALID_ACTION', 400);
   }

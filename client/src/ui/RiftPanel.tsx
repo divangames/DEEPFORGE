@@ -1,14 +1,16 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import type { RiftAction, RiftResource, RiftStatus, RiftWallet } from '../game/core/rift';
+import type { RiftAction, RiftResource, RiftStatus, RiftWallet, RiftSlot } from '../game/core/rift';
 import { forgetRiftIdentity, hasRiftBackend, loadRiftIdentity, registerRiftGuest, riftAction, riftStart, riftStatus } from '../services/riftApi';
 import './rift.css';
+import { RiftReactor } from './RiftReactor';
+import { RiftRequestGate } from './platform/riftRequestGate';
 import { Dialog } from './components/Dialog';
 import { Icon } from './components/Icon';
 import { Tabs } from './components/Tabs';
 
 const ERROR_LABELS: Record<string, string> = {
   SERVER_REQUIRED: 'Для Rift нужен подключённый сервер. Укажите VITE_API_URL и опубликуйте backend.',
-  SERVER_OUTDATED: 'Backend ещё не обновлён до Stage 16. Обновите сервер, а не только GitHub Pages.',
+  SERVER_OUTDATED: 'Backend ещё не обновлён до Stage 17. Обновите сервер, а не только GitHub Pages.',
   NETWORK_ERROR: 'Нет соединения с сервером. Прогресс не сброшен. Повторите подключение.',
   TIMEOUT: 'Сервер не успел ответить. Результат последнего действия уточняется повторным запросом.',
   UNAUTHORIZED: 'Гостевой ключ не распознан. Для MEMORY-режима это возможно после перезапуска сервера.',
@@ -23,6 +25,17 @@ const ERROR_LABELS: Record<string, string> = {
   EVENT_CLOSED: 'Этот цикл завершён. Обновите данные, чтобы открыть следующий.',
   RUN_COMPLETE: 'Экспедиция завершена. Можно забрать оставшиеся награды.',
   STAGE_NOT_READY: 'Сначала выполните цель добычи и улучшите все три звена.',
+  LEGACY_REACTOR: 'У этой попытки старые правила. Реактор появится в следующем цикле.',
+  REACTOR_LOCKED: 'Реактор открывается после завершения первого объекта.',
+  NOT_ENOUGH_REACTOR_CORES: 'Недостаточно ядер. Активируйте навык назначенного специалиста.',
+  SLOT_LOCKED: 'Сначала улучшите число слотов команды реактора.',
+  OPERATOR_BUSY: 'Дождитесь окончания активного навыка перед заменой.',
+  OPERATOR_LOCKED: 'Этот специалист откроется на следующем объекте.',
+  OPERATOR_ASSIGNED: 'Специалист уже назначен в другой слот.',
+  ROLE_OCCUPIED: 'Эта специализация уже представлена в команде.',
+  OPERATOR_NOT_ASSIGNED: 'Сначала назначьте специалиста.',
+  OPERATOR_COOLDOWN: 'Навык ещё перезаряжается. Таймер уточнён сервером.',
+  ASSIGNMENT_UNCHANGED: 'Это назначение уже сохранено.',
   ALREADY_CLAIMED: 'Награда уже получена.',
 };
 const LABELS: Record<RiftResource, string> = {
@@ -43,10 +56,10 @@ function RewardText({ reward }: { reward: Partial<RiftWallet> }) {
 
 export const RiftPanel = memo(function RiftPanel({ nickname, onClose }: { nickname: string; onClose: () => void }) {
   const mounted = useRef(false);
-  const locked = useRef(false);
+  const gate = useRef(new RiftRequestGate());
   const pending = useRef<RiftAction | null>(null);
   const [status, setStatus] = useState<RiftStatus | null>(null);
-  const [tab, setTab] = useState<'run' | 'tree' | 'rewards' | 'board'>('run');
+  const [tab, setTab] = useState<'run' | 'reactor' | 'tree' | 'rewards' | 'board'>('run');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryAction, setRetryAction] = useState(false);
@@ -61,11 +74,16 @@ export const RiftPanel = memo(function RiftPanel({ nickname, onClose }: { nickna
     setStatus(value); setReceivedAt(performance.now()); setDisplayNow(value.serverNow);
   }, []);
   const refresh = useCallback(async (signal?: AbortSignal) => {
-    if (locked.current || !loadRiftIdentity() || document.hidden) return;
-    locked.current = true;
-    try { accept(await riftStatus(signal)); if (mounted.current && !pending.current) setError(null); }
-    catch (err) { if (!signal?.aborted && mounted.current) setError(err instanceof Error ? err.message : 'NETWORK_ERROR'); }
-    finally { locked.current = false; }
+    if (!loadRiftIdentity() || document.hidden || signal?.aborted) return;
+    const controller = gate.current.beginRead();
+    if (!controller) return;
+    const abort = () => controller.abort();
+    signal?.addEventListener('abort', abort, { once: true });
+    try {
+      const value = await riftStatus(controller.signal);
+      if (gate.current.acceptsRead(controller)) { accept(value); if (mounted.current && !pending.current) setError(null); }
+    } catch (err) { if (!controller.signal.aborted && mounted.current) setError(err instanceof Error ? err.message : 'NETWORK_ERROR'); }
+    finally { signal?.removeEventListener('abort', abort); gate.current.finishRead(controller); }
   }, [accept]);
 
   useEffect(() => {
@@ -96,8 +114,8 @@ export const RiftPanel = memo(function RiftPanel({ nickname, onClose }: { nickna
   useEffect(() => { scroll.current?.scrollTo({ top: 0 }); setConfirmation(null); }, [tab]);
 
   async function operation(job: () => Promise<RiftStatus>, action?: RiftAction) {
-    if (locked.current) return;
-    locked.current = true; setBusy(true); setError(null);
+    if (!gate.current.beginWrite()) return;
+    setBusy(true); setError(null);
     if (action) pending.current = action;
     try {
       accept(await job()); pending.current = null;
@@ -109,12 +127,12 @@ export const RiftPanel = memo(function RiftPanel({ nickname, onClose }: { nickna
       if (mounted.current) { setError(code); setRetryAction(Boolean(pending.current)); }
       // Даже при потерянном ответе серверное состояние перечитывается; покупка не повторяется автоматически.
       if (loadRiftIdentity()) try { accept(await riftStatus()); } catch { /* Отображаем исходную ошибку. */ }
-    } finally { locked.current = false; if (mounted.current) setBusy(false); }
+    } finally { gate.current.finishWrite(); if (mounted.current) setBusy(false); }
   }
-  function send(kind: RiftAction['kind'], target?: string, count?: 1 | 10) {
+  function send(kind: RiftAction['kind'], target?: string, count?: 1 | 10, slot?: RiftSlot) {
     if (!status?.run || pending.current) return;
     const action: RiftAction = { requestId: crypto.randomUUID(), eventId: status.event.id, revision: status.run.revision, kind,
-      ...(target === undefined ? {} : { target }), ...(count === undefined ? {} : { count }) };
+      ...(target === undefined ? {} : { target }), ...(count === undefined ? {} : { count }), ...(slot === undefined ? {} : { slot }) };
     void operation(() => riftAction(action), action);
   }
   const run = status?.run;
@@ -129,14 +147,14 @@ export const RiftPanel = memo(function RiftPanel({ nickname, onClose }: { nickna
     <section className="rift-panel">
       <header className="rift-header"><div><span>СОБЫТИЕ · 5 ОБЪЕКТОВ</span><h2 id="rift-title">Rift Expedition</h2></div>
         <button type="button" className="icon-button" data-dialog-initial aria-label="Закрыть Rift Expedition" onClick={onClose}><Icon name="close" /></button></header>
-      {status && <div className="rift-summary">
+      {status && <div className={`rift-summary ${tab === 'reactor' ? 'reactor-summary' : ''}`}>
         <div><small>До конца цикла</small><strong>{timeLeft(status.event.endsAt, displayNow)}</strong></div>
         <div><small>Rift Credits</small><strong>{n(run?.credits ?? 0)} RC</strong></div>
         <div><small>Очки</small><strong>{n(run?.score ?? 0)}</strong></div>
         <div><small>Чипы улучшений</small><strong>{run?.chips ?? 0} RP</strong></div>
       </div>}
       {status && <Tabs id="rift" label="Разделы Rift" value={tab} onChange={setTab} options={[
-        { value: 'run', label: 'Объекты' }, { value: 'tree', label: 'Технологии' },
+        { value: 'run', label: 'Объекты' }, { value: 'reactor', label: 'Реактор' }, { value: 'tree', label: 'Технологии' },
         { value: 'rewards', label: 'Награды' }, { value: 'board', label: 'Рейтинг' },
       ]} />}
       <div className="rift-scroll panel-scroll" ref={scroll} id="rift-panel" role={status ? 'tabpanel' : undefined} aria-labelledby={status ? `rift-${tab}` : undefined}>
@@ -152,8 +170,8 @@ export const RiftPanel = memo(function RiftPanel({ nickname, onClose }: { nickna
           </div>}
         </div>}
         {!status ? <section className="rift-welcome">
-          <div className="rift-emblem" aria-hidden="true">R / 16</div>
-          <h3>Пройдите разлом до ядра</h3><p>Пять последовательных объектов, собственные кредиты, три производственных звена и технологии на весь цикл.</p>
+          <div className="rift-emblem" aria-hidden="true">R / 17</div>
+          <h3>Пройдите разлом до ядра</h3><p>Пять объектов, собственная экономика и Reactor Grid: команда специалистов и автоматические импульсы со второго объекта.</p>
           <p>Обычные деньги, менеджеры и глобальные бонусы сюда не переносятся. Результаты и награды считает сервер.</p>
           <div className="rift-notice">{hasRiftBackend() ? 'Для участия создаётся отдельный гостевой серверный профиль. Ключ сохраняется в этом браузере; публичный Player ID не используется как пароль.' : 'SERVER REQUIRED · На GitHub Pages без VPS доступен этот обзор. Для локальной проверки без базы запустите dev_rift_memory.bat; для онлайн-игры подключите backend через VITE_API_URL.'}</div>
           <button type="button" className="rift-primary" disabled={busy || !hasRiftBackend()} onClick={connect}>{busy ? 'Подключение…' : hasIdentity ? 'Продолжить экспедицию' : 'Подключить гостевой профиль'}</button>
@@ -172,22 +190,24 @@ export const RiftPanel = memo(function RiftPanel({ nickname, onClose }: { nickna
                 <p>{n(run.stageEarned)} / {n(run.target)} RC заработано на объекте. Все три звена: минимум LV {run.minLevel}.</p>
                 <strong>{run.completed ? 'Экспедиция завершена!' : `Узкое место: ${run.facilities.find((f) => f.id === run.bottleneck)?.title}`}</strong>
               </section>
+              {status.reactor?.unlocked && !run.completed && <button type="button" className="reactor-entry" onClick={() => setTab('reactor')}><Icon name="bolt" /><span><strong>Reactor Grid открыт</strong><small>Ядра: {status.reactor.cores} · Команда {status.reactor.slots.filter(Boolean).length}/{status.reactor.capacity}</small></span><Icon name="chevron" /></button>}
               <div className="rift-facilities">{run.facilities.map((facility) => <article key={facility.id} className={`rift-card ${run.bottleneck === facility.id ? 'rift-bottleneck' : ''}`}>
                 <div className="rift-row"><h4>{facility.title}</h4><b>LV {facility.level}</b></div><p>{n(facility.rate)} ед/с</p>
                 <div className="rift-upgrades"><button type="button" disabled={disabled || run.completed || facility.level >= facility.maxLevel || run.credits < facility.cost1} onClick={() => send('upgrade', facility.id, 1)}>+1 · {n(facility.cost1)} RC</button>
                   <button type="button" disabled={disabled || run.completed || facility.cost10 === null || run.credits < facility.cost10} onClick={() => send('upgrade', facility.id, 10)}>+10 · {facility.cost10 === null ? 'MAX' : `${n(facility.cost10)} RC`}</button></div>
               </article>)}</div>
-              {!run.completed && <section className="rift-card"><p>Переход сбрасывает кредиты и уровни этого объекта. Технологии, RP, очки и полученные награды сохраняются.</p>
+              {!run.completed && <section className="rift-card"><p>Переход сбрасывает кредиты и уровни этого объекта. Технологии, реактор, RP, очки и полученные награды сохраняются.</p>
                 {confirmation !== 'complete' ? <button type="button" className="rift-primary" disabled={disabled || !run.canComplete} onClick={() => setConfirmation('complete')}>
                   {run.stageIndex < 4 ? 'Завершить объект' : 'Завершить экспедицию'}</button> : <div className="confirmation-box" role="alert">
                   <strong>{run.stageIndex < 4 ? 'Перейти к следующему объекту?' : 'Зафиксировать результат экспедиции?'}</strong>
-                  <p>{run.stageIndex < 4 ? 'Местные кредиты и уровни сбросятся. Технологии и награды останутся.' : 'Сервер начислит итоговый бонус скорости. Вернуться в эту попытку после завершения нельзя.'}</p>
+                  <p>{run.stageIndex < 4 ? 'Местные кредиты и уровни сбросятся. Технологии, реактор и награды останутся.' : 'Сервер начислит итоговый бонус скорости. Вернуться в эту попытку после завершения нельзя.'}</p>
                   <div><button type="button" onClick={() => setConfirmation(null)}>Отмена</button><button type="button" className="rift-primary" disabled={disabled || !run.canComplete} onClick={() => { setConfirmation(null); send('complete'); }}>Подтвердить</button></div>
                 </div>}
               </section>}
               <p className="rift-muted">До {run.offlineCapHours} ч дохода между серверными синхронизациями. Начисление ограничено концом события. Время телефона не передаётся в экономику.</p>
             </>}
           </>}
+          {tab === 'reactor' && <RiftReactor reactor={status.reactor ?? null} legacy={Boolean(run && (run.rulesVersion ?? 1) < 2)} outdated={(status.apiVersion ?? 16) < 17} completed={Boolean(run?.completed) || closed} disabled={disabled} now={displayNow} onAction={send} />}
           {tab === 'tree' && <><p className="rift-muted">Технологии действуют на все пять объектов только этой экспедиции. RP выдаются за этапы наград. С началом нового недельного цикла дерево сбрасывается.</p>
             <div className="rift-techs">{status.tree.map((node) => <article className="rift-card" key={node.id}><div className="rift-row"><h3>{node.title}</h3><b>{node.level}/3</b></div><p>{node.description}</p>
               {node.prerequisite && <p className="rift-muted">Требуется: {node.prerequisite}, LV 1.</p>}
@@ -204,7 +224,7 @@ export const RiftPanel = memo(function RiftPanel({ nickname, onClose }: { nickna
           </>}
           {tab === 'board' && <>
             <section className="rift-card"><div className="rift-row"><h3>{status.board.group ?? 'Группа ещё не назначена'}</h3><b>{status.board.selfRank ? `#${status.board.selfRank}` : '—'}</b></div>
-              <p>{status.board.participants}/100 участников. Показаны TOP 10 и игроки рядом с вами.</p><p className="rift-muted">Очки: улучшения и завершение объектов. За прохождение всей экспедиции — ограниченный бонус скорости. Равные очки: раньше достигнутый результат, затем ID.</p>
+              <p>{run?.rulesVersion === 2 ? "Reactor Grid · правила 2. " : "Классический Rift · правила 1. "}{status.board.participants}/100 участников. Показаны TOP 10 и игроки рядом с вами.</p><p className="rift-muted">Очки: улучшения и завершение объектов. За прохождение всей экспедиции — ограниченный бонус скорости. Равные очки: раньше достигнутый результат, затем ID.</p>
             </section>
             {status.board.entries.length === 0 && <div className="rift-notice">Начните экспедицию, чтобы попасть в группу. Здесь нет выдуманных соперников.</div>}
             <div className="rift-board">{status.board.entries.map((entry) => <div key={entry.playerId} className={entry.self ? 'self' : ''}>

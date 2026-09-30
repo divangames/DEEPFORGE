@@ -25,7 +25,7 @@ try {
   // -p избегает неоднозначности явных файлов и tsconfig в разных версиях TS.
   tools.runCompiler(root, ['--project', config, '--pretty', 'false']);
   writeFileSync(path.join(out, 'package.json'), '{"type":"module"}');
-  const test = spawnSync(process.execPath, ['--test', 'scripts/rift-tests.mjs'], { cwd: root, stdio: 'inherit', shell: false });
+  const test = spawnSync(process.execPath, ['--test', 'scripts/rift-tests.mjs', 'scripts/reactor-tests.mjs'], { cwd: root, stdio: 'inherit', shell: false });
   if (test.error) throw test.error;
   if (test.status !== 0) throw new Error(`Rift tests failed (exit ${test.status ?? test.signal}).`);
   // Удаляется только временный результат успешного теста, исходники не затрагиваются.
