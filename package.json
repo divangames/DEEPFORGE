@@ -1,8 +1,8 @@
 {
   "name": "deepforge-idle-empire",
   "private": true,
-  "version": "0.9.0",
-  "description": "DEEPFORGE: Idle Empire — Stage 9 Specialists + iPhone portrait pass",
+  "version": "0.10.0",
+  "description": "DEEPFORGE: Idle Empire — Stage 10 Academy, fragments, rank and promotion",
   "workspaces": [
     "client",
     "server"

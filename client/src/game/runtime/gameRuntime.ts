@@ -21,7 +21,13 @@ export type GameCommand =
   | { type: 'SPECIALIST_ASSIGN'; specialistId: SpecialistId; slot: SpecialistSlot }
   | { type: 'SPECIALIST_UNASSIGN'; slot: SpecialistSlot }
   | { type: 'SPECIALIST_ACTIVATE'; specialistId: SpecialistId }
-  | { type: 'SPECIALIST_TRAIN'; specialistId: SpecialistId };
+  | { type: 'SPECIALIST_TRAIN'; specialistId: SpecialistId }
+  | { type: 'SPECIALIST_RECRUIT'; specialistId: SpecialistId }
+  | { type: 'SPECIALIST_RANK_UP'; specialistId: SpecialistId }
+  | { type: 'SPECIALIST_PROMOTE'; specialistId: SpecialistId }
+  | { type: 'ACADEMY_START' }
+  | { type: 'ACADEMY_CLAIM' }
+  | { type: 'ACADEMY_RECRUIT_SCAN' };
 
 type CommandListener = (command: GameCommand) => void;
 

@@ -1,96 +1,81 @@
 # DEEPFORGE: Idle Empire
 
-Browser-first idle / tycoon game. Текущая версия: **Stage 9 — Specialists + iPhone Portrait Pass**.
+Browser-first idle / tycoon game. Текущая версия: **Stage 10 — Academy + Fragments + Rank / Promotion**.
 
 ## Уже работает
 
-- глобальная карта из 8 секторов;
-- 40 data-driven добывающих объектов — по 5 на сектор;
+- 8 секторов / 40 data-driven шахт;
 - отдельная валюта каждого сектора;
-- общий кошелёк пяти шахт внутри одного сектора;
-- последовательное открытие секторов и объектов;
+- общий wallet пяти шахт сектора;
 - независимый прогресс каждой шахты;
-- **Rebuild / Prestige для каждой шахты с постоянным multiplier**;
-- **Research Grid: 6 веток / 18 глобальных исследований**;
-- **6 Specialists: rarity, levels, assignment, passive/active abilities**;
-- 3 Specialist slots на каждую шахту: Extraction / Lift / Logistics;
-- Research Cores за Rebuild, зависимости узлов и respec с комиссией;
-- background income неактивных автоматизированных шахт;
-- offline income по правильным валютам регионов;
-- 30 добывающих Deck на каждом объекте;
-- Cargo Lift и Logistics Hub;
+- Rebuild / Prestige с постоянными multiplier;
+- Research Grid: 6 веток / 18 узлов;
+- 6 Specialists с rarity, roles, passive/active abilities;
+- **Academy: 30 timed operations**;
+- **Recruit Data / Training Modules / Promotion Badges**;
+- **fragments, recruitment, Rank 1–5, Promotion 0–3**;
+- Specialist level cap до 25 через Promotion;
+- 3 Specialist slots на шахту: Extraction / Lift / Logistics;
 - Managers, AUTO и active abilities;
-- barriers, bulk upgrades и milestones;
-- bottleneck HUD;
+- 30 Deck, Cargo Lift, Logistics Hub;
+- barriers, bulk upgrades, milestones и bottleneck HUD;
+- background / offline income;
 - primary + backup IndexedDB save;
-- save schema v7 с миграцией старых Stage 0–8;
-- mobile-first portrait UI 360–440 px с отдельным iPhone 11–17 Pro Max pass;
-- swipe / touch в шахте, scrollable panels и safe-area support;
-- adaptive LOW / MEDIUM / HIGH render profile;
-- offscreen culling Deck и barriers;
-- PWA;
-- GitHub Pages deployment.
+- save schema v8 с миграцией старых версий;
+- PWA + GitHub Pages;
+- mobile-first portrait UI 360–440 CSS px;
+- отдельный iPhone 11–17 Pro Max safe-area pass;
+- LOW / MEDIUM / HIGH quality tiers и offscreen culling.
 
+## Stage 10 — Academy
+
+Открой `Команда → Academy`.
+
+Academy содержит 30 последовательных операций. Они работают по timestamp, поэтому операция продолжает идти после закрытия браузера или PWA.
+
+Награды:
+
+- `⬢ Recruit Data` — Recruitment Signal;
+- `▲ Training Modules` — повышение Level;
+- `● Promotion Badges` — Promotion;
+- `◆ Fragments` — Recruit и Rank Up.
+
+Recruitment Signal стоит 100 Recruit Data и гарантированно выдаёт fragment-пак.
 
 ## Specialists
 
-В `Команда → Specialists` доступен глобальный roster. Один Specialist может быть назначен только в одну шахту одновременно. Passive-бонусы работают и в offline income, active abilities — только в активной шахте. Уровни 1–10 улучшают passive и active значения.
+Прогресс Specialist теперь состоит из четырёх слоёв:
 
-Стартовые Rook Hale, Ion Reyes и Talia Cruz доступны сразу; более редкие персонажи открываются за суммарные Rebuild milestones. Stage 10 добавит Academy, fragments и полноценную Specialist-прогрессию.
+1. **Recruit** — собрать fragments и нанять персонажа.
+2. **Level** — Training Modules повышают базовые параметры.
+3. **Rank** — fragments усиливают passive и active.
+4. **Promotion** — Promotion Badges повышают level cap.
 
-## Research Grid
+Level caps:
 
-Глобальные исследования действуют сразу на все текущие и будущие шахты. Ветки: Industry, Logistics, Automation, Exploration, Specialists и Events.
+`P0 → LV10 → P1 → LV15 → P2 → LV20 → P3 → LV25`
 
-Research Cores (`◈`) выдаются за Rebuild. Первые 3 доступны сразу. Узлы имеют зависимости и стоимость; Reset возвращает вложенные Cores за вычетом 15% комиссии (минимум 1 Core).
-
-Research влияет на добычу, цену сырья, Lift/Logistics, стоимость upgrades, менеджеров, barriers, стоимость открытия Deck и offline income/cap.
-
-Mobile portrait: на телефоне одновременно рендерится только выбранная ветка из 3 узлов; tabs горизонтально прокручиваются, panel ограничена `100dvh`.
-
-## Rebuild
-
-Rebuild применяется **только к текущему объекту**.
-
-Сбрасываются:
-
-- уровни Deck / Lift / Logistics;
-- открытые Deck и barriers;
-- локальные Managers;
-- локальные ore buffers.
-
-Сохраняются:
-
-- общий кошелёк сектора;
-- открытые шахты и сектора;
-- lifetime earnings / ore statistics;
-- Rebuild level и постоянный multiplier.
-
-Текущие Rebuild-множители:
-
-`R0 ×1 → R1 ×1.8 → R2 ×3 → R3 ×4.7 → R4 ×7 → R5 ×10.5 → R6 ×16`
-
-Требования зависят от глубины шахты и revenue текущего Rebuild-цикла. Экономика вынесена в `client/src/game/core/balance.ts`.
+Один Specialist может быть назначен только в одну шахту. Passive работает также в background/offline income; active ability — в открытой шахте.
 
 ## Mobile portrait
 
-Основной мобильный режим: **вертикальный экран**.
+Основной телефонный режим — **вертикальный**.
 
 Проверять минимум:
 
-- 360×780 — compact iPhone class;
+- 360×780;
 - 375×812;
 - 390×844;
 - 393×852;
 - 402×874;
 - 414×896;
 - 428×926;
-- 430×932 — iPhone 14/15 Pro Max class;
+- **430×932 — iPhone 14/15 Pro Max class**;
 - 440×956 — large Pro Max class.
 
-На коротких экранах нижняя панель объекта имеет собственный scroll, карта делится на viewport карты + scrollable information area, а debug badge скрывается.
+Team / Academy / Specialists / Research / Rebuild / World Map используют собственные scroll areas и `100dvh`. На iPhone верхний safe-area расходуется только topbar, а home indicator — только bottom navigation / нижняя часть panel.
 
-## Запуск разработки
+## Запуск
 
 ```bat
 dev.bat
@@ -100,7 +85,7 @@ dev.bat
 
 API: `http://localhost:3001/api/health`
 
-## Production check
+## Проверка production
 
 ```bat
 build.bat
@@ -109,24 +94,15 @@ build.bat
 ## Публикация
 
 ```bat
-publish.bat "feat: stage 9 specialists iphone portrait"
+publish.bat "feat: stage 10 academy fragments rank promotion"
 ```
 
-`publish.bat` сначала синхронизируется с `origin/main`, затем запускает typecheck, tests, production build, commit и push. GitHub Actions обновляет Pages.
+`publish.bat` синхронизируется с `origin/main`, запускает typecheck, tests, production build, commit и push. GitHub Actions обновляет Pages.
 
 Публичная версия:
 
 `https://divangames.github.io/DEEPFORGE/`
 
-## Документация этапов
+## Документация
 
-- `docs/STAGE_0.md`
-- `docs/STAGE_1.md`
-- `docs/STAGE_2.md`
-- `docs/STAGE_3.md`
-- `docs/STAGE_4.md`
-- `docs/STAGE_5.md`
-- `docs/STAGE_6.md`
-- `docs/STAGE_7.md`
-- `docs/STAGE_8.md`
-- `docs/STAGE_9.md`
+`docs/STAGE_0.md` … `docs/STAGE_10.md`

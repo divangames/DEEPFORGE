@@ -1,6 +1,7 @@
 import { APP_CONFIG } from '../config/appConfig';
 import { DEFAULT_RESEARCH_STATE, sanitizeResearchState } from '../game/core/research';
-import { DEFAULT_SPECIALIST_SYSTEM, sanitizeSpecialistSystem } from '../game/core/specialists';
+import { DEFAULT_ACADEMY_STATE, grantAcademyMigrationResources, sanitizeAcademyState } from '../game/core/academy';
+import { DEFAULT_SPECIALIST_SYSTEM, migrateStageNineSpecialists, sanitizeSpecialistSystem } from '../game/core/specialists';
 import type { MineId, PersistentMineState, PersistentWorldState, SectorId } from '../game/core/types';
 import { DEFAULT_MINE_ID, DEFAULT_SECTOR_ID, getMineDefinition, WORLD_MINES } from '../game/core/worldConfig';
 import type { SaveRecord } from './gameDb';
@@ -49,7 +50,7 @@ function inferUnlockedSectors(unlockedMines: MineId[]): SectorId[] {
   return [...result];
 }
 
-function parseStageNine(record: SaveRecord): DeepforgeSave | null {
+function parseStageTen(record: SaveRecord): DeepforgeSave | null {
   if (record.schemaVersion !== APP_CONFIG.saveSchemaVersion) return null;
   const payload = record.payload as Partial<DeepforgeSave> | null;
   if (!payload?.world || !isSettings(payload.settings) || typeof payload.createdAt !== 'number' || typeof payload.lastSeenAt !== 'number') return null;
@@ -60,6 +61,7 @@ function parseStageNine(record: SaveRecord): DeepforgeSave | null {
   payload.world.sectorWallets ??= {};
   payload.world.research = sanitizeResearchState(payload.world.research ?? DEFAULT_RESEARCH_STATE);
   payload.world.specialists = sanitizeSpecialistSystem(payload.world.specialists ?? DEFAULT_SPECIALIST_SYSTEM);
+  payload.world.academy = sanitizeAcademyState(payload.world.academy ?? DEFAULT_ACADEMY_STATE);
   const mines: Partial<Record<MineId, PersistentMineState>> = {};
   for (const [id, state] of Object.entries(payload.world.mines) as [MineId, PersistentMineState][]) {
     if (!state) continue;
@@ -71,6 +73,35 @@ function parseStageNine(record: SaveRecord): DeepforgeSave | null {
   }
   payload.world.mines = mines;
   return payload as DeepforgeSave;
+}
+
+function migrateStageNine(record: SaveRecord): DeepforgeSave | null {
+  if (record.schemaVersion !== 7) return null;
+  const payload = record.payload as Partial<DeepforgeSave> | null;
+  if (!payload?.world || !isSettings(payload.settings) || typeof payload.createdAt !== 'number' || typeof payload.lastSeenAt !== 'number') return null;
+  if (!payload.world.activeMineId || !Array.isArray(payload.world.unlockedMines) || !payload.world.mines) return null;
+
+  const mines = { ...payload.world.mines };
+  const totalRebuilds = Object.values(mines).reduce((sum, state) => sum + Math.max(0, Math.floor(state?.rebuildLevel ?? 0)), 0);
+  const specialists = migrateStageNineSpecialists(payload.world.specialists ?? DEFAULT_SPECIALIST_SYSTEM, totalRebuilds);
+  const academy = grantAcademyMigrationResources(sanitizeAcademyState(DEFAULT_ACADEMY_STATE), specialists);
+
+  return {
+    createdAt: payload.createdAt,
+    lastSeenAt: payload.lastSeenAt,
+    settings: payload.settings,
+    world: {
+      activeMineId: payload.world.activeMineId,
+      research: sanitizeResearchState(payload.world.research ?? DEFAULT_RESEARCH_STATE),
+      specialists,
+      academy,
+      unlockedSectors: payload.world.unlockedSectors ?? inferUnlockedSectors(payload.world.unlockedMines),
+      sectorWallets: { ...(payload.world.sectorWallets ?? {}) },
+      unlockedMines: [...payload.world.unlockedMines],
+      mines,
+      lastSimulatedAt: { ...(payload.world.lastSimulatedAt ?? {}) },
+    },
+  };
 }
 
 function migrateStageEight(record: SaveRecord): DeepforgeSave | null {
@@ -87,6 +118,7 @@ function migrateStageEight(record: SaveRecord): DeepforgeSave | null {
       activeMineId: payload.world.activeMineId,
       research: sanitizeResearchState(payload.world.research ?? DEFAULT_RESEARCH_STATE),
       specialists: sanitizeSpecialistSystem(DEFAULT_SPECIALIST_SYSTEM),
+      academy: sanitizeAcademyState(DEFAULT_ACADEMY_STATE),
       unlockedSectors: payload.world.unlockedSectors ?? inferUnlockedSectors(payload.world.unlockedMines),
       sectorWallets: { ...(payload.world.sectorWallets ?? {}) },
       unlockedMines: [...payload.world.unlockedMines],
@@ -111,6 +143,7 @@ function migrateStageSeven(record: SaveRecord): DeepforgeSave | null {
       activeMineId: payload.world.activeMineId,
       research: { ...DEFAULT_RESEARCH_STATE, cores: DEFAULT_RESEARCH_STATE.cores + rebuildLevels * 2, purchased: [] },
       specialists: sanitizeSpecialistSystem(DEFAULT_SPECIALIST_SYSTEM),
+      academy: sanitizeAcademyState(DEFAULT_ACADEMY_STATE),
       unlockedSectors: payload.world.unlockedSectors ?? inferUnlockedSectors(payload.world.unlockedMines),
       sectorWallets: { ...(payload.world.sectorWallets ?? {}) },
       unlockedMines: [...payload.world.unlockedMines],
@@ -145,6 +178,7 @@ function migrateStageSix(record: SaveRecord): DeepforgeSave | null {
       activeMineId: payload.world.activeMineId,
       research: { ...DEFAULT_RESEARCH_STATE, purchased: [] },
       specialists: sanitizeSpecialistSystem(DEFAULT_SPECIALIST_SYSTEM),
+      academy: sanitizeAcademyState(DEFAULT_ACADEMY_STATE),
       unlockedSectors: payload.world.unlockedSectors ?? inferUnlockedSectors(unlockedMines),
       sectorWallets: { ...(payload.world.sectorWallets ?? {}) },
       unlockedMines: [...unlockedMines],
@@ -184,6 +218,7 @@ function migrateStageFive(record: SaveRecord): DeepforgeSave | null {
       activeMineId,
       research: { ...DEFAULT_RESEARCH_STATE, purchased: [] },
       specialists: sanitizeSpecialistSystem(DEFAULT_SPECIALIST_SYSTEM),
+      academy: sanitizeAcademyState(DEFAULT_ACADEMY_STATE),
       unlockedSectors: inferUnlockedSectors(unlockedMines),
       sectorWallets,
       unlockedMines: unlockedMines.length ? unlockedMines : [DEFAULT_MINE_ID],
@@ -207,6 +242,7 @@ function migrateLegacy(record: SaveRecord): DeepforgeSave | null {
       activeMineId: DEFAULT_MINE_ID,
       research: { ...DEFAULT_RESEARCH_STATE, purchased: [] },
       specialists: sanitizeSpecialistSystem(DEFAULT_SPECIALIST_SYSTEM),
+      academy: sanitizeAcademyState(DEFAULT_ACADEMY_STATE),
       unlockedSectors: [DEFAULT_SECTOR_ID],
       sectorWallets: { [DEFAULT_SECTOR_ID]: wallet },
       unlockedMines: [DEFAULT_MINE_ID],
@@ -218,5 +254,5 @@ function migrateLegacy(record: SaveRecord): DeepforgeSave | null {
 
 export function parseSaveRecord(record: SaveRecord | undefined): DeepforgeSave | null {
   if (!record) return null;
-  return parseStageNine(record) ?? migrateStageEight(record) ?? migrateStageSeven(record) ?? migrateStageSix(record) ?? migrateStageFive(record) ?? migrateLegacy(record);
+  return parseStageTen(record) ?? migrateStageNine(record) ?? migrateStageEight(record) ?? migrateStageSeven(record) ?? migrateStageSix(record) ?? migrateStageFive(record) ?? migrateLegacy(record);
 }

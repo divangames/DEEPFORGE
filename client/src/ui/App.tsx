@@ -3,6 +3,7 @@ import { getApiHealth } from '../services/api';
 import { formatCompact } from '../game/core/format';
 import { RESEARCH_BRANCHES, type ResearchBranchId } from '../game/core/research';
 import { SPECIALIST_SLOTS, type SpecialistSlot, type SpecialistSystemView, type SpecialistView } from '../game/core/specialists';
+import type { AcademyView } from '../game/core/academy';
 import type { BulkUpgradeMode, BulkUpgradeQuote, FacilityId, ManagerView, MineId, ResearchView, SectorId, WorldMineView, WorldSectorView } from '../game/core/types';
 import { sendGameCommand } from '../game/runtime/gameRuntime';
 import { useGameStore } from '../state/gameStore';
@@ -346,12 +347,10 @@ function specialistAbilityLabel(item: SpecialistView) {
 
 function SpecialistRoster({
   data,
-  activeMineId,
-  currencyCode,
+  activeMineId: _activeMineId,
 }: {
   data: SpecialistSystemView;
   activeMineId: MineId;
-  currencyCode: string;
 }) {
   const roleSlots = (specialist: SpecialistView): SpecialistSlot[] => {
     if (specialist.role === 'universal') return SPECIALIST_SLOTS.map((slot) => slot.id);
@@ -360,6 +359,12 @@ function SpecialistRoster({
 
   return (
     <div className="specialists-view">
+      <div className="specialist-resource-strip">
+        <span><b>⬢ {data.academyResources.recruitData}</b> Recruit Data</span>
+        <span><b>▲ {data.academyResources.trainingModules}</b> Training</span>
+        <span><b>● {data.academyResources.promotionBadges}</b> Promotion</span>
+      </div>
+
       <div className="specialist-slot-grid">
         {data.slots.map((slot) => (
           <article className={`specialist-slot ${slot.specialistId ? 'filled' : ''}`} key={slot.slot}>
@@ -377,70 +382,185 @@ function SpecialistRoster({
       <div className="specialist-meta-line">
         <span>Назначено <b>{data.assignedCount}/3</b></span>
         <span>Всего Rebuild <b>{data.totalRebuilds}</b></span>
-        <span>Эффект действует на <b>текущую шахту</b></span>
+        <span>Fragments / Rank / Promotion — <b>глобальные</b></span>
       </div>
 
       <div className="specialist-list">
         {data.roster.map((item) => {
           const availableSlots = roleSlots(item);
+          const lockedByProgress = !item.available;
+          const awaitingRecruit = item.available && !item.recruited;
           return (
-            <article className={`specialist-card rarity-${item.rarity.toLowerCase()} ${item.unlocked ? '' : 'locked'} ${item.assignedHere ? 'assigned' : ''}`} key={item.id}>
-              <div className="specialist-avatar"><b>{item.codename.slice(0, 2)}</b><span>LV {item.level}</span></div>
+            <article className={`specialist-card rarity-${item.rarity.toLowerCase()} ${lockedByProgress ? 'locked' : ''} ${awaitingRecruit ? 'recruitable' : ''} ${item.assignedHere ? 'assigned' : ''}`} key={item.id}>
+              <div className="specialist-avatar">
+                <b>{item.codename.slice(0, 2)}</b>
+                <span>LV {item.level}/{item.levelCap}</span>
+              </div>
               <div className="specialist-copy">
                 <div className="specialist-title-row">
                   <strong>{item.name}</strong>
                   <em>{item.rarity}</em>
                 </div>
-                <small>{specialistRoleLabel(item.role)} · {item.codename}</small>
+                <small>{specialistRoleLabel(item.role)} · RANK {item.rank}/{item.maxRank} · PROMO {item.promotion}/{item.maxPromotion}</small>
                 <p><b>PASSIVE +{item.passiveBonusPercent}%</b> · {item.passiveLabel}</p>
                 <p><b>ACTIVE ×{item.abilityMultiplier.toFixed(2)}</b> · {item.abilityDuration}с · {item.abilityName}</p>
-                {!item.unlocked && <div className="specialist-lock">Откроется после {item.unlockRebuilds} Rebuild</div>}
-                {item.unlocked && item.assignedMineId && !item.assignedHere && (
+                <div className="fragment-line">
+                  <span>FRAGMENTS</span>
+                  <b>{item.fragments}</b>
+                  {!item.recruited && <em>/ {item.recruitFragments} recruit</em>}
+                  {item.recruited && item.rankCost !== null && <em>/ {item.rankCost} next rank</em>}
+                </div>
+                {lockedByProgress && <div className="specialist-lock">Доступ после {item.unlockRebuilds} суммарных Rebuild</div>}
+                {item.recruited && item.assignedMineId && !item.assignedHere && (
                   <div className="specialist-assignment-note">Назначен: {item.assignedMineId.toUpperCase()} · {item.assignedSlot}</div>
                 )}
               </div>
               <div className="specialist-actions">
-                <div className="specialist-assign-actions">
-                  {availableSlots.map((slot) => (
+                {!item.recruited ? (
+                  <button
+                    type="button"
+                    className="specialist-recruit"
+                    disabled={!item.canRecruit}
+                    onClick={() => sendGameCommand({ type: 'SPECIALIST_RECRUIT', specialistId: item.id })}
+                  >
+                    {lockedByProgress ? `REBUILD ${item.unlockRebuilds}` : `RECRUIT · ◆ ${item.recruitFragments}`}
+                  </button>
+                ) : (
+                  <>
+                    <div className="specialist-assign-actions">
+                      {availableSlots.map((slot) => (
+                        <button
+                          type="button"
+                          key={slot}
+                          disabled={item.assignedHere && item.assignedSlot === slot}
+                          onClick={() => sendGameCommand({ type: 'SPECIALIST_ASSIGN', specialistId: item.id, slot })}
+                        >
+                          {item.assignedHere && item.assignedSlot === slot ? '✓ В слоте' : `→ ${slot === 'extraction' ? 'Deck' : slot === 'lift' ? 'Lift' : 'Hub'}`}
+                        </button>
+                      ))}
+                    </div>
                     <button
                       type="button"
-                      key={slot}
-                      disabled={!item.unlocked || (item.assignedHere && item.assignedSlot === slot)}
-                      onClick={() => sendGameCommand({ type: 'SPECIALIST_ASSIGN', specialistId: item.id, slot })}
+                      className="specialist-train"
+                      disabled={!item.canTrain}
+                      onClick={() => sendGameCommand({ type: 'SPECIALIST_TRAIN', specialistId: item.id })}
                     >
-                      {item.assignedHere && item.assignedSlot === slot ? '✓ В слоте' : `→ ${slot === 'extraction' ? 'Deck' : slot === 'lift' ? 'Lift' : 'Hub'}`}
+                      {item.level >= item.levelCap ? `CAP LV ${item.levelCap}` : `TRAIN · ▲ ${item.trainingCost}`}
                     </button>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  className="specialist-train"
-                  disabled={!item.canTrain || item.level >= item.maxLevel}
-                  onClick={() => sendGameCommand({ type: 'SPECIALIST_TRAIN', specialistId: item.id })}
-                >
-                  {item.level >= item.maxLevel ? 'MAX LEVEL' : `TRAIN · ${currencyCode} ${formatCompact(item.trainingCost)}`}
-                </button>
-                <button
-                  type="button"
-                  className={`specialist-ability ${item.activeRemaining > 0 ? 'active' : ''}`}
-                  disabled={!item.abilityReady}
-                  onClick={() => sendGameCommand({ type: 'SPECIALIST_ACTIVATE', specialistId: item.id })}
-                >
-                  {specialistAbilityLabel(item)}
-                </button>
+                    <button
+                      type="button"
+                      className="specialist-rank"
+                      disabled={!item.canRankUp}
+                      onClick={() => sendGameCommand({ type: 'SPECIALIST_RANK_UP', specialistId: item.id })}
+                    >
+                      {item.rank >= item.maxRank ? 'MAX RANK' : `RANK UP · ◆ ${item.rankCost ?? 0}`}
+                    </button>
+                    <button
+                      type="button"
+                      className="specialist-promote"
+                      disabled={!item.canPromote}
+                      onClick={() => sendGameCommand({ type: 'SPECIALIST_PROMOTE', specialistId: item.id })}
+                    >
+                      {item.promotion >= item.maxPromotion ? 'MAX PROMO' : `PROMOTE · ● ${item.promotionCost ?? 0}`}
+                    </button>
+                    <button
+                      type="button"
+                      className={`specialist-ability ${item.activeRemaining > 0 ? 'active' : ''}`}
+                      disabled={!item.abilityReady}
+                      onClick={() => sendGameCommand({ type: 'SPECIALIST_ACTIVATE', specialistId: item.id })}
+                    >
+                      {specialistAbilityLabel(item)}
+                    </button>
+                  </>
+                )}
               </div>
             </article>
           );
         })}
       </div>
-      <p className="team-note">Specialists глобальны: один персонаж может быть назначен только в одну шахту. Активные навыки работают в открытой шахте; passive-бонусы учитываются и в offline income.</p>
+      <p className="team-note">Academy даёт Recruit Data, Training Modules, Promotion Badges и fragments. Rank усиливает навыки, Promotion повышает лимит уровня до 25.</p>
+    </div>
+  );
+}
+
+function AcademyPanel({ data }: { data: AcademyView }) {
+  const active = data.activeOperation;
+  const next = data.nextOperation;
+  return (
+    <div className="academy-view">
+      <div className="academy-resource-grid">
+        <div><span>RECRUIT DATA</span><strong>⬢ {data.resources.recruitData}</strong></div>
+        <div><span>TRAINING MODULES</span><strong>▲ {data.resources.trainingModules}</strong></div>
+        <div><span>PROMOTION BADGES</span><strong>● {data.resources.promotionBadges}</strong></div>
+      </div>
+
+      <section className="academy-hero">
+        <div className="academy-progress-ring"><b>{data.completedOperations}</b><span>/ {data.totalOperations}</span></div>
+        <div className="academy-hero-copy">
+          <span>ACADEMY OPERATIONS</span>
+          <strong>{active?.title ?? next?.title ?? 'Все операции завершены'}</strong>
+          <small>
+            {active
+              ? active.subtitle
+              : next
+                ? `Требование: ${next.requiredRebuilds} суммарных Rebuild`
+                : 'Текущая линейка Academy полностью пройдена'}
+          </small>
+        </div>
+        {active ? (
+          <button
+            type="button"
+            className={data.activeReady ? 'academy-claim' : 'academy-timer'}
+            disabled={!data.activeReady}
+            onClick={() => sendGameCommand({ type: 'ACADEMY_CLAIM' })}
+          >
+            {data.activeReady ? 'ЗАБРАТЬ НАГРАДУ' : `⏱ ${formatAwayTime(data.activeRemaining)}`}
+          </button>
+        ) : next ? (
+          <button type="button" className="academy-start" disabled={!data.canStartNext} onClick={() => sendGameCommand({ type: 'ACADEMY_START' })}>
+            {data.canStartNext ? 'НАЧАТЬ DRILL' : `НУЖНО ${next.requiredRebuilds} REBUILD`}
+          </button>
+        ) : <b className="academy-complete">COMPLETE</b>}
+      </section>
+
+      <section className="academy-recruit-scan">
+        <div>
+          <span>RECRUITMENT SIGNAL</span>
+          <strong>Скан фрагментов Specialists</strong>
+          <small>Каждый scan гарантирует fragment-пак. Стоимость фиксирована и не зависит от сектора.</small>
+          {data.lastRecruit && <em>Последний сигнал: {data.lastRecruit.specialistName} +{data.lastRecruit.fragments} ◆</em>}
+        </div>
+        <button type="button" disabled={!data.canScan} onClick={() => sendGameCommand({ type: 'ACADEMY_RECRUIT_SCAN' })}>
+          SCAN · ⬢ {data.scanCost}
+        </button>
+      </section>
+
+      <div className="academy-operation-list">
+        {data.operations.map((operation) => (
+          <article className={`academy-operation ${operation.completed ? 'completed' : ''} ${operation.current ? 'current' : ''} ${operation.available ? 'available' : ''} ${operation.locked ? 'locked' : ''}`} key={operation.id}>
+            <div className="academy-op-index">{String(operation.index).padStart(2, '0')}</div>
+            <div className="academy-op-copy">
+              <strong>{operation.title}</strong>
+              <span>{operation.subtitle}</span>
+              <small>{operation.durationSeconds}с · Rebuild {operation.requiredRebuilds}+</small>
+            </div>
+            <div className="academy-op-rewards">
+              <span>⬢ {operation.rewards.recruitData}</span>
+              <span>▲ {operation.rewards.trainingModules}</span>
+              {operation.rewards.promotionBadges > 0 && <span>● {operation.rewards.promotionBadges}</span>}
+              <span>◆ {operation.rewards.fragments}</span>
+            </div>
+            <b className="academy-op-state">{operation.completed ? '✓' : operation.current ? 'LIVE' : operation.available ? 'NEXT' : 'LOCK'}</b>
+          </article>
+        ))}
+      </div>
     </div>
   );
 }
 
 export function App() {
   const [teamOpen, setTeamOpen] = useState(false);
-  const [teamTab, setTeamTab] = useState<'managers' | 'specialists'>('managers');
+  const [teamTab, setTeamTab] = useState<'managers' | 'specialists' | 'academy'>('managers');
   const [mapOpen, setMapOpen] = useState(false);
   const [rebuildOpen, setRebuildOpen] = useState(false);
   const [researchOpen, setResearchOpen] = useState(false);
@@ -462,6 +582,7 @@ export function App() {
   const rebuild = useGameStore((state) => state.rebuild);
   const research = useGameStore((state) => state.research);
   const specialists = useGameStore((state) => state.specialists);
+  const academy = useGameStore((state) => state.academy);
   const offlineReport = useGameStore((state) => state.offlineReport);
   const setApiOnline = useGameStore((state) => state.setApiOnline);
   const setOfflineReport = useGameStore((state) => state.setOfflineReport);
@@ -567,7 +688,7 @@ export function App() {
         )}
 
         <div className="stage-badge">
-          <strong>STAGE 9</strong>
+          <strong>STAGE 10</strong>
           <span>{quality}</span>
           <span className={apiOnline ? 'ok' : 'muted'}>{apiOnline ? 'API' : 'LOCAL'}</span>
         </div>
@@ -827,14 +948,15 @@ export function App() {
       {teamOpen && (
         <div className="team-overlay" role="dialog" aria-modal="true" aria-label="Команда объекта">
           <button className="team-backdrop" type="button" aria-label="Закрыть" onClick={() => setTeamOpen(false)} />
-          <section className="team-panel stage9-team-panel">
+          <section className="team-panel stage9-team-panel stage10-team-panel">
             <header className="team-header">
-              <div><span>УПРАВЛЕНИЕ КОМАНДОЙ</span><strong>{teamTab === 'managers' ? 'Менеджеры объекта' : 'Specialists'}</strong></div>
+              <div><span>УПРАВЛЕНИЕ КОМАНДОЙ</span><strong>{teamTab === 'managers' ? 'Менеджеры объекта' : teamTab === 'specialists' ? 'Specialists' : 'Academy Operations'}</strong></div>
               <button type="button" onClick={() => setTeamOpen(false)}>✕</button>
             </header>
             <div className="team-tabs" role="tablist">
               <button type="button" className={teamTab === 'managers' ? 'active' : ''} onClick={() => setTeamTab('managers')}>♟ Менеджеры</button>
               <button type="button" className={teamTab === 'specialists' ? 'active' : ''} onClick={() => setTeamTab('specialists')}>★ Specialists</button>
+              <button type="button" className={teamTab === 'academy' ? 'active' : ''} onClick={() => setTeamTab('academy')}>▣ Academy</button>
             </div>
 
             {teamTab === 'managers' ? (
@@ -885,10 +1007,10 @@ export function App() {
                 </div>
                 <p className="team-note">Новые менеджеры появляются в списке по мере открытия добывающих уровней.</p>
               </>
-            ) : specialists ? (
-              <SpecialistRoster data={specialists} activeMineId={activeMineId} currencyCode={currencyCode} />
+            ) : teamTab === 'specialists' ? (
+              specialists ? <SpecialistRoster data={specialists} activeMineId={activeMineId} /> : <div className="team-summary"><span>Specialists загружаются…</span></div>
             ) : (
-              <div className="team-summary"><span>Specialists загружаются…</span></div>
+              academy ? <AcademyPanel data={academy} /> : <div className="team-summary"><span>Academy загружается…</span></div>
             )}
           </section>
         </div>

@@ -1,4 +1,5 @@
 import type { MineId } from './types';
+import type { AcademyResources } from './academy';
 
 export type SpecialistId = 'rook-hale' | 'mara-vex' | 'ion-reyes' | 'talia-cruz' | 'kael-soren' | 'sera-knox';
 export type SpecialistRarity = 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY';
@@ -12,7 +13,7 @@ export interface SpecialistDefinition {
   rarity: SpecialistRarity;
   role: SpecialistRole;
   unlockRebuilds: number;
-  baseTrainingCost: number;
+  recruitFragments: number;
   passiveLabel: string;
   passiveBaseBonus: number;
   abilityName: string;
@@ -23,6 +24,10 @@ export interface SpecialistDefinition {
 
 export interface PersistentSpecialistProfile {
   level: number;
+  recruited: boolean;
+  fragments: number;
+  rank: number;
+  promotion: number;
   activeRemaining: number;
   cooldownRemaining: number;
 }
@@ -46,11 +51,25 @@ export interface SpecialistView {
   rarity: SpecialistRarity;
   role: SpecialistRole;
   level: number;
+  levelCap: number;
   maxLevel: number;
+  rank: number;
+  maxRank: number;
+  promotion: number;
+  maxPromotion: number;
+  fragments: number;
+  recruitFragments: number;
+  recruited: boolean;
+  available: boolean;
   unlocked: boolean;
   unlockRebuilds: number;
   trainingCost: number;
   canTrain: boolean;
+  rankCost: number | null;
+  canRankUp: boolean;
+  promotionCost: number | null;
+  canPromote: boolean;
+  canRecruit: boolean;
   assignedMineId: MineId | null;
   assignedSlot: SpecialistSlot | null;
   assignedHere: boolean;
@@ -76,9 +95,12 @@ export interface SpecialistSystemView {
   slots: SpecialistSlotView[];
   totalRebuilds: number;
   assignedCount: number;
+  academyResources: AcademyResources;
 }
 
-export const SPECIALIST_MAX_LEVEL = 10;
+export const SPECIALIST_MAX_LEVEL = 25;
+export const SPECIALIST_MAX_RANK = 5;
+export const SPECIALIST_MAX_PROMOTION = 3;
 
 export const SPECIALIST_SLOTS: readonly { id: SpecialistSlot; label: string }[] = [
   { id: 'extraction', label: 'Extraction' },
@@ -89,32 +111,32 @@ export const SPECIALIST_SLOTS: readonly { id: SpecialistSlot; label: string }[] 
 export const SPECIALISTS: readonly SpecialistDefinition[] = [
   {
     id: 'rook-hale', name: 'Rook Hale', codename: 'ROOK', rarity: 'COMMON', role: 'extraction', unlockRebuilds: 0,
-    baseTrainingCost: 1_200, passiveLabel: 'Добыча всех Deck', passiveBaseBonus: 0.08,
+    recruitFragments: 10, passiveLabel: 'Добыча всех Deck', passiveBaseBonus: 0.08,
     abilityName: 'Hammer Shift', abilityBaseMultiplier: 2.0, abilityDuration: 24, abilityCooldown: 72,
   },
   {
     id: 'mara-vex', name: 'Mara Vex', codename: 'VEX', rarity: 'RARE', role: 'extraction', unlockRebuilds: 1,
-    baseTrainingCost: 4_000, passiveLabel: 'Добыча всех Deck', passiveBaseBonus: 0.14,
+    recruitFragments: 15, passiveLabel: 'Добыча всех Deck', passiveBaseBonus: 0.14,
     abilityName: 'Core Surge', abilityBaseMultiplier: 2.75, abilityDuration: 18, abilityCooldown: 92,
   },
   {
     id: 'ion-reyes', name: 'Ion Reyes', codename: 'ION', rarity: 'EPIC', role: 'lift', unlockRebuilds: 0,
-    baseTrainingCost: 2_200, passiveLabel: 'Вместимость Cargo Lift', passiveBaseBonus: 0.12,
+    recruitFragments: 18, passiveLabel: 'Вместимость Cargo Lift', passiveBaseBonus: 0.12,
     abilityName: 'Vertical Burn', abilityBaseMultiplier: 3.0, abilityDuration: 16, abilityCooldown: 88,
   },
   {
     id: 'talia-cruz', name: 'Talia Cruz', codename: 'CRUZ', rarity: 'RARE', role: 'logistics', unlockRebuilds: 0,
-    baseTrainingCost: 2_000, passiveLabel: 'Пропускная способность Logistics', passiveBaseBonus: 0.11,
+    recruitFragments: 15, passiveLabel: 'Пропускная способность Logistics', passiveBaseBonus: 0.11,
     abilityName: 'Rush Dispatch', abilityBaseMultiplier: 2.6, abilityDuration: 20, abilityCooldown: 84,
   },
   {
     id: 'kael-soren', name: 'Kael Soren', codename: 'SOREN', rarity: 'EPIC', role: 'logistics', unlockRebuilds: 2,
-    baseTrainingCost: 7_500, passiveLabel: 'Пропускная способность Logistics', passiveBaseBonus: 0.18,
+    recruitFragments: 22, passiveLabel: 'Пропускная способность Logistics', passiveBaseBonus: 0.18,
     abilityName: 'Freight Cascade', abilityBaseMultiplier: 3.35, abilityDuration: 17, abilityCooldown: 98,
   },
   {
     id: 'sera-knox', name: 'Sera Knox', codename: 'KNOX', rarity: 'LEGENDARY', role: 'universal', unlockRebuilds: 4,
-    baseTrainingCost: 18_000, passiveLabel: 'Все производственные звенья', passiveBaseBonus: 0.10,
+    recruitFragments: 30, passiveLabel: 'Все производственные звенья', passiveBaseBonus: 0.10,
     abilityName: 'Command Net', abilityBaseMultiplier: 1.9, abilityDuration: 26, abilityCooldown: 118,
   },
 ] as const;
@@ -130,8 +152,20 @@ export function getSpecialistDefinition(id: SpecialistId): SpecialistDefinition 
   return DEF_MAP.get(id) ?? SPECIALISTS[0];
 }
 
-export function createDefaultSpecialistProfile(): PersistentSpecialistProfile {
-  return { level: 1, activeRemaining: 0, cooldownRemaining: 0 };
+export function createDefaultSpecialistProfile(id?: SpecialistId): PersistentSpecialistProfile {
+  return {
+    level: 1,
+    recruited: id === 'rook-hale',
+    fragments: 0,
+    rank: id === 'rook-hale' ? 1 : 0,
+    promotion: 0,
+    activeRemaining: 0,
+    cooldownRemaining: 0,
+  };
+}
+
+export function getSpecialistLevelCap(profile: Pick<PersistentSpecialistProfile, 'promotion'>): number {
+  return Math.min(SPECIALIST_MAX_LEVEL, 10 + Math.max(0, Math.min(SPECIALIST_MAX_PROMOTION, profile.promotion)) * 5);
 }
 
 export function sanitizeSpecialistSystem(value?: Partial<PersistentSpecialistSystem> | null): PersistentSpecialistSystem {
@@ -139,8 +173,18 @@ export function sanitizeSpecialistSystem(value?: Partial<PersistentSpecialistSys
   const rawProfiles = value?.profiles ?? {};
   for (const definition of SPECIALISTS) {
     const source = rawProfiles[definition.id];
+    const fallback = createDefaultSpecialistProfile(definition.id);
+    const promotion = Math.max(0, Math.min(SPECIALIST_MAX_PROMOTION, Math.floor(Number(source?.promotion) || 0)));
+    const recruited = typeof source?.recruited === 'boolean' ? source.recruited : fallback.recruited;
+    const rankFallback = recruited ? 1 : 0;
+    const rank = Math.max(rankFallback, Math.min(SPECIALIST_MAX_RANK, Math.floor(Number(source?.rank) || rankFallback)));
+    const cap = 10 + promotion * 5;
     profiles[definition.id] = {
-      level: Math.max(1, Math.min(SPECIALIST_MAX_LEVEL, Math.floor(Number(source?.level) || 1))),
+      level: Math.max(1, Math.min(cap, Math.floor(Number(source?.level) || 1))),
+      recruited,
+      fragments: Math.max(0, Math.floor(Number(source?.fragments) || 0)),
+      rank,
+      promotion,
       activeRemaining: Math.max(0, Number(source?.activeRemaining) || 0),
       cooldownRemaining: Math.max(0, Number(source?.cooldownRemaining) || 0),
     };
@@ -151,12 +195,12 @@ export function sanitizeSpecialistSystem(value?: Partial<PersistentSpecialistSys
     const next: Partial<Record<SpecialistSlot, SpecialistId>> = {};
     for (const slot of SPECIALIST_SLOTS) {
       const id = raw?.[slot.id];
-      if (id && DEF_MAP.has(id) && isRoleCompatible(getSpecialistDefinition(id).role, slot.id)) next[slot.id] = id;
+      const profile = id ? profiles[id] : null;
+      if (id && DEF_MAP.has(id) && profile?.recruited && isRoleCompatible(getSpecialistDefinition(id).role, slot.id)) next[slot.id] = id;
     }
     if (Object.keys(next).length > 0) assignments[mineId] = next;
   }
 
-  // Один Specialist может быть назначен только в одно место во всём мире.
   const seen = new Set<SpecialistId>();
   for (const mineId of Object.keys(assignments) as MineId[]) {
     const mineAssignments = assignments[mineId];
@@ -172,21 +216,58 @@ export function sanitizeSpecialistSystem(value?: Partial<PersistentSpecialistSys
   return { profiles, assignments };
 }
 
+export function migrateStageNineSpecialists(value: PersistentSpecialistSystem | undefined, totalRebuilds: number): PersistentSpecialistSystem {
+  const raw = value ?? DEFAULT_SPECIALIST_SYSTEM;
+  const next = sanitizeSpecialistSystem(raw);
+  for (const definition of SPECIALISTS) {
+    const source = raw.profiles?.[definition.id];
+    const legacyUnlocked = totalRebuilds >= definition.unlockRebuilds;
+    const profile = next.profiles[definition.id] ?? createDefaultSpecialistProfile(definition.id);
+    profile.recruited = legacyUnlocked || definition.id === 'rook-hale';
+    profile.rank = profile.recruited ? Math.max(1, profile.rank) : 0;
+    profile.fragments = Math.max(0, profile.fragments ?? 0);
+    profile.promotion = Math.max(0, profile.promotion ?? 0);
+    profile.level = Math.max(1, Math.min(getSpecialistLevelCap(profile), Math.floor(Number(source?.level) || profile.level || 1)));
+    next.profiles[definition.id] = profile;
+  }
+  // Stage 9 assignments могли содержать Ion/Talia до появления recruited-флага.
+  // Восстанавливаем их после миграции профилей и затем ещё раз валидируем роли/уникальность.
+  next.assignments = Object.fromEntries(
+    Object.entries(raw.assignments ?? {}).map(([mineId, assignments]) => [mineId, { ...(assignments ?? {}) }]),
+  ) as PersistentSpecialistSystem['assignments'];
+  return sanitizeSpecialistSystem(next);
+}
+
 export function isRoleCompatible(role: SpecialistRole, slot: SpecialistSlot): boolean {
   return role === 'universal' || role === slot;
 }
 
-export function getSpecialistLevelPassiveBonus(definition: SpecialistDefinition, level: number): number {
-  return definition.passiveBaseBonus * (1 + Math.max(0, level - 1) * 0.08);
+export function getSpecialistLevelPassiveBonus(definition: SpecialistDefinition, level: number, rank = 1, promotion = 0): number {
+  const levelScale = 1 + Math.max(0, level - 1) * 0.08;
+  const rankScale = 1 + Math.max(0, rank - 1) * 0.12;
+  const promotionScale = 1 + Math.max(0, promotion) * 0.10;
+  return definition.passiveBaseBonus * levelScale * rankScale * promotionScale;
 }
 
-export function getSpecialistLevelAbilityMultiplier(definition: SpecialistDefinition, level: number): number {
-  return 1 + (definition.abilityBaseMultiplier - 1) * (1 + Math.max(0, level - 1) * 0.05);
+export function getSpecialistLevelAbilityMultiplier(definition: SpecialistDefinition, level: number, rank = 1, promotion = 0): number {
+  const progression = (1 + Math.max(0, level - 1) * 0.05) * (1 + Math.max(0, rank - 1) * 0.08) * (1 + Math.max(0, promotion) * 0.06);
+  return 1 + (definition.abilityBaseMultiplier - 1) * progression;
 }
 
 export function getSpecialistTrainingCost(id: SpecialistId, level: number): number {
-  const definition = getSpecialistDefinition(id);
-  return Math.floor(definition.baseTrainingCost * Math.pow(1.72, Math.max(0, level - 1)));
+  const rarityScale = getSpecialistDefinition(id).rarity === 'LEGENDARY' ? 1.65 : getSpecialistDefinition(id).rarity === 'EPIC' ? 1.35 : getSpecialistDefinition(id).rarity === 'RARE' ? 1.15 : 1;
+  return Math.floor((18 + Math.max(0, level - 1) * 7) * rarityScale * Math.pow(1.08, Math.max(0, level - 1)));
+}
+
+export function getSpecialistRankCost(rank: number): number | null {
+  if (rank < 1) return null;
+  const costs = [0, 20, 40, 80, 160];
+  return rank >= SPECIALIST_MAX_RANK ? null : costs[rank] ?? null;
+}
+
+export function getSpecialistPromotionCost(promotion: number): number | null {
+  const costs = [5, 12, 25];
+  return promotion >= SPECIALIST_MAX_PROMOTION ? null : costs[promotion] ?? null;
 }
 
 export function getTotalRebuilds(mines: Iterable<{ rebuildLevel?: number } | undefined>): number {
@@ -195,6 +276,7 @@ export function getTotalRebuilds(mines: Iterable<{ rebuildLevel?: number } | und
   return total;
 }
 
+/** Доступность персонажа по прогрессу. Фактическое использование требует recruited=true. */
 export function isSpecialistUnlocked(id: SpecialistId, totalRebuilds: number): boolean {
   return totalRebuilds >= getSpecialistDefinition(id).unlockRebuilds;
 }
@@ -206,6 +288,50 @@ export function findSpecialistAssignment(system: PersistentSpecialistSystem, id:
   return null;
 }
 
+export function grantSpecialistFragments(system: PersistentSpecialistSystem, id: SpecialistId, amount: number): PersistentSpecialistSystem {
+  const next = sanitizeSpecialistSystem(system);
+  const profile = next.profiles[id] ?? createDefaultSpecialistProfile(id);
+  profile.fragments += Math.max(0, Math.floor(amount));
+  next.profiles[id] = profile;
+  return next;
+}
+
+export function recruitSpecialist(system: PersistentSpecialistSystem, id: SpecialistId, totalRebuilds: number): PersistentSpecialistSystem | null {
+  if (!isSpecialistUnlocked(id, totalRebuilds)) return null;
+  const next = sanitizeSpecialistSystem(system);
+  const definition = getSpecialistDefinition(id);
+  const profile = next.profiles[id] ?? createDefaultSpecialistProfile(id);
+  if (profile.recruited || profile.fragments < definition.recruitFragments) return null;
+  profile.fragments -= definition.recruitFragments;
+  profile.recruited = true;
+  profile.rank = 1;
+  next.profiles[id] = profile;
+  return next;
+}
+
+export function rankUpSpecialist(system: PersistentSpecialistSystem, id: SpecialistId): PersistentSpecialistSystem | null {
+  const next = sanitizeSpecialistSystem(system);
+  const profile = next.profiles[id] ?? createDefaultSpecialistProfile(id);
+  if (!profile.recruited) return null;
+  const cost = getSpecialistRankCost(profile.rank);
+  if (cost === null || profile.fragments < cost) return null;
+  profile.fragments -= cost;
+  profile.rank += 1;
+  next.profiles[id] = profile;
+  return next;
+}
+
+export function promoteSpecialist(system: PersistentSpecialistSystem, id: SpecialistId): PersistentSpecialistSystem | null {
+  const next = sanitizeSpecialistSystem(system);
+  const profile = next.profiles[id] ?? createDefaultSpecialistProfile(id);
+  if (!profile.recruited || profile.promotion >= SPECIALIST_MAX_PROMOTION) return null;
+  const currentCap = getSpecialistLevelCap(profile);
+  if (profile.level < currentCap || profile.rank < profile.promotion + 2) return null;
+  profile.promotion += 1;
+  next.profiles[id] = profile;
+  return next;
+}
+
 export function assignSpecialist(
   system: PersistentSpecialistSystem,
   id: SpecialistId,
@@ -214,7 +340,8 @@ export function assignSpecialist(
   totalRebuilds: number,
 ): PersistentSpecialistSystem | null {
   const definition = getSpecialistDefinition(id);
-  if (!isSpecialistUnlocked(id, totalRebuilds) || !isRoleCompatible(definition.role, slot)) return null;
+  const profile = sanitizeSpecialistSystem(system).profiles[id];
+  if (!isSpecialistUnlocked(id, totalRebuilds) || !profile?.recruited || !isRoleCompatible(definition.role, slot)) return null;
 
   const next = sanitizeSpecialistSystem(system);
   for (const assignments of Object.values(next.assignments)) {
@@ -235,8 +362,8 @@ export function unassignSpecialist(system: PersistentSpecialistSystem, mineId: M
 export function trainSpecialist(system: PersistentSpecialistSystem, id: SpecialistId, totalRebuilds: number): PersistentSpecialistSystem | null {
   if (!isSpecialistUnlocked(id, totalRebuilds)) return null;
   const next = sanitizeSpecialistSystem(system);
-  const profile = next.profiles[id] ?? createDefaultSpecialistProfile();
-  if (profile.level >= SPECIALIST_MAX_LEVEL) return null;
+  const profile = next.profiles[id] ?? createDefaultSpecialistProfile(id);
+  if (!profile.recruited || profile.level >= getSpecialistLevelCap(profile)) return null;
   profile.level += 1;
   next.profiles[id] = profile;
   return next;
@@ -244,16 +371,17 @@ export function trainSpecialist(system: PersistentSpecialistSystem, id: Speciali
 
 export function activateSpecialist(system: PersistentSpecialistSystem, id: SpecialistId, activeMineId: MineId, totalRebuilds: number, cooldownMultiplier = 1): PersistentSpecialistSystem | null {
   if (!isSpecialistUnlocked(id, totalRebuilds)) return null;
-  const assignment = findSpecialistAssignment(system, id);
+  const clean = sanitizeSpecialistSystem(system);
+  const profile = clean.profiles[id] ?? createDefaultSpecialistProfile(id);
+  if (!profile.recruited) return null;
+  const assignment = findSpecialistAssignment(clean, id);
   if (!assignment || assignment.mineId !== activeMineId) return null;
-  const next = sanitizeSpecialistSystem(system);
-  const profile = next.profiles[id] ?? createDefaultSpecialistProfile();
   if (profile.activeRemaining > 0.001 || profile.cooldownRemaining > 0.001) return null;
   const definition = getSpecialistDefinition(id);
   profile.activeRemaining = definition.abilityDuration;
   profile.cooldownRemaining = definition.abilityCooldown * cooldownMultiplier;
-  next.profiles[id] = profile;
-  return next;
+  clean.profiles[id] = profile;
+  return clean;
 }
 
 export function advanceSpecialistTimers(system: PersistentSpecialistSystem, seconds: number): void {
@@ -280,6 +408,8 @@ export function getSpecialistModifiers(
     hubCapacityMultiplier: 1,
     incomeMultiplier: 1,
   };
+  // Hot path: эта функция вызывается из active simulation. System уже sanitised при load/mutation,
+  // поэтому не создаём новые profile/assignment objects каждый frame.
   const assignments = system.assignments[mineId];
   if (!assignments) return modifiers;
 
@@ -287,10 +417,11 @@ export function getSpecialistModifiers(
     const id = assignments[slotDefinition.id];
     if (!id || !isSpecialistUnlocked(id, totalRebuilds)) continue;
     const definition = getSpecialistDefinition(id);
-    const profile = system.profiles[id] ?? createDefaultSpecialistProfile();
-    const passive = 1 + getSpecialistLevelPassiveBonus(definition, profile.level) * passiveResearchMultiplier;
+    const profile = system.profiles[id] ?? createDefaultSpecialistProfile(id);
+    if (!profile.recruited) continue;
+    const passive = 1 + getSpecialistLevelPassiveBonus(definition, profile.level, profile.rank, profile.promotion) * passiveResearchMultiplier;
     const active = includeActive && profile.activeRemaining > 0.001
-      ? getSpecialistLevelAbilityMultiplier(definition, profile.level)
+      ? getSpecialistLevelAbilityMultiplier(definition, profile.level, profile.rank, profile.promotion)
       : 1;
     const combined = passive * active;
 
@@ -311,14 +442,23 @@ export function buildSpecialistSystemView(
   system: PersistentSpecialistSystem,
   activeMineId: MineId,
   totalRebuilds: number,
-  currentWallet: number,
+  academyResources: AcademyResources,
   passiveResearchMultiplier = 1,
 ): SpecialistSystemView {
+  const clean = sanitizeSpecialistSystem(system);
   const roster: SpecialistView[] = SPECIALISTS.map((definition) => {
-    const profile = system.profiles[definition.id] ?? createDefaultSpecialistProfile();
-    const assignment = findSpecialistAssignment(system, definition.id);
-    const unlocked = isSpecialistUnlocked(definition.id, totalRebuilds);
+    const profile = clean.profiles[definition.id] ?? createDefaultSpecialistProfile(definition.id);
+    const assignment = findSpecialistAssignment(clean, definition.id);
+    const available = isSpecialistUnlocked(definition.id, totalRebuilds);
     const trainingCost = getSpecialistTrainingCost(definition.id, profile.level);
+    const rankCost = getSpecialistRankCost(profile.rank);
+    const promotionCost = getSpecialistPromotionCost(profile.promotion);
+    const levelCap = getSpecialistLevelCap(profile);
+    const canPromote = profile.recruited
+      && promotionCost !== null
+      && profile.level >= levelCap
+      && profile.rank >= profile.promotion + 2
+      && academyResources.promotionBadges >= promotionCost;
     return {
       id: definition.id,
       name: definition.name,
@@ -326,26 +466,40 @@ export function buildSpecialistSystemView(
       rarity: definition.rarity,
       role: definition.role,
       level: profile.level,
+      levelCap,
       maxLevel: SPECIALIST_MAX_LEVEL,
-      unlocked,
+      rank: profile.rank,
+      maxRank: SPECIALIST_MAX_RANK,
+      promotion: profile.promotion,
+      maxPromotion: SPECIALIST_MAX_PROMOTION,
+      fragments: profile.fragments,
+      recruitFragments: definition.recruitFragments,
+      recruited: profile.recruited,
+      available,
+      unlocked: profile.recruited,
       unlockRebuilds: definition.unlockRebuilds,
       trainingCost,
-      canTrain: unlocked && profile.level < SPECIALIST_MAX_LEVEL && currentWallet >= trainingCost,
+      canTrain: available && profile.recruited && profile.level < levelCap && academyResources.trainingModules >= trainingCost,
+      rankCost,
+      canRankUp: profile.recruited && rankCost !== null && profile.fragments >= rankCost,
+      promotionCost,
+      canPromote,
+      canRecruit: available && !profile.recruited && profile.fragments >= definition.recruitFragments,
       assignedMineId: assignment?.mineId ?? null,
       assignedSlot: assignment?.slot ?? null,
       assignedHere: assignment?.mineId === activeMineId,
       passiveLabel: definition.passiveLabel,
-      passiveBonusPercent: Math.round(getSpecialistLevelPassiveBonus(definition, profile.level) * passiveResearchMultiplier * 100),
+      passiveBonusPercent: Math.round(getSpecialistLevelPassiveBonus(definition, profile.level, profile.rank, profile.promotion) * passiveResearchMultiplier * 100),
       abilityName: definition.abilityName,
-      abilityMultiplier: getSpecialistLevelAbilityMultiplier(definition, profile.level),
+      abilityMultiplier: getSpecialistLevelAbilityMultiplier(definition, profile.level, profile.rank, profile.promotion),
       abilityDuration: definition.abilityDuration,
       activeRemaining: profile.activeRemaining,
       cooldownRemaining: profile.cooldownRemaining,
-      abilityReady: unlocked && assignment?.mineId === activeMineId && profile.activeRemaining <= 0.001 && profile.cooldownRemaining <= 0.001,
+      abilityReady: available && profile.recruited && assignment?.mineId === activeMineId && profile.activeRemaining <= 0.001 && profile.cooldownRemaining <= 0.001,
     };
   });
 
-  const assignments = system.assignments[activeMineId] ?? {};
+  const assignments = clean.assignments[activeMineId] ?? {};
   const slots: SpecialistSlotView[] = SPECIALIST_SLOTS.map((slot) => {
     const id = assignments[slot.id] ?? null;
     return {
@@ -361,5 +515,6 @@ export function buildSpecialistSystemView(
     slots,
     totalRebuilds,
     assignedCount: slots.filter((slot) => slot.specialistId).length,
+    academyResources: { ...academyResources },
   };
 }

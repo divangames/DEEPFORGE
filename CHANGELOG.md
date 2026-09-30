@@ -1,5 +1,32 @@
 # CHANGELOG — DEEPFORGE
 
+## 0.10.0 — Stage 10 Academy + Fragments + Rank / Promotion
+
+### Добавлено
+
+- Academy Operations: 30 data-driven timed operations.
+- Recruit Data, Training Modules и Promotion Badges.
+- Recruitment Signal Scan за Recruit Data.
+- Specialist fragments и отдельный Recruit flow.
+- Rank 1–5 с fragment cost и усилением passive/active.
+- Promotion 0–3 с level cap 10 → 15 → 20 → 25.
+- Training переведён с sector currency на Academy Training Modules.
+- Reward fragments за Academy operations.
+- Team получила третью вкладку Academy.
+- Save schema v8.
+- Stage 9 → Stage 10 migration сохраняет levels/assignments/timers и recruited-персонажей.
+- Компенсация Training Modules за уже прокачанные Stage 9 levels.
+- Academy и Specialist progression unit coverage.
+
+### Mobile / Performance
+
+- Academy portrait layout для 360–440 CSS px.
+- 3-column Team tabs без горизонтального overflow.
+- Academy operation list использует внутренний touch-scroll.
+- iPhone safe-area / Dynamic Island / home indicator правила сохранены.
+- Academy timer работает по absolute timestamp и не создаёт animation loop.
+- Новых Phaser scenes для Academy нет.
+
 ## 0.9.0 — Stage 9 Specialists + iPhone Portrait Pass
 
 ### Добавлено
@@ -31,7 +58,6 @@
 - Inactive mines получают только passive modifiers, без дополнительных Phaser scenes.
 - Specialist timers — лёгкая глобальная структура из 6 профилей.
 
-# CHANGELOG — DEEPFORGE
 
 ## 0.8.0 — Stage 8 Research Grid
 
@@ -57,7 +83,6 @@
 - Bottom navigation адаптирована под 5 разделов без выхода за ширину вертикального телефона.
 - Никаких дополнительных Phaser scenes или постоянных animation loops для Research.
 
-# CHANGELOG — DEEPFORGE
 
 ## 0.7.0 — Stage 7 Rebuild / Prestige + Mobile Portrait Optimization
 
@@ -88,7 +113,6 @@
 - HIGH DPR ограничен 1.5, чтобы мобильные Retina-экраны не рендерили лишние пиксели.
 - Background mines по-прежнему считаются аналитически без дополнительных Phaser scenes.
 
-# Changelog
 
 ## Stage 6 — Multi-Sector Economy
 
@@ -118,7 +142,6 @@
 - Добавлены unit-тесты offline income, неполной автоматизации, cap и cooldown.
 - UI badge обновлён до `STAGE 3`.
 
-# CHANGELOG — DEEPFORGE
 
 ## 0.2.0 — Stage 2 Managers & Automation
 

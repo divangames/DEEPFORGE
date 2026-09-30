@@ -5,6 +5,17 @@ import { makeShaftId, SHAFT_COUNT, SHAFTS_PER_BARRIER, STAGE_ONE_BALANCE } from 
 import { formatCompact } from '../core/format';
 import { MineSimulation } from '../core/MineSimulation';
 import {
+  DEFAULT_ACADEMY_STATE,
+  buildAcademyView,
+  claimAcademyOperation,
+  runAcademyRecruitScan,
+  sanitizeAcademyState,
+  spendPromotionBadges,
+  spendTrainingModules,
+  startAcademyOperation,
+  type PersistentAcademyState,
+} from '../core/academy';
+import {
   DEFAULT_RESEARCH_STATE,
   RESEARCH_NODES,
   canPurchaseResearchNode,
@@ -25,8 +36,13 @@ import {
   assignSpecialist,
   buildSpecialistSystemView,
   getSpecialistModifiers,
+  getSpecialistPromotionCost,
   getSpecialistTrainingCost,
   getTotalRebuilds,
+  grantSpecialistFragments,
+  promoteSpecialist,
+  rankUpSpecialist,
+  recruitSpecialist,
   sanitizeSpecialistSystem,
   trainSpecialist,
   unassignSpecialist,
@@ -67,6 +83,8 @@ export class FoundationScene extends Phaser.Scene {
   private lastSimulatedAt: Partial<Record<MineId, number>> = {};
   private research: PersistentResearchState = { ...DEFAULT_RESEARCH_STATE };
   private specialists: PersistentSpecialistSystem = sanitizeSpecialistSystem(DEFAULT_SPECIALIST_SYSTEM);
+  private academy: PersistentAcademyState = sanitizeAcademyState(DEFAULT_ACADEMY_STATE);
+  private totalRebuildCache: number | null = null;
   private simulation = new MineSimulation(undefined, getMineDefinition(DEFAULT_MINE_ID).tuning, getResearchModifiers([]));
   private selectedFacility: FacilityId = 'shaft-1';
   private shaftVisuals = new Map<ShaftId, ShaftVisual>();
@@ -393,7 +411,10 @@ export class FoundationScene extends Phaser.Scene {
         const beforeLevel = this.simulation.getRebuildView().level;
         if (this.simulation.performRebuild()) {
           const newLevel = this.simulation.getRebuildView().level;
-          if (newLevel > beforeLevel) this.research.cores += getRebuildResearchReward(newLevel);
+          if (newLevel > beforeLevel) {
+            this.research.cores += getRebuildResearchReward(newLevel);
+            this.totalRebuildCache = null;
+          }
           this.selectedFacility = 'shaft-1';
           this.worldViewsCacheAt = 0;
           this.sectorViewsCacheAt = 0;
@@ -463,19 +484,82 @@ export class FoundationScene extends Phaser.Scene {
         const profile = this.specialists.profiles[command.specialistId];
         const level = Math.max(1, profile?.level ?? 1);
         const cost = getSpecialistTrainingCost(command.specialistId, level);
-        const sectorId = getMineDefinition(this.activeMineId).sectorId;
-        const wallet = this.getSectorWallet(sectorId);
-        if (wallet + 0.0001 < cost) break;
+        const academy = spendTrainingModules(this.academy, cost);
+        if (!academy) break;
         const next = trainSpecialist(this.specialists, command.specialistId, this.getTotalRebuildCount());
         if (!next) break;
-        this.setSectorWallet(sectorId, wallet - cost);
-        this.simulation.setCash(this.getSectorWallet(sectorId));
+        this.academy = academy;
         this.specialists = next;
         this.applySpecialistsToActiveSimulation();
         this.worldViewsCacheAt = 0;
         this.sectorViewsCacheAt = 0;
         this.syncUi();
         this.renderSimulation();
+        void this.persist();
+        break;
+      }
+      case 'SPECIALIST_RECRUIT': {
+        const next = recruitSpecialist(this.specialists, command.specialistId, this.getTotalRebuildCount());
+        if (!next) break;
+        this.specialists = next;
+        this.applySpecialistsToActiveSimulation();
+        this.syncUi();
+        void this.persist();
+        break;
+      }
+      case 'SPECIALIST_RANK_UP': {
+        const next = rankUpSpecialist(this.specialists, command.specialistId);
+        if (!next) break;
+        this.specialists = next;
+        this.applySpecialistsToActiveSimulation();
+        this.worldViewsCacheAt = 0;
+        this.sectorViewsCacheAt = 0;
+        this.syncUi();
+        this.renderSimulation();
+        void this.persist();
+        break;
+      }
+      case 'SPECIALIST_PROMOTE': {
+        const profile = this.specialists.profiles[command.specialistId];
+        const promotionCost = getSpecialistPromotionCost(profile?.promotion ?? 0);
+        if (promotionCost === null) break;
+        const academy = spendPromotionBadges(this.academy, promotionCost);
+        if (!academy) break;
+        const next = promoteSpecialist(this.specialists, command.specialistId);
+        if (!next) break;
+        this.academy = academy;
+        this.specialists = next;
+        this.applySpecialistsToActiveSimulation();
+        this.worldViewsCacheAt = 0;
+        this.sectorViewsCacheAt = 0;
+        this.syncUi();
+        this.renderSimulation();
+        void this.persist();
+        break;
+      }
+      case 'ACADEMY_START': {
+        const next = startAcademyOperation(this.academy, Date.now(), this.getTotalRebuildCount());
+        if (!next) break;
+        this.academy = next;
+        this.syncUi();
+        void this.persist();
+        break;
+      }
+      case 'ACADEMY_CLAIM': {
+        const result = claimAcademyOperation(this.academy, Date.now());
+        if (!result) break;
+        this.academy = result.state;
+        this.specialists = grantSpecialistFragments(this.specialists, result.fragments.specialistId, result.fragments.amount);
+        this.syncUi();
+        void this.persist();
+        break;
+      }
+      case 'ACADEMY_RECRUIT_SCAN': {
+        const result = runAcademyRecruitScan(this.academy, Date.now());
+        if (!result) break;
+        this.academy = result.state;
+        this.specialists = grantSpecialistFragments(this.specialists, result.fragments.specialistId, result.fragments.amount);
+        this.syncUi();
         void this.persist();
         break;
       }
@@ -523,11 +607,13 @@ export class FoundationScene extends Phaser.Scene {
   }
 
   private getTotalRebuildCount(): number {
+    if (this.totalRebuildCache !== null) return this.totalRebuildCache;
     const states = Object.entries(this.mineStates).map(([id, state]) => {
       if (id === this.activeMineId) return this.simulation.serialize();
       return state;
     });
-    return getTotalRebuilds(states);
+    this.totalRebuildCache = getTotalRebuilds(states);
+    return this.totalRebuildCache;
   }
 
   private applySpecialistsToActiveSimulation() {
@@ -538,15 +624,18 @@ export class FoundationScene extends Phaser.Scene {
   }
 
   private getSpecialistView() {
-    const sectorId = getMineDefinition(this.activeMineId).sectorId;
     const research = getResearchModifiers(this.research.purchased);
     return buildSpecialistSystemView(
       this.specialists,
       this.activeMineId,
       this.getTotalRebuildCount(),
-      this.getSectorWallet(sectorId),
+      this.academy.resources,
       research.specialistPassiveMultiplier,
     );
+  }
+
+  private getAcademyView() {
+    return buildAcademyView(this.academy, Date.now(), this.getTotalRebuildCount());
   }
 
   private serializeMine(simulation: MineSimulation): PersistentMineState {
@@ -1115,6 +1204,7 @@ export class FoundationScene extends Phaser.Scene {
       this.simulation.getRebuildView(),
       this.getResearchView(),
       this.getSpecialistView(),
+      this.getAcademyView(),
       this.activeMineId,
       activeSectorId,
       this.getWorldMineViews(),
@@ -1129,6 +1219,8 @@ export class FoundationScene extends Phaser.Scene {
     this.unlockedMines = new Set<MineId>([DEFAULT_MINE_ID]);
     this.research = { ...DEFAULT_RESEARCH_STATE, purchased: [] };
     this.specialists = sanitizeSpecialistSystem(DEFAULT_SPECIALIST_SYSTEM);
+    this.academy = sanitizeAcademyState(DEFAULT_ACADEMY_STATE);
+    this.totalRebuildCache = null;
     this.simulation = this.createSimulation(DEFAULT_MINE_ID);
     this.simulation.setCash(0);
     this.mineStates = { [DEFAULT_MINE_ID]: this.serializeMine(this.simulation) };
@@ -1160,10 +1252,12 @@ export class FoundationScene extends Phaser.Scene {
           ? save.world.activeMineId
           : [...this.unlockedMines][0] ?? DEFAULT_MINE_ID;
         this.mineStates = { ...save.world.mines };
+        this.totalRebuildCache = null;
         this.lastSimulatedAt = { ...save.world.lastSimulatedAt };
         this.sectorWallets = { ...save.world.sectorWallets };
         this.research = sanitizeResearchState(save.world.research ?? DEFAULT_RESEARCH_STATE);
         this.specialists = sanitizeSpecialistSystem(save.world.specialists ?? DEFAULT_SPECIALIST_SYSTEM);
+        this.academy = sanitizeAcademyState(save.world.academy ?? DEFAULT_ACADEMY_STATE);
         advanceSpecialistTimers(this.specialists, Math.max(0, (now - save.lastSeenAt) / 1000));
         for (const sectorId of this.unlockedSectors) {
           if (this.sectorWallets[sectorId] === undefined) this.sectorWallets[sectorId] = 0;
@@ -1238,6 +1332,7 @@ export class FoundationScene extends Phaser.Scene {
           activeMineId: this.activeMineId,
           research: { ...this.research, purchased: [...this.research.purchased] },
           specialists: sanitizeSpecialistSystem(this.specialists),
+          academy: sanitizeAcademyState(this.academy),
           unlockedSectors: [...this.unlockedSectors],
           sectorWallets: { ...this.sectorWallets },
           unlockedMines: [...this.unlockedMines],

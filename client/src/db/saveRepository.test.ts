@@ -148,3 +148,40 @@ describe('Stage 9 specialists migration', () => {
     expect(migrated?.world.specialists?.profiles['rook-hale']?.level).toBe(1);
   });
 });
+
+describe('Stage 10 Academy migration', () => {
+  it('переносит Stage 9 Specialists в recruit/rank систему и сохраняет уже доступных персонажей', () => {
+    const record: SaveRecord = {
+      id: 'primary',
+      schemaVersion: 7,
+      updatedAt: 1000,
+      payload: {
+        createdAt: 10,
+        lastSeenAt: 900,
+        settings: { quality: 'HIGH' },
+        world: {
+          activeMineId: 'rust-01',
+          research: { cores: 4, purchased: ['ind-1'], respecCount: 0 },
+          specialists: {
+            profiles: {
+              'rook-hale': { level: 3, activeRemaining: 0, cooldownRemaining: 0 },
+              'mara-vex': { level: 2, activeRemaining: 0, cooldownRemaining: 0 },
+            },
+            assignments: {},
+          },
+          unlockedSectors: ['rust'],
+          sectorWallets: { rust: 900 },
+          unlockedMines: ['rust-01'],
+          mines: { 'rust-01': { ...legacyMine, cash: 0, rebuildLevel: 1, rebuildCycleCashEarned: 50 } },
+          lastSimulatedAt: { 'rust-01': 850 },
+        },
+      },
+    };
+
+    const migrated = parseSaveRecord(record);
+    expect(migrated?.world.specialists?.profiles['rook-hale']?.recruited).toBe(true);
+    expect(migrated?.world.specialists?.profiles['mara-vex']?.recruited).toBe(true);
+    expect(migrated?.world.specialists?.profiles['mara-vex']?.level).toBe(2);
+    expect(migrated?.world.academy?.resources.trainingModules).toBeGreaterThan(60);
+  });
+});
