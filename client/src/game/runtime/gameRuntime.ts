@@ -3,6 +3,7 @@ import type { SpecialistId, SpecialistSlot } from '../core/specialists';
 import type { EquipmentId } from '../core/equipment';
 import type { CollectionCardId } from '../core/collection';
 import type { ContractFacilityId } from '../core/weeklyContract';
+import type { SeasonRewardTrack } from '../core/seasonalCampaign';
 
 export type GameCommand =
   | { type: 'START_SHAFT'; shaftId: ShaftId }
@@ -39,7 +40,8 @@ export type GameCommand =
   | { type: 'CONTRACT_MANUAL_SHIFT' }
   | { type: 'CONTRACT_UPGRADE'; facilityId: ContractFacilityId }
   | { type: 'CONTRACT_HIRE_MANAGER'; facilityId: ContractFacilityId }
-  | { type: 'CONTRACT_CLAIM_MILESTONE'; milestoneId: string };
+  | { type: 'CONTRACT_CLAIM_MILESTONE'; milestoneId: string }
+  | { type: 'SEASON_CLAIM_REWARD'; level: number; track: SeasonRewardTrack };
 
 type CommandListener = (command: GameCommand) => void;
 

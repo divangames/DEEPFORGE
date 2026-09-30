@@ -1,5 +1,19 @@
 # Changelog
 
+## Stage 13 — Seasonal Campaign
+
+- Четырёхнедельная seasonal campaign поверх Weekly Contract.
+- 20 уровней Season Progress и формула cumulative XP.
+- Weekly milestones теперь дают Season XP: суммарно 1910 XP за полный недельный контракт.
+- Free Track с claimable meta rewards.
+- Premium Track с готовым entitlement-state и ретроактивными наградами; покупка подключится на Stage 22.
+- Season reward claim защищён от повторного получения.
+- Используется единый server/local clock Live Ops.
+- Save schema v11 + Stage 12 migration с компенсацией XP за уже claimed weekly milestones.
+- Live Ops HUD объединён в компактный stack Weekly + Season.
+- Season panel адаптирован под portrait 360–440 px, safe-area и Pro Max-class viewport.
+- Seasonal system остаётся data-driven и не добавляет Phaser scenes/animation loops.
+
 ## Stage 12 — Weekly Contract
 
 - Первый недельный live-ops контракт с отдельной event-экономикой.

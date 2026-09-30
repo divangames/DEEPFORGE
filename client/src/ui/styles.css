@@ -2225,3 +2225,160 @@ button { min-height: 44px; -webkit-tap-highlight-color: transparent; }
   .contract-facility-actions { width: 96px; }
   .contract-milestone > div span { max-width: 130px; }
 }
+
+/* =========================================================
+   STAGE 13 · SEASONAL CAMPAIGN + MOBILE LIVE OPS
+   ========================================================= */
+.liveops-stack {
+  position: absolute;
+  z-index: 22;
+  top: 10px;
+  right: 10px;
+  width: min(230px, calc(100% - 20px));
+  display: grid;
+  gap: 6px;
+  pointer-events: none;
+}
+.liveops-stack > button { pointer-events: auto; }
+.liveops-stack .contract-entry,
+.season-entry {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  min-height: 48px;
+  padding: 7px 9px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  text-align: left;
+  border-radius: 11px;
+  background: rgba(14, 19, 23, .93);
+  color: #edf8fa;
+  box-shadow: 0 8px 24px rgba(0,0,0,.22);
+  backdrop-filter: blur(8px);
+}
+.liveops-stack .contract-entry { border: 1px solid color-mix(in srgb, #5ce1e6 45%, #344049); }
+.season-entry { border: 1px solid color-mix(in srgb, #f0b55b 48%, #3a4248); }
+.liveops-stack .contract-entry > span,
+.season-entry > span { grid-row: 1 / 3; align-self: center; font-size: 7px; font-weight: 950; letter-spacing: .07em; }
+.liveops-stack .contract-entry > span { color: #5ce1e6; }
+.season-entry > span { color: #f0b55b; }
+.liveops-stack .contract-entry > strong,
+.season-entry > strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+.liveops-stack .contract-entry > small,
+.season-entry > small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #85959e; font-size: 6.5px; font-weight: 800; }
+.stage-status { left: 8px; right: auto; align-items: flex-start; }
+
+.season-overlay { position: fixed; inset: 0; z-index: 165; display: grid; align-items: end; }
+.season-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; padding: 0; border: 0; background: rgba(2,5,8,.8); backdrop-filter: blur(5px); }
+.season-panel {
+  --season-accent: #f0b55b;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-height: min(92dvh, 980px);
+  display: grid;
+  grid-template-rows: auto auto auto auto auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  border-top: 1px solid color-mix(in srgb, var(--season-accent) 50%, #35424a);
+  border-radius: 18px 18px 0 0;
+  background: #0f1418;
+  box-shadow: 0 -20px 70px rgba(0,0,0,.45);
+}
+.season-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 15px 11px; border-bottom: 1px solid #283139; }
+.season-header > div { min-width: 0; display: grid; gap: 2px; }
+.season-header span { color: var(--season-accent); font-size: 7px; font-weight: 950; letter-spacing: .13em; }
+.season-header strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 18px; }
+.season-header small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #82909a; font-size: 8px; }
+.season-header button { flex: 0 0 auto; width: 42px; height: 42px; min-height: 42px; border: 1px solid #3a4650; border-radius: 11px; background: #22292f; color: #fff; }
+.season-summary { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 1px; background: #29343b; border-bottom: 1px solid #29343b; }
+.season-summary > div { min-width: 0; padding: 8px 10px; display: grid; gap: 2px; background: #12171b; }
+.season-summary span { color: #72808a; font-size: 6px; font-weight: 900; letter-spacing: .08em; }
+.season-summary strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #e7edf0; font-size: 10px; }
+.season-xp-progress { padding: 9px 12px; display: grid; gap: 5px; border-bottom: 1px solid #283139; background: #11171b; }
+.season-xp-progress > div:first-child { display: flex; justify-content: space-between; gap: 10px; color: #89969e; font-size: 7px; }
+.season-xp-progress b { color: var(--season-accent); }
+.season-progress-track { height: 5px; overflow: hidden; border-radius: 8px; background: #262e34; }
+.season-progress-track i { display: block; height: 100%; border-radius: inherit; background: var(--season-accent); box-shadow: 0 0 16px color-mix(in srgb, var(--season-accent) 55%, transparent); }
+.season-premium-banner { margin: 8px 12px; padding: 9px 10px; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 2px 10px; align-items: center; border: 1px solid #3d3b31; border-radius: 11px; background: linear-gradient(135deg, #1c1a15, #15181b); }
+.season-premium-banner > div { min-width: 0; display: grid; gap: 1px; }
+.season-premium-banner span { color: var(--season-accent); font-size: 6px; font-weight: 950; letter-spacing: .08em; }
+.season-premium-banner strong { font-size: 10px; }
+.season-premium-banner small { grid-column: 1; color: #8b9298; font-size: 6.5px; }
+.season-premium-banner > b { grid-row: 1 / 3; grid-column: 2; padding: 7px 8px; border-radius: 8px; background: #24231e; color: #aaa28d; font-size: 7px; }
+.season-premium-banner.unlocked { border-color: color-mix(in srgb, var(--season-accent) 62%, #444); }
+.season-premium-banner.unlocked > b { color: var(--season-accent); }
+.season-track-head { display: grid; grid-template-columns: 48px minmax(0,1fr) minmax(0,1fr); gap: 7px; padding: 7px 12px; border-top: 1px solid #283139; border-bottom: 1px solid #283139; color: #71808a; font-size: 6px; font-weight: 950; letter-spacing: .07em; }
+.season-track-head strong:last-child { color: var(--season-accent); }
+.season-level-list { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 8px 12px 10px; display: grid; gap: 6px; }
+.season-level { display: grid; grid-template-columns: 48px minmax(0,1fr) minmax(0,1fr); gap: 7px; align-items: stretch; opacity: .72; }
+.season-level.reached { opacity: 1; }
+.season-level-badge { display: grid; place-items: center; align-content: center; gap: 2px; border: 1px solid #303a42; border-radius: 9px; background: #151b20; }
+.season-level-badge b { color: var(--season-accent); font-size: 14px; }
+.season-level-badge span { color: #73818b; font-size: 5.5px; }
+.season-reward-card { min-width: 0; padding: 7px; display: grid; grid-template-columns: minmax(0,1fr) auto; grid-template-rows: auto auto; gap: 2px 6px; border: 1px solid #303a42; border-radius: 9px; background: #141a1e; }
+.season-reward-card > span { color: #74818a; font-size: 5.5px; font-weight: 950; }
+.season-reward-card > strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 7.5px; }
+.season-reward-card > button { grid-row: 1 / 3; grid-column: 2; min-width: 58px; min-height: 32px; padding: 4px 6px; border: 1px solid #3a4650; border-radius: 7px; background: #20272d; color: #edf2f4; font-size: 6px; font-weight: 950; }
+.season-reward-card.free:not(.claimed) > button:not(:disabled) { border-color: #78bca0; background: #173025; color: #a2e7c4; }
+.season-reward-card.premium { border-color: #3e3a30; }
+.season-reward-card.premium > span { color: var(--season-accent); }
+.season-reward-card.premium.enabled > button:not(:disabled) { border-color: var(--season-accent); color: var(--season-accent); }
+.season-reward-card.claimed { opacity: .58; }
+.season-reward-card > button:disabled { opacity: .48; }
+.season-footer { padding: 8px 12px max(10px, var(--safe-bottom)); display: flex; justify-content: space-between; gap: 10px; border-top: 1px solid #283139; color: #74828b; font-size: 6.5px; line-height: 1.35; }
+
+@media (min-width: 900px) {
+  .season-panel { width: min(980px, calc(100% - 40px)); margin: 0 auto 18px; border: 1px solid #344049; border-radius: 18px; }
+}
+
+@media (max-width: 760px) and (orientation: portrait) {
+  .liveops-stack { top: 7px; right: 7px; width: min(172px, 46vw); gap: 4px; }
+  .liveops-stack .contract-entry,
+  .season-entry { min-height: 40px; padding: 5px 6px; column-gap: 5px; border-radius: 9px; }
+  .liveops-stack .contract-entry > span,
+  .season-entry > span { font-size: 5.6px; }
+  .liveops-stack .contract-entry > strong,
+  .season-entry > strong { font-size: 7.5px; }
+  .liveops-stack .contract-entry > small,
+  .season-entry > small { font-size: 5.3px; }
+  .stage-status { top: 7px; left: 7px; right: auto; max-width: 112px; padding: 4px 5px; gap: 2px; font-size: 6px; }
+  .stage-status b { font-size: 7px; }
+  .season-overlay { align-items: stretch; padding-top: var(--safe-top); }
+  .season-panel { height: calc(100dvh - var(--safe-top)); max-height: none; border-radius: 0; grid-template-rows: auto auto auto auto auto minmax(0,1fr) auto; }
+  .season-header { padding: 8px 9px 7px; }
+  .season-header strong { font-size: 14px; }
+  .season-header small { font-size: 6.5px; }
+  .season-header button { width: 40px; height: 40px; min-height: 40px; }
+  .season-summary { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .season-summary > div { padding: 6px 7px; }
+  .season-summary strong { font-size: 8px; }
+  .season-xp-progress { padding: 7px 8px; }
+  .season-premium-banner { margin: 6px 8px; padding: 7px 8px; }
+  .season-premium-banner small { font-size: 5.6px; }
+  .season-track-head { grid-template-columns: 38px minmax(0,1fr) minmax(0,1fr); padding: 6px 8px; gap: 5px; }
+  .season-level-list { padding: 6px 8px 8px; gap: 4px; }
+  .season-level { grid-template-columns: 38px minmax(0,1fr) minmax(0,1fr); gap: 5px; }
+  .season-level-badge b { font-size: 11px; }
+  .season-level-badge span { font-size: 4.8px; }
+  .season-reward-card { padding: 5px; grid-template-columns: minmax(0,1fr); grid-template-rows: auto auto auto; }
+  .season-reward-card > strong { white-space: normal; line-height: 1.15; font-size: 6.2px; }
+  .season-reward-card > button { grid-row: auto; grid-column: auto; min-width: 0; width: 100%; min-height: 28px; font-size: 5.4px; }
+  .season-footer { display: grid; gap: 2px; padding: 6px 8px max(8px, var(--safe-bottom)); font-size: 5.5px; }
+}
+
+@media (min-width: 420px) and (max-width: 450px) and (orientation: portrait) {
+  .liveops-stack { width: 184px; }
+  .season-reward-card > strong { font-size: 6.6px; }
+  .season-level-list { padding-left: 9px; padding-right: 9px; }
+}
+
+@media (max-width: 390px) and (orientation: portrait) {
+  .liveops-stack { width: 158px; }
+  .season-summary span { font-size: 5.2px; }
+  .season-premium-banner small { display: none; }
+  .season-premium-banner > b { grid-row: 1; }
+  .season-track-head { grid-template-columns: 34px minmax(0,1fr) minmax(0,1fr); }
+  .season-level { grid-template-columns: 34px minmax(0,1fr) minmax(0,1fr); }
+}

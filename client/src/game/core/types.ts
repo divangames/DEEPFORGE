@@ -4,6 +4,7 @@ import type { PersistentEquipmentState } from './equipment';
 import type { PersistentCollectionState } from './collection';
 import type { PersistentRelicState } from './relics';
 import type { PersistentWeeklyContractState } from './weeklyContract';
+import type { PersistentSeasonalCampaignState } from './seasonalCampaign';
 
 export type SectorId = 'rust' | 'glacier' | 'ember' | 'aurora' | 'twilight' | 'relic' | 'sunken' | 'storm';
 export type MineOrdinal = '01' | '02' | '03' | '04' | '05';
@@ -107,6 +108,7 @@ export interface PersistentWorldState {
   collection?: PersistentCollectionState;
   relics?: PersistentRelicState;
   weeklyContract?: PersistentWeeklyContractState;
+  seasonalCampaign?: PersistentSeasonalCampaignState;
   unlockedSectors?: SectorId[];
   sectorWallets?: Partial<Record<SectorId, number>>;
   unlockedMines: MineId[];

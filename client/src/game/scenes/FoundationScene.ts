@@ -92,6 +92,15 @@ import {
   upgradeWeeklyContractFacility,
   type PersistentWeeklyContractState,
 } from '../core/weeklyContract';
+import {
+  buildSeasonalCampaignView,
+  claimSeasonReward,
+  createSeasonalCampaignState,
+  grantSeasonXp,
+  sanitizeSeasonalCampaignState,
+  type PersistentSeasonalCampaignState,
+  type SeasonReward,
+} from '../core/seasonalCampaign';
 import { getServerClock } from '../../services/serverClock';
 import { onGameCommand, type GameCommand } from '../runtime/gameRuntime';
 
@@ -132,6 +141,7 @@ export class FoundationScene extends Phaser.Scene {
   private collection: PersistentCollectionState = sanitizeCollectionState(DEFAULT_COLLECTION_STATE);
   private relics: PersistentRelicState = sanitizeRelicState(DEFAULT_RELIC_STATE);
   private weeklyContract: PersistentWeeklyContractState = createWeeklyContractState(Date.now());
+  private seasonalCampaign: PersistentSeasonalCampaignState = createSeasonalCampaignState(Date.now());
   private lastCollectionCrate: CollectionCardId[] = [];
   private relicContextKey = '';
   private totalRebuildCache: number | null = null;
@@ -700,13 +710,23 @@ export class FoundationScene extends Phaser.Scene {
         const result = claimWeeklyContractMilestone(this.weeklyContract, command.milestoneId);
         if (!result) break;
         this.weeklyContract = result.state;
-        const reward = result.reward;
-        if (reward.kind === 'research') this.research.cores += reward.amount ?? 0;
-        if (reward.kind === 'recruit') this.academy = { ...this.academy, resources: { ...this.academy.resources, recruitData: this.academy.resources.recruitData + (reward.amount ?? 0) } };
-        if (reward.kind === 'training') this.academy = { ...this.academy, resources: { ...this.academy.resources, trainingModules: this.academy.resources.trainingModules + (reward.amount ?? 0) } };
-        if (reward.kind === 'promotion') this.academy = { ...this.academy, resources: { ...this.academy.resources, promotionBadges: this.academy.resources.promotionBadges + (reward.amount ?? 0) } };
-        if (reward.kind === 'supply') this.collection = grantSupplyKeys(this.collection, reward.amount ?? 0);
-        if (reward.kind === 'materials') this.equipment = grantCraftMaterials(this.equipment, { alloy: reward.alloy ?? 0, circuits: reward.circuits ?? 0, fiber: reward.fiber ?? 0 });
+        this.applyMetaReward(result.reward);
+        const milestone = this.weeklyContract.claimedMilestones.includes(command.milestoneId)
+          ? buildWeeklyContractView(this.weeklyContract, clock.now, clock.source).milestones.find((item) => item.id === command.milestoneId)
+          : null;
+        if (milestone?.seasonXp) this.seasonalCampaign = grantSeasonXp(this.seasonalCampaign, milestone.seasonXp, clock.now);
+        this.refreshRelics(true);
+        this.syncUi();
+        void this.persist();
+        break;
+      }
+      case 'SEASON_CLAIM_REWARD': {
+        const clock = getServerClock();
+        this.seasonalCampaign = sanitizeSeasonalCampaignState(this.seasonalCampaign, clock.now);
+        const result = claimSeasonReward(this.seasonalCampaign, command.level, command.track, clock.now);
+        if (!result) break;
+        this.seasonalCampaign = result.state;
+        this.applyMetaReward(result.reward);
         this.refreshRelics(true);
         this.syncUi();
         void this.persist();
@@ -726,6 +746,15 @@ export class FoundationScene extends Phaser.Scene {
         break;
       }
     }
+  }
+
+  private applyMetaReward(reward: SeasonReward | { kind: string; amount?: number; alloy?: number; circuits?: number; fiber?: number }) {
+    if (reward.kind === 'research') this.research.cores += reward.amount ?? 0;
+    if (reward.kind === 'recruit') this.academy = { ...this.academy, resources: { ...this.academy.resources, recruitData: this.academy.resources.recruitData + (reward.amount ?? 0) } };
+    if (reward.kind === 'training') this.academy = { ...this.academy, resources: { ...this.academy.resources, trainingModules: this.academy.resources.trainingModules + (reward.amount ?? 0) } };
+    if (reward.kind === 'promotion') this.academy = { ...this.academy, resources: { ...this.academy.resources, promotionBadges: this.academy.resources.promotionBadges + (reward.amount ?? 0) } };
+    if (reward.kind === 'supply') this.collection = grantSupplyKeys(this.collection, reward.amount ?? 0);
+    if (reward.kind === 'materials') this.equipment = grantCraftMaterials(this.equipment, { alloy: reward.alloy ?? 0, circuits: reward.circuits ?? 0, fiber: reward.fiber ?? 0 });
   }
 
   private createSimulation(id: MineId, state?: PersistentMineState | null, includeSpecialistActive = false): MineSimulation {
@@ -1396,6 +1425,7 @@ export class FoundationScene extends Phaser.Scene {
   private syncUi() {
     const contractClock = getServerClock();
     this.weeklyContract = advanceWeeklyContract(this.weeklyContract, contractClock.now);
+    this.seasonalCampaign = sanitizeSeasonalCampaignState(this.seasonalCampaign, contractClock.now);
     this.syncActiveWalletFromSimulation();
     this.refreshRelics();
     const snapshot = this.simulation.getSnapshot();
@@ -1419,6 +1449,7 @@ export class FoundationScene extends Phaser.Scene {
       buildCollectionView(this.collection, this.lastCollectionCrate),
       buildRelicView(this.relics),
       buildWeeklyContractView(this.weeklyContract, contractClock.now, contractClock.source),
+      buildSeasonalCampaignView(this.seasonalCampaign, contractClock.now, contractClock.source),
       this.activeMineId,
       activeSectorId,
       this.getWorldMineViews(),
@@ -1438,6 +1469,7 @@ export class FoundationScene extends Phaser.Scene {
     this.collection = sanitizeCollectionState(DEFAULT_COLLECTION_STATE);
     this.relics = sanitizeRelicState(DEFAULT_RELIC_STATE);
     this.weeklyContract = createWeeklyContractState(now);
+    this.seasonalCampaign = createSeasonalCampaignState(now);
     this.lastCollectionCrate = [];
     this.relicContextKey = '';
     this.totalRebuildCache = null;
@@ -1487,6 +1519,7 @@ export class FoundationScene extends Phaser.Scene {
             sanitizeWeeklyContractState(save.world.weeklyContract, contractClock.now),
             contractClock.now,
           );
+          this.seasonalCampaign = sanitizeSeasonalCampaignState(save.world.seasonalCampaign, contractClock.now);
         }
         this.lastCollectionCrate = [];
         this.relicContextKey = '';
@@ -1554,6 +1587,7 @@ export class FoundationScene extends Phaser.Scene {
       const now = this.hiddenAt ?? Date.now();
       const contractClock = getServerClock();
       this.weeklyContract = advanceWeeklyContract(this.weeklyContract, contractClock.now);
+      this.seasonalCampaign = sanitizeSeasonalCampaignState(this.seasonalCampaign, contractClock.now);
       // Пока игрок находится на одном объекте, остальные автоматизированные шахты
       // получают фоновый доход каждые 5 секунд вместе с autosave.
       this.advanceInactiveMines(now);
@@ -1573,6 +1607,7 @@ export class FoundationScene extends Phaser.Scene {
           collection: sanitizeCollectionState(this.collection),
           relics: sanitizeRelicState(this.relics),
           weeklyContract: sanitizeWeeklyContractState(this.weeklyContract, contractClock.now),
+          seasonalCampaign: sanitizeSeasonalCampaignState(this.seasonalCampaign, contractClock.now),
           unlockedSectors: [...this.unlockedSectors],
           sectorWallets: { ...this.sectorWallets },
           unlockedMines: [...this.unlockedMines],

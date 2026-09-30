@@ -13,6 +13,7 @@ export interface ContractReward {
 export interface ContractMilestoneDefinition {
   id: string;
   requiredCash: number;
+  seasonXp: number;
   reward: ContractReward;
 }
 
@@ -96,14 +97,14 @@ const THEMES = [
 ] as const;
 
 export const WEEKLY_CONTRACT_MILESTONES: readonly ContractMilestoneDefinition[] = [
-  { id: 'm1', requiredCash: 250, reward: { kind: 'training', amount: 20, label: '▲ 20 Training Modules' } },
-  { id: 'm2', requiredCash: 2_000, reward: { kind: 'recruit', amount: 40, label: '⬢ 40 Recruit Data' } },
-  { id: 'm3', requiredCash: 15_000, reward: { kind: 'materials', alloy: 12, circuits: 8, fiber: 12, label: 'Craft Materials Pack' } },
-  { id: 'm4', requiredCash: 100_000, reward: { kind: 'supply', amount: 1, label: '▣ 1 Supply Key' } },
-  { id: 'm5', requiredCash: 750_000, reward: { kind: 'promotion', amount: 2, label: '● 2 Promotion Badges' } },
-  { id: 'm6', requiredCash: 5_000_000, reward: { kind: 'research', amount: 1, label: '◈ 1 Research Core' } },
-  { id: 'm7', requiredCash: 35_000_000, reward: { kind: 'materials', alloy: 40, circuits: 32, fiber: 40, label: 'Advanced Craft Pack' } },
-  { id: 'm8', requiredCash: 250_000_000, reward: { kind: 'research', amount: 2, label: '◈ 2 Research Cores' } },
+  { id: 'm1', requiredCash: 250, seasonXp: 100, reward: { kind: 'training', amount: 20, label: '▲ 20 Training Modules' } },
+  { id: 'm2', requiredCash: 2_000, seasonXp: 120, reward: { kind: 'recruit', amount: 40, label: '⬢ 40 Recruit Data' } },
+  { id: 'm3', requiredCash: 15_000, seasonXp: 150, reward: { kind: 'materials', alloy: 12, circuits: 8, fiber: 12, label: 'Craft Materials Pack' } },
+  { id: 'm4', requiredCash: 100_000, seasonXp: 180, reward: { kind: 'supply', amount: 1, label: '▣ 1 Supply Key' } },
+  { id: 'm5', requiredCash: 750_000, seasonXp: 220, reward: { kind: 'promotion', amount: 2, label: '● 2 Promotion Badges' } },
+  { id: 'm6', requiredCash: 5_000_000, seasonXp: 280, reward: { kind: 'research', amount: 1, label: '◈ 1 Research Core' } },
+  { id: 'm7', requiredCash: 35_000_000, seasonXp: 360, reward: { kind: 'materials', alloy: 40, circuits: 32, fiber: 40, label: 'Advanced Craft Pack' } },
+  { id: 'm8', requiredCash: 250_000_000, seasonXp: 500, reward: { kind: 'research', amount: 2, label: '◈ 2 Research Cores' } },
 ] as const;
 
 function safeInt(value: unknown, fallback: number, min = 0) {

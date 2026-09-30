@@ -9,6 +9,7 @@ import type { EquipmentId, EquipmentView } from '../game/core/equipment';
 import type { CollectionCardId, CollectionView } from '../game/core/collection';
 import type { RelicView } from '../game/core/relics';
 import type { WeeklyContractView } from '../game/core/weeklyContract';
+import type { SeasonalCampaignView } from '../game/core/seasonalCampaign';
 import type { BulkUpgradeMode, BulkUpgradeQuote, FacilityId, ManagerView, MineId, ResearchView, SectorId, WorldMineView, WorldSectorView } from '../game/core/types';
 import { sendGameCommand } from '../game/runtime/gameRuntime';
 import { useGameStore } from '../state/gameStore';
@@ -45,6 +46,14 @@ function formatAwayTime(seconds: number) {
   if (hours > 0) return `${hours} ч ${minutes} мин`;
   if (minutes > 0) return `${minutes} мин ${secs} сек`;
   return `${secs} сек`;
+}
+
+function formatLongTime(seconds: number) {
+  const total = Math.max(0, Math.floor(seconds));
+  const days = Math.floor(total / 86400);
+  const hours = Math.floor((total % 86400) / 3600);
+  if (days > 0) return `${days} д ${hours} ч`;
+  return formatAwayTime(total);
 }
 
 function quoteLabel(quote: BulkUpgradeQuote | null, mode: BulkUpgradeMode) {
@@ -813,7 +822,7 @@ function ContractPanel({ contract, onClose }: { contract: WeeklyContractView; on
                 <b className="contract-milestone-index">{String(index + 1).padStart(2, '0')}</b>
                 <div>
                   <strong>{contract.currencyCode} {formatCompact(milestone.requiredCash)}</strong>
-                  <span>{milestone.reward.label}</span>
+                  <span>{milestone.reward.label} · +{milestone.seasonXp} Season XP</span>
                   <div className="contract-progress"><i style={{ width: `${Math.round(milestone.progress * 100)}%` }} /></div>
                 </div>
                 <button
@@ -837,6 +846,81 @@ function ContractPanel({ contract, onClose }: { contract: WeeklyContractView; on
   );
 }
 
+
+function SeasonPanel({ season, onClose }: { season: SeasonalCampaignView; onClose: () => void }) {
+  const nextTarget = season.nextLevelXp ?? season.xp;
+  return (
+    <div className="season-overlay" role="dialog" aria-modal="true" aria-label="Seasonal Campaign">
+      <button type="button" className="season-backdrop" aria-label="Закрыть сезон" onClick={onClose} />
+      <section className="season-panel" style={{ '--season-accent': season.accent } as React.CSSProperties}>
+        <header className="season-header">
+          <div>
+            <span>SEASONAL CAMPAIGN · STAGE 13</span>
+            <strong>{season.title}</strong>
+            <small>{season.subtitle}</small>
+          </div>
+          <button type="button" onClick={onClose}>✕</button>
+        </header>
+
+        <div className="season-summary">
+          <div><span>SEASON LEVEL</span><strong>LV {season.currentLevel}/{season.maxLevel}</strong></div>
+          <div><span>SEASON XP</span><strong>✦ {season.xp}</strong></div>
+          <div><span>ОСТАЛОСЬ</span><strong>{formatLongTime(season.remainingSeconds)}</strong></div>
+          <div><span>TIME</span><strong>{season.timeSource === 'server' ? 'SERVER' : 'LOCAL'}</strong></div>
+        </div>
+
+        <div className="season-xp-progress">
+          <div><span>{season.nextLevel ? `До LV ${season.nextLevel}` : 'Сезон завершён'}</span><b>{season.nextLevel ? `${season.xp} / ${nextTarget} XP` : 'MAX LEVEL'}</b></div>
+          <div className="season-progress-track"><i style={{ width: `${Math.round(season.levelProgress * 100)}%` }} /></div>
+        </div>
+
+        <div className={`season-premium-banner ${season.premiumUnlocked ? 'unlocked' : 'locked'}`}>
+          <div><span>PREMIUM TRACK</span><strong>{season.premiumUnlocked ? 'Активирован' : 'Готов к подключению магазина'}</strong></div>
+          <small>{season.premiumUnlocked ? 'Все достигнутые Premium-награды доступны ретроактивно.' : 'Механика entitlement готова; покупка Premium появится на Stage 22.'}</small>
+          <b>{season.premiumUnlocked ? '✓ PREMIUM' : '🔒 PREMIUM'}</b>
+        </div>
+
+        <div className="season-track-head">
+          <span>LV</span><strong>FREE TRACK</strong><strong>PREMIUM TRACK</strong>
+        </div>
+
+        <div className="season-level-list">
+          {season.levels.map((level) => (
+            <article className={`season-level ${level.reached ? 'reached' : ''}`} key={level.level}>
+              <div className="season-level-badge"><b>{level.level}</b><span>{level.requiredXp} XP</span></div>
+              <div className={`season-reward-card free ${level.freeClaimed ? 'claimed' : ''}`}>
+                <span>FREE</span><strong>{level.freeReward.label}</strong>
+                <button
+                  type="button"
+                  disabled={!level.canClaimFree}
+                  onClick={() => sendGameCommand({ type: 'SEASON_CLAIM_REWARD', level: level.level, track: 'free' })}
+                >
+                  {level.freeClaimed ? '✓ CLAIMED' : level.canClaimFree ? 'CLAIM' : level.reached ? 'READY' : 'LOCKED'}
+                </button>
+              </div>
+              <div className={`season-reward-card premium ${level.premiumClaimed ? 'claimed' : ''} ${season.premiumUnlocked ? 'enabled' : 'locked'}`}>
+                <span>PREMIUM</span><strong>{level.premiumReward.label}</strong>
+                <button
+                  type="button"
+                  disabled={!level.canClaimPremium}
+                  onClick={() => sendGameCommand({ type: 'SEASON_CLAIM_REWARD', level: level.level, track: 'premium' })}
+                >
+                  {level.premiumClaimed ? '✓ CLAIMED' : !season.premiumUnlocked ? '🔒' : level.canClaimPremium ? 'CLAIM' : 'LOCKED'}
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <footer className="season-footer">
+          <span>Season XP выдаётся за получение milestones в Weekly Contract.</span>
+          <span>Прогресс сезона длится 4 недели и сбрасывается с началом новой кампании.</span>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
 export function App() {
   const [teamOpen, setTeamOpen] = useState(false);
   const [teamTab, setTeamTab] = useState<'managers' | 'specialists' | 'academy' | 'progression'>('managers');
@@ -844,6 +928,7 @@ export function App() {
   const [rebuildOpen, setRebuildOpen] = useState(false);
   const [researchOpen, setResearchOpen] = useState(false);
   const [contractOpen, setContractOpen] = useState(false);
+  const [seasonOpen, setSeasonOpen] = useState(false);
   const [bulkMode, setBulkMode] = useState<BulkUpgradeMode>(1);
   const quality = useGameStore((state) => state.quality);
   const apiOnline = useGameStore((state) => state.apiOnline);
@@ -867,6 +952,7 @@ export function App() {
   const collection = useGameStore((state) => state.collection);
   const relics = useGameStore((state) => state.relics);
   const weeklyContract = useGameStore((state) => state.weeklyContract);
+  const seasonalCampaign = useGameStore((state) => state.seasonalCampaign);
   const offlineReport = useGameStore((state) => state.offlineReport);
   const setApiOnline = useGameStore((state) => state.setApiOnline);
   const setOfflineReport = useGameStore((state) => state.setOfflineReport);
@@ -971,14 +1057,23 @@ export function App() {
           </div>
         )}
 
-        {weeklyContract && (
-          <button type="button" className="contract-entry" onClick={() => setContractOpen(true)}>
-            <span>⚡ WEEKLY</span><strong>{weeklyContract.title}</strong><small>{weeklyContract.currencyCode} {formatCompact(weeklyContract.cash)} · {formatAwayTime(weeklyContract.remainingSeconds)}</small>
-          </button>
+        {(weeklyContract || seasonalCampaign) && (
+          <div className="liveops-stack">
+            {weeklyContract && (
+              <button type="button" className="contract-entry" onClick={() => { setSeasonOpen(false); setContractOpen(true); }}>
+                <span>⚡ WEEKLY</span><strong>{weeklyContract.title}</strong><small>{weeklyContract.currencyCode} {formatCompact(weeklyContract.cash)} · {formatAwayTime(weeklyContract.remainingSeconds)}</small>
+              </button>
+            )}
+            {seasonalCampaign && (
+              <button type="button" className="season-entry" onClick={() => { setContractOpen(false); setSeasonOpen(true); }}>
+                <span>✦ SEASON</span><strong>{seasonalCampaign.title}</strong><small>LV {seasonalCampaign.currentLevel}/{seasonalCampaign.maxLevel} · {seasonalCampaign.xp} XP</small>
+              </button>
+            )}
+          </div>
         )}
 
         <div className="stage-badge">
-          <strong>STAGE 12</strong>
+          <strong>STAGE 13</strong>
           <span>{quality}</span>
           <span className={apiOnline ? 'ok' : 'muted'}>{apiOnline ? 'API' : 'LOCAL'}</span>
         </div>
@@ -1104,15 +1199,19 @@ export function App() {
       </section>
 
       <nav className="bottom-nav" aria-label="Главная навигация">
-        <button type="button" className={!teamOpen && !mapOpen && !rebuildOpen && !researchOpen && !contractOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setMapOpen(false); setRebuildOpen(false); setResearchOpen(false); setContractOpen(false); }}><span>◆</span>Объект</button>
-        <button type="button" className={mapOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setRebuildOpen(false); setResearchOpen(false); setContractOpen(false); setMapOpen(true); }}><span>⌖</span>Карта</button>
-        <button type="button" className={teamOpen ? 'active' : ''} onClick={() => { setMapOpen(false); setRebuildOpen(false); setResearchOpen(false); setContractOpen(false); setTeamOpen(true); }}><span>♟</span>Команда</button>
-        <button type="button" className={rebuildOpen ? 'active rebuild-nav' : 'rebuild-nav'} onClick={() => { setMapOpen(false); setTeamOpen(false); setResearchOpen(false); setContractOpen(false); setRebuildOpen(true); }}><span>↻</span>Rebuild</button>
-        <button type="button" className={researchOpen ? 'active research-nav' : 'research-nav'} onClick={() => { setMapOpen(false); setTeamOpen(false); setRebuildOpen(false); setContractOpen(false); setResearchOpen(true); }}><span>◈</span>Research</button>
+        <button type="button" className={!teamOpen && !mapOpen && !rebuildOpen && !researchOpen && !contractOpen && !seasonOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setMapOpen(false); setRebuildOpen(false); setResearchOpen(false); setContractOpen(false); setSeasonOpen(false); }}><span>◆</span>Объект</button>
+        <button type="button" className={mapOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setRebuildOpen(false); setResearchOpen(false); setContractOpen(false); setSeasonOpen(false); setMapOpen(true); }}><span>⌖</span>Карта</button>
+        <button type="button" className={teamOpen ? 'active' : ''} onClick={() => { setMapOpen(false); setRebuildOpen(false); setResearchOpen(false); setContractOpen(false); setSeasonOpen(false); setTeamOpen(true); }}><span>♟</span>Команда</button>
+        <button type="button" className={rebuildOpen ? 'active rebuild-nav' : 'rebuild-nav'} onClick={() => { setMapOpen(false); setTeamOpen(false); setResearchOpen(false); setContractOpen(false); setSeasonOpen(false); setRebuildOpen(true); }}><span>↻</span>Rebuild</button>
+        <button type="button" className={researchOpen ? 'active research-nav' : 'research-nav'} onClick={() => { setMapOpen(false); setTeamOpen(false); setRebuildOpen(false); setContractOpen(false); setSeasonOpen(false); setResearchOpen(true); }}><span>◈</span>Research</button>
       </nav>
 
       {contractOpen && weeklyContract && (
         <ContractPanel contract={weeklyContract} onClose={() => setContractOpen(false)} />
+      )}
+
+      {seasonOpen && seasonalCampaign && (
+        <SeasonPanel season={seasonalCampaign} onClose={() => setSeasonOpen(false)} />
       )}
 
       {mapOpen && (

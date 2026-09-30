@@ -7,6 +7,7 @@ import type { EquipmentView } from '../game/core/equipment';
 import type { CollectionView } from '../game/core/collection';
 import type { RelicView } from '../game/core/relics';
 import type { WeeklyContractView } from '../game/core/weeklyContract';
+import type { SeasonalCampaignView } from '../game/core/seasonalCampaign';
 import type {
   BarrierView,
   BottleneckView,
@@ -47,6 +48,7 @@ interface GameState {
   collection: CollectionView | null;
   relics: RelicView | null;
   weeklyContract: WeeklyContractView | null;
+  seasonalCampaign: SeasonalCampaignView | null;
   canUpgradeSelected: boolean;
   offlineReport: OfflineProgressReport | null;
   setApiOnline: (online: boolean) => void;
@@ -70,6 +72,7 @@ interface GameState {
     collection: CollectionView,
     relics: RelicView,
     weeklyContract: WeeklyContractView,
+    seasonalCampaign: SeasonalCampaignView,
     activeMineId: MineId,
     activeSectorId: SectorId,
     worldMines: WorldMineView[],
@@ -100,6 +103,7 @@ export const useGameStore = create<GameState>((set) => ({
   collection: null,
   relics: null,
   weeklyContract: null,
+  seasonalCampaign: null,
   canUpgradeSelected: false,
   offlineReport: null,
   setApiOnline: (apiOnline) => set({ apiOnline }),
@@ -123,6 +127,7 @@ export const useGameStore = create<GameState>((set) => ({
     collection,
     relics,
     weeklyContract,
+    seasonalCampaign,
     activeMineId,
     activeSectorId,
     worldMines,
@@ -145,6 +150,7 @@ export const useGameStore = create<GameState>((set) => ({
     collection,
     relics,
     weeklyContract,
+    seasonalCampaign,
     activeMineId,
     activeSectorId,
     worldMines,
