@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getApiHealth } from '../services/api';
 import { formatCompact } from '../game/core/format';
-import type { BulkUpgradeMode, BulkUpgradeQuote, FacilityId, ManagerView, MineId, SectorId, WorldMineView, WorldSectorView } from '../game/core/types';
+import { RESEARCH_BRANCHES, type ResearchBranchId } from '../game/core/research';
+import type { BulkUpgradeMode, BulkUpgradeQuote, FacilityId, ManagerView, MineId, ResearchView, SectorId, WorldMineView, WorldSectorView } from '../game/core/types';
 import { sendGameCommand } from '../game/runtime/gameRuntime';
 import { useGameStore } from '../state/gameStore';
 import { GameCanvas } from './GameCanvas';
@@ -240,10 +241,100 @@ function WorldMap({
   );
 }
 
+
+function ResearchPanel({ research, onClose }: { research: ResearchView; onClose: () => void }) {
+  const [branch, setBranch] = useState<ResearchBranchId>('industry');
+  const branchDef = RESEARCH_BRANCHES.find((item) => item.id === branch) ?? RESEARCH_BRANCHES[0];
+  const nodes = research.nodes.filter((node) => node.branch === branch);
+
+  return (
+    <div className="research-overlay" role="dialog" aria-modal="true" aria-label="Research Grid">
+      <button type="button" className="research-backdrop" aria-label="Закрыть исследования" onClick={onClose} />
+      <section className="research-panel">
+        <header className="research-header">
+          <div>
+            <span>GLOBAL PROGRESSION · STAGE 8</span>
+            <strong>Research Grid</strong>
+            <small>Постоянные улучшения действуют на все сектора и шахты.</small>
+          </div>
+          <button type="button" onClick={onClose}>✕</button>
+        </header>
+
+        <div className="research-summary">
+          <div><span>RESEARCH CORES</span><strong>◈ {research.cores}</strong></div>
+          <div><span>Открыто</span><strong>{research.purchasedCount}/{research.totalNodes}</strong></div>
+          <div><span>Вложено</span><strong>{research.spentCores}</strong></div>
+        </div>
+
+        <div className="research-tabs" role="tablist" aria-label="Ветки исследований">
+          {RESEARCH_BRANCHES.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={branch === item.id}
+              className={branch === item.id ? 'active' : ''}
+              style={{ '--research-accent': item.accent } as React.CSSProperties}
+              onClick={() => setBranch(item.id)}
+            >
+              <b>{item.shortName}</b><span>{item.name}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="research-branch-head" style={{ '--research-accent': branchDef.accent } as React.CSSProperties}>
+          <div><span>{branchDef.shortName} BRANCH</span><strong>{branchDef.name}</strong></div>
+          <p>{branchDef.description}</p>
+        </div>
+
+        <div className="research-node-list">
+          {nodes.map((node) => (
+            <article
+              key={node.id}
+              className={`research-node ${node.purchased ? 'purchased' : node.available ? 'available' : 'locked'}`}
+              style={{ '--research-accent': branchDef.accent } as React.CSSProperties}
+            >
+              <div className="research-tier">T{node.tier}</div>
+              <div className="research-node-copy">
+                <strong>{node.title}</strong>
+                <p>{node.description}</p>
+                {!node.purchased && node.lockedBy.length > 0 && <small>Нужен предыдущий узел</small>}
+              </div>
+              <button
+                type="button"
+                disabled={node.purchased || !node.available}
+                onClick={() => sendGameCommand({ type: 'RESEARCH_BUY', nodeId: node.id })}
+              >
+                {node.purchased ? '✓ ИЗУЧЕНО' : `◈ ${node.cost}`}
+              </button>
+            </article>
+          ))}
+        </div>
+
+        <footer className="research-footer">
+          <div>
+            <strong>Получение Research Cores</strong>
+            <span>Каждый успешный Rebuild выдаёт новые ◈ Cores. Первые 3 доступны сразу.</span>
+          </div>
+          <button
+            type="button"
+            className="research-respec"
+            disabled={research.purchasedCount === 0}
+            onClick={() => sendGameCommand({ type: 'RESEARCH_RESET' })}
+          >
+            RESET · вернуть {research.respecRefund} ◈ · комиссия {research.respecFee}
+          </button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
 export function App() {
   const [teamOpen, setTeamOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [rebuildOpen, setRebuildOpen] = useState(false);
+  const [researchOpen, setResearchOpen] = useState(false);
   const [bulkMode, setBulkMode] = useState<BulkUpgradeMode>(1);
   const quality = useGameStore((state) => state.quality);
   const apiOnline = useGameStore((state) => state.apiOnline);
@@ -260,6 +351,7 @@ export function App() {
   const bottleneck = useGameStore((state) => state.bottleneck);
   const barrier = useGameStore((state) => state.barrier);
   const rebuild = useGameStore((state) => state.rebuild);
+  const research = useGameStore((state) => state.research);
   const offlineReport = useGameStore((state) => state.offlineReport);
   const setApiOnline = useGameStore((state) => state.setApiOnline);
   const setOfflineReport = useGameStore((state) => state.setOfflineReport);
@@ -364,7 +456,7 @@ export function App() {
         )}
 
         <div className="stage-badge">
-          <strong>STAGE 7</strong>
+          <strong>STAGE 8</strong>
           <span>{quality}</span>
           <span className={apiOnline ? 'ok' : 'muted'}>{apiOnline ? 'API' : 'LOCAL'}</span>
         </div>
@@ -490,10 +582,11 @@ export function App() {
       </section>
 
       <nav className="bottom-nav" aria-label="Главная навигация">
-        <button type="button" className={!teamOpen && !mapOpen && !rebuildOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setMapOpen(false); setRebuildOpen(false); }}><span>◆</span>Объект</button>
-        <button type="button" className={mapOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setRebuildOpen(false); setMapOpen(true); }}><span>⌖</span>Карта</button>
-        <button type="button" className={teamOpen ? 'active' : ''} onClick={() => { setMapOpen(false); setRebuildOpen(false); setTeamOpen(true); }}><span>♟</span>Команда</button>
-        <button type="button" className={rebuildOpen ? 'active rebuild-nav' : 'rebuild-nav'} onClick={() => { setMapOpen(false); setTeamOpen(false); setRebuildOpen(true); }}><span>↻</span>Rebuild</button>
+        <button type="button" className={!teamOpen && !mapOpen && !rebuildOpen && !researchOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setMapOpen(false); setRebuildOpen(false); setResearchOpen(false); }}><span>◆</span>Объект</button>
+        <button type="button" className={mapOpen ? 'active' : ''} onClick={() => { setTeamOpen(false); setRebuildOpen(false); setResearchOpen(false); setMapOpen(true); }}><span>⌖</span>Карта</button>
+        <button type="button" className={teamOpen ? 'active' : ''} onClick={() => { setMapOpen(false); setRebuildOpen(false); setResearchOpen(false); setTeamOpen(true); }}><span>♟</span>Команда</button>
+        <button type="button" className={rebuildOpen ? 'active rebuild-nav' : 'rebuild-nav'} onClick={() => { setMapOpen(false); setTeamOpen(false); setResearchOpen(false); setRebuildOpen(true); }}><span>↻</span>Rebuild</button>
+        <button type="button" className={researchOpen ? 'active research-nav' : 'research-nav'} onClick={() => { setMapOpen(false); setTeamOpen(false); setRebuildOpen(false); setResearchOpen(true); }}><span>◈</span>Research</button>
       </nav>
 
       {mapOpen && (
@@ -575,6 +668,11 @@ export function App() {
         </div>
       )}
 
+
+      {researchOpen && research && (
+        <ResearchPanel research={research} onClose={() => setResearchOpen(false)} />
+      )}
+
       {offlineReport && (
         <div className="offline-overlay" role="dialog" aria-modal="true" aria-label="Доход за время отсутствия">
           <div className="offline-backdrop" />
@@ -607,7 +705,7 @@ export function App() {
             {!offlineReport.fullChainAutomated && (
               <p className="offline-warning">Для фонового дохода объекту нужны менеджеры хотя бы на одном Deck, Cargo Lift и Logistics Hub.</p>
             )}
-            {offlineReport.capped && <p className="offline-cap">Лимит автономной работы сейчас — 8 часов.</p>}
+            {offlineReport.capped && <p className="offline-cap">Лимит автономной работы: {formatAwayTime(offlineReport.creditedSeconds)}. Исследования могут его увеличить.</p>}
             <button type="button" className="offline-collect" onClick={() => setOfflineReport(null)}>
               ЗАБРАТЬ ДОХОД
             </button>

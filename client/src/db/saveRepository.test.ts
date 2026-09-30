@@ -92,3 +92,30 @@ describe('Stage 7 save migration', () => {
     expect(migrated?.world.sectorWallets?.rust).toBe(500);
   });
 });
+
+describe('Stage 8 research migration', () => {
+  it('добавляет Research Grid к Stage 7 save и учитывает прошлые Rebuild', () => {
+    const record: SaveRecord = {
+      id: 'primary',
+      schemaVersion: 5,
+      updatedAt: 1000,
+      payload: {
+        createdAt: 10,
+        lastSeenAt: 900,
+        settings: { quality: 'HIGH' },
+        world: {
+          activeMineId: 'rust-01',
+          unlockedSectors: ['rust'],
+          sectorWallets: { rust: 500 },
+          unlockedMines: ['rust-01'],
+          mines: { 'rust-01': { ...legacyMine, cash: 0, rebuildLevel: 2, rebuildCycleCashEarned: 10 } },
+          lastSimulatedAt: { 'rust-01': 850 },
+        },
+      },
+    };
+
+    const migrated = parseSaveRecord(record);
+    expect(migrated?.world.research?.cores).toBeGreaterThanOrEqual(7);
+    expect(migrated?.world.research?.purchased).toEqual([]);
+  });
+});

@@ -1,6 +1,6 @@
 # DEEPFORGE: Idle Empire
 
-Browser-first idle / tycoon game. Текущая версия: **Stage 7 — Rebuild / Prestige + Mobile Portrait Optimization**.
+Browser-first idle / tycoon game. Текущая версия: **Stage 8 — Research Grid + Global Progression**.
 
 ## Уже работает
 
@@ -11,6 +11,8 @@ Browser-first idle / tycoon game. Текущая версия: **Stage 7 — Reb
 - последовательное открытие секторов и объектов;
 - независимый прогресс каждой шахты;
 - **Rebuild / Prestige для каждой шахты с постоянным multiplier**;
+- **Research Grid: 6 веток / 18 глобальных исследований**;
+- Research Cores за Rebuild, зависимости узлов и respec с комиссией;
 - background income неактивных автоматизированных шахт;
 - offline income по правильным валютам регионов;
 - 30 добывающих Deck на каждом объекте;
@@ -19,13 +21,24 @@ Browser-first idle / tycoon game. Текущая версия: **Stage 7 — Reb
 - barriers, bulk upgrades и milestones;
 - bottleneck HUD;
 - primary + backup IndexedDB save;
-- save schema v5 с миграцией старых Stage 0–6;
+- save schema v6 с миграцией старых Stage 0–7;
 - mobile-first portrait UI 360–430 px;
 - swipe / touch в шахте, scrollable panels и safe-area support;
 - adaptive LOW / MEDIUM / HIGH render profile;
 - offscreen culling Deck и barriers;
 - PWA;
 - GitHub Pages deployment.
+
+
+## Research Grid
+
+Глобальные исследования действуют сразу на все текущие и будущие шахты. Ветки: Industry, Logistics, Automation, Exploration, Specialists и Events.
+
+Research Cores (`◈`) выдаются за Rebuild. Первые 3 доступны сразу. Узлы имеют зависимости и стоимость; Reset возвращает вложенные Cores за вычетом 15% комиссии (минимум 1 Core).
+
+Research влияет на добычу, цену сырья, Lift/Logistics, стоимость upgrades, менеджеров, barriers, стоимость открытия Deck и offline income/cap.
+
+Mobile portrait: на телефоне одновременно рендерится только выбранная ветка из 3 узлов; tabs горизонтально прокручиваются, panel ограничена `100dvh`.
 
 ## Rebuild
 

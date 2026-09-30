@@ -240,3 +240,45 @@ describe('Stage 7 Rebuild', () => {
     expect(sim.serialize().rebuildLevel).toBe(3);
   });
 });
+
+describe('Stage 8 research modifiers', () => {
+  it('глобальное исследование увеличивает добычу и снижает стоимость upgrades', () => {
+    const base = new MineSimulation(richState(100_000));
+    const researched = new MineSimulation(richState(100_000), undefined, {
+      shaftYieldMultiplier: 1.25,
+      liftCapacityMultiplier: 1,
+      hubCapacityMultiplier: 1,
+      incomeMultiplier: 1,
+      upgradeCostMultiplier: 0.9,
+      managerPassiveMultiplier: 1,
+      managerCooldownMultiplier: 1,
+      barrierDurationMultiplier: 1,
+      offlineIncomeMultiplier: 1,
+      offlineCapMultiplier: 1,
+      unlockCostMultiplier: 1,
+    });
+    expect(researched.getShaftYield(researched.getState().shafts[0])).toBeGreaterThan(base.getShaftYield(base.getState().shafts[0]));
+    expect(researched.getUpgradeCost('shaft-1')).toBeLessThan(base.getUpgradeCost('shaft-1'));
+  });
+
+  it('offline cap research увеличивает допустимое автономное время', () => {
+    const sim = new MineSimulation(richState(100_000), undefined, {
+      shaftYieldMultiplier: 1,
+      liftCapacityMultiplier: 1,
+      hubCapacityMultiplier: 1,
+      incomeMultiplier: 1,
+      upgradeCostMultiplier: 1,
+      managerPassiveMultiplier: 1,
+      managerCooldownMultiplier: 1,
+      barrierDurationMultiplier: 1,
+      offlineIncomeMultiplier: 1,
+      offlineCapMultiplier: 1.25,
+      unlockCostMultiplier: 1,
+    });
+    sim.hireManager('shaft-1');
+    sim.hireManager('lift');
+    sim.hireManager('hub');
+    const report = sim.applyOfflineProgress(24 * 60 * 60);
+    expect(report.creditedSeconds).toBe(10 * 60 * 60);
+  });
+});

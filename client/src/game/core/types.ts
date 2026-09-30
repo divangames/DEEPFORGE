@@ -93,6 +93,7 @@ export interface PersistentMineState {
 
 export interface PersistentWorldState {
   activeMineId: MineId;
+  research?: { cores: number; purchased: string[]; respecCount: number };
   unlockedSectors?: SectorId[];
   sectorWallets?: Partial<Record<SectorId, number>>;
   unlockedMines: MineId[];
@@ -166,6 +167,29 @@ export interface WorldSectorView {
   accentSoft: string;
 }
 
+
+
+export interface ResearchNodeView {
+  id: string;
+  branch: string;
+  tier: number;
+  title: string;
+  description: string;
+  cost: number;
+  purchased: boolean;
+  available: boolean;
+  lockedBy: string[];
+}
+
+export interface ResearchView {
+  cores: number;
+  spentCores: number;
+  purchasedCount: number;
+  totalNodes: number;
+  respecFee: number;
+  respecRefund: number;
+  nodes: ResearchNodeView[];
+}
 
 export interface RebuildView {
   level: number;

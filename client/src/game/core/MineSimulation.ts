@@ -16,6 +16,7 @@ import {
   STAGE_ONE_BALANCE,
 } from './balance';
 import { formatCompact } from './format';
+import { getResearchModifiers, type ResearchModifiers } from './research';
 import { DEFAULT_MINE_TUNING, type MineTuning } from './worldConfig';
 import type {
   BarrierView,
@@ -66,9 +67,15 @@ function cloneState(state: MineState): MineState {
 export class MineSimulation {
   private state: MineState;
   private tuning: MineTuning;
+  private research: ResearchModifiers;
 
-  constructor(persisted?: PersistentMineState | null, tuning: MineTuning = DEFAULT_MINE_TUNING) {
+  constructor(
+    persisted?: PersistentMineState | null,
+    tuning: MineTuning = DEFAULT_MINE_TUNING,
+    research: ResearchModifiers = getResearchModifiers([]),
+  ) {
     this.tuning = tuning;
+    this.research = research;
     const legacyUnlocked = new Set<ShaftId>();
     if (persisted?.unlockedShafts?.length) {
       persisted.unlockedShafts.forEach((id) => legacyUnlocked.add(id));
@@ -120,7 +127,7 @@ export class MineSimulation {
       rebuildMultiplier,
       rebuildCycleCashEarned: Math.max(0, persisted?.rebuildCycleCashEarned ?? persisted?.totalCashEarned ?? 0),
       surfaceBuffer: Math.max(0, persisted?.surfaceBuffer ?? 0),
-      resourcePrice: this.tuning.resourcePrice * rebuildMultiplier,
+      resourcePrice: this.tuning.resourcePrice * rebuildMultiplier * this.research.incomeMultiplier,
       shafts,
       lift: {
         level: Math.max(1, persisted?.liftLevel ?? 1),
@@ -160,6 +167,11 @@ export class MineSimulation {
 
   setCash(value: number): void {
     this.state.cash = Math.max(0, Number.isFinite(value) ? value : 0);
+  }
+
+  setResearchModifiers(modifiers: ResearchModifiers): void {
+    this.research = modifiers;
+    this.state.resourcePrice = this.tuning.resourcePrice * this.state.rebuildMultiplier * this.research.incomeMultiplier;
   }
 
   serialize(): PersistentMineState {
@@ -225,12 +237,12 @@ export class MineSimulation {
     const liftThroughput = this.getLiftCapacity(this.state.lift) / this.getLiftDuration(this.state.lift);
     const hubThroughput = this.getHubCapacity(this.state.hub) / this.getHubDuration(this.state.hub);
     const effectiveOrePerSecond = Math.min(shaftThroughput, liftThroughput, hubThroughput);
-    return effectiveOrePerSecond * this.state.resourcePrice * STAGE_ONE_BALANCE.idle.incomeMultiplier;
+    return effectiveOrePerSecond * this.state.resourcePrice * STAGE_ONE_BALANCE.idle.incomeMultiplier * this.research.offlineIncomeMultiplier;
   }
 
   applyOfflineProgress(rawSeconds: number): OfflineProgressReport {
     const safeRawSeconds = Math.max(0, Number.isFinite(rawSeconds) ? rawSeconds : 0);
-    const creditedSeconds = Math.min(safeRawSeconds, STAGE_ONE_BALANCE.idle.maxOfflineSeconds);
+    const creditedSeconds = Math.min(safeRawSeconds, STAGE_ONE_BALANCE.idle.maxOfflineSeconds * this.research.offlineCapMultiplier);
     const incomePerSecond = this.getOfflineIncomePerSecond();
     const rewardCash = incomePerSecond * creditedSeconds;
     const processedOre = this.state.resourcePrice > 0 ? rewardCash / this.state.resourcePrice : 0;
@@ -327,7 +339,7 @@ export class MineSimulation {
     this.state.totalOreMined = preservedLifetimeOre;
     this.state.rebuildLevel = nextLevel;
     this.state.rebuildMultiplier = getRebuildMultiplier(nextLevel);
-    this.state.resourcePrice = this.tuning.resourcePrice * this.state.rebuildMultiplier;
+    this.state.resourcePrice = this.tuning.resourcePrice * this.state.rebuildMultiplier * this.research.incomeMultiplier;
     return true;
   }
 
@@ -389,7 +401,7 @@ export class MineSimulation {
       if (!previous?.unlocked) return false;
     }
 
-    const cost = getShaftUnlockCost(shaft.depth);
+    const cost = Math.floor(getShaftUnlockCost(shaft.depth) * this.research.unlockCostMultiplier);
     if (this.state.cash + EPSILON < cost) return false;
 
     this.state.cash -= cost;
@@ -401,7 +413,7 @@ export class MineSimulation {
     const shaft = this.getShaft(id);
     if (!shaft || shaft.unlocked || shaft.depth > this.state.barrier.maxAccessibleDepth) return false;
     if (shaft.depth > 1 && !this.getShaft(makeShaftId(shaft.depth - 1))?.unlocked) return false;
-    return this.state.cash + EPSILON >= getShaftUnlockCost(shaft.depth);
+    return this.state.cash + EPSILON >= Math.floor(getShaftUnlockCost(shaft.depth) * this.research.unlockCostMultiplier);
   }
 
   startBarrier(): boolean {
@@ -419,7 +431,7 @@ export class MineSimulation {
 
     const targetDepth = Math.min(SHAFT_COUNT, boundaryDepth + SHAFTS_PER_BARRIER);
     const cost = getBarrierCost(boundaryDepth);
-    const duration = getBarrierDuration(boundaryDepth);
+    const duration = getBarrierDuration(boundaryDepth) * this.research.barrierDurationMultiplier;
     const requirementsMet = Boolean(this.getShaft(makeShaftId(boundaryDepth))?.unlocked);
     const active = this.state.barrier.remaining > EPSILON;
 
@@ -444,7 +456,7 @@ export class MineSimulation {
       const current = this.state.barrier.maxAccessibleDepth === boundary;
       const requirementsMet = Boolean(this.getShaft(makeShaftId(boundary))?.unlocked);
       const cost = getBarrierCost(boundary);
-      const duration = getBarrierDuration(boundary);
+      const duration = getBarrierDuration(boundary) * this.research.barrierDurationMultiplier;
       views.push({
         boundaryDepth: boundary,
         targetDepth,
@@ -482,7 +494,7 @@ export class MineSimulation {
     if (!manager.hired || manager.cooldownRemaining > EPSILON || manager.activeRemaining > EPSILON) return false;
 
     manager.activeRemaining = config.abilityDuration;
-    manager.cooldownRemaining = config.abilityCooldown;
+    manager.cooldownRemaining = config.abilityCooldown * this.research.managerCooldownMultiplier;
     return true;
   }
 
@@ -585,7 +597,7 @@ export class MineSimulation {
 
     const level = this.getFacilityLevel(id);
     const growth = STAGE_ONE_BALANCE.upgrades.growth;
-    const firstExact = this.getUpgradeBase(id) * Math.pow(growth, level - 1);
+    const firstExact = this.getUpgradeBase(id) * Math.pow(growth, level - 1) * this.research.upgradeCostMultiplier;
 
     let levels: number;
     if (mode === 'MAX') {
@@ -660,7 +672,7 @@ export class MineSimulation {
       secondaryValue: shaft.unlocked ? `${this.getShaftDuration(shaft).toFixed(2)} сек` : `${shaft.depth * 100} м`,
       isUnlocked: shaft.unlocked,
       isAccessible: shaft.depth <= this.state.barrier.maxAccessibleDepth,
-      unlockCost: getShaftUnlockCost(shaft.depth),
+      unlockCost: Math.floor(getShaftUnlockCost(shaft.depth) * this.research.unlockCostMultiplier),
       canUnlock: this.canUnlockShaft(id),
       milestone: this.getMilestoneView(shaft.level),
     };
@@ -677,7 +689,7 @@ export class MineSimulation {
       hired: manager?.hired ?? false,
       hireCost: config.hireCost,
       canHire: facilityUnlocked && !(manager?.hired ?? false) && this.state.cash + EPSILON >= config.hireCost,
-      passiveBonusPercent: Math.round((config.passiveMultiplier - 1) * 100),
+      passiveBonusPercent: Math.round((config.passiveMultiplier - 1) * this.research.managerPassiveMultiplier * 100),
       abilityName: config.abilityName,
       abilityMultiplier: config.abilityMultiplier,
       abilityDuration: config.abilityDuration,
@@ -694,7 +706,7 @@ export class MineSimulation {
 
   getUpgradeCost(id: FacilityId): number {
     const level = this.getFacilityLevel(id);
-    return Math.floor(this.getUpgradeBase(id) * Math.pow(STAGE_ONE_BALANCE.upgrades.growth, level - 1));
+    return Math.floor(this.getUpgradeBase(id) * Math.pow(STAGE_ONE_BALANCE.upgrades.growth, level - 1) * this.research.upgradeCostMultiplier);
   }
 
   getBottleneckView(): BottleneckView {
@@ -729,7 +741,7 @@ export class MineSimulation {
   getShaftYield(shaft: ShaftState): number {
     const levelMultiplier = 1 + STAGE_ONE_BALANCE.upgrades.shaftYieldPerLevel * (shaft.level - 1);
     const milestoneMultiplier = this.getMilestoneMultiplier(shaft.level);
-    return Math.max(1, Math.round(shaft.baseYield * levelMultiplier * milestoneMultiplier * this.getPassiveMultiplier(shaft.id)));
+    return Math.max(1, Math.round(shaft.baseYield * levelMultiplier * milestoneMultiplier * this.getPassiveMultiplier(shaft.id) * this.research.shaftYieldMultiplier));
   }
 
   getShaftDuration(shaft: ShaftState): number {
@@ -739,7 +751,7 @@ export class MineSimulation {
   getLiftCapacity(lift: LiftState): number {
     const levelMultiplier = 1 + STAGE_ONE_BALANCE.upgrades.liftCapacityPerLevel * (lift.level - 1);
     return Math.max(1, Math.floor(
-      STAGE_ONE_BALANCE.lift.baseCapacity * this.tuning.liftCapacityMultiplier * levelMultiplier * this.getMilestoneMultiplier(lift.level) * this.getPassiveMultiplier('lift'),
+      STAGE_ONE_BALANCE.lift.baseCapacity * this.tuning.liftCapacityMultiplier * levelMultiplier * this.getMilestoneMultiplier(lift.level) * this.getPassiveMultiplier('lift') * this.research.liftCapacityMultiplier,
     ));
   }
 
@@ -750,7 +762,7 @@ export class MineSimulation {
   getHubCapacity(hub: HubState): number {
     const levelMultiplier = 1 + STAGE_ONE_BALANCE.upgrades.hubCapacityPerLevel * (hub.level - 1);
     return Math.max(1, Math.floor(
-      STAGE_ONE_BALANCE.hub.baseCapacity * this.tuning.hubCapacityMultiplier * levelMultiplier * this.getMilestoneMultiplier(hub.level) * this.getPassiveMultiplier('hub'),
+      STAGE_ONE_BALANCE.hub.baseCapacity * this.tuning.hubCapacityMultiplier * levelMultiplier * this.getMilestoneMultiplier(hub.level) * this.getPassiveMultiplier('hub') * this.research.hubCapacityMultiplier,
     ));
   }
 
@@ -807,7 +819,9 @@ export class MineSimulation {
   }
 
   private getPassiveMultiplier(id: FacilityId): number {
-    return this.state.managers[id]?.hired ? getManagerConfig(id).passiveMultiplier : 1;
+    if (!this.state.managers[id]?.hired) return 1;
+    const base = getManagerConfig(id).passiveMultiplier;
+    return 1 + (base - 1) * this.research.managerPassiveMultiplier;
   }
 
   private getTaskSpeedMultiplier(id: FacilityId): number {

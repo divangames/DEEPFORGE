@@ -1,8 +1,8 @@
 {
   "name": "deepforge-idle-empire",
   "private": true,
-  "version": "0.7.0",
-  "description": "DEEPFORGE: Idle Empire — Stage 7 Rebuild / Prestige + Portrait Optimization",
+  "version": "0.8.0",
+  "description": "DEEPFORGE: Idle Empire — Stage 8 Research Grid",
   "workspaces": [
     "client",
     "server"

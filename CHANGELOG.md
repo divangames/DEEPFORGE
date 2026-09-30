@@ -1,5 +1,31 @@
 # CHANGELOG — DEEPFORGE
 
+## 0.8.0 — Stage 8 Research Grid
+
+### Добавлено
+
+- Глобальная Research Grid: 6 веток и 18 data-driven узлов.
+- Research Cores (`◈`) как постоянный meta-resource.
+- 3 стартовых Research Cores для новой игры.
+- Research Cores за каждый успешный Rebuild.
+- Dependencies между tier 1 → tier 2 → tier 3 внутри веток.
+- Respec с возвратом Cores за вычетом комиссии.
+- Research bonuses для добычи, цены сырья, Lift, Logistics, upgrade cost, manager passives/cooldowns, barriers, Deck unlock cost, offline income и offline cap.
+- Global Research применяется ко всем 40 шахтам, включая background/offline calculations.
+- Save schema v6 и миграция Stage 7 → Stage 8 с компенсацией Research Cores за уже сделанные Rebuild.
+- Unit tests Research purchase/dependencies/respec и Research modifiers в MineSimulation.
+
+### Mobile / Performance
+
+- Research UI спроектирован portrait-first: один branch на экране, 3 node cards вместо отрисовки всего дерева.
+- Branch tabs используют горизонтальный touch-scroll.
+- Research panel ограничена `100dvh`, node list имеет собственный scroll.
+- На 360–390 px research cards переходят в компактный однострочный формат.
+- Bottom navigation адаптирована под 5 разделов без выхода за ширину вертикального телефона.
+- Никаких дополнительных Phaser scenes или постоянных animation loops для Research.
+
+# CHANGELOG — DEEPFORGE
+
 ## 0.7.0 — Stage 7 Rebuild / Prestige + Mobile Portrait Optimization
 
 ### Добавлено
